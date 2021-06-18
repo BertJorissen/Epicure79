@@ -1,0 +1,11 @@
+
+Hitmap EXAMPLE
+NAS Parallel Benchmarks: MG
+V-cycle Multigrid Stencil method.
+
+mg.c:		Hitmap example code
+c_randi8.c:	Random generators included in the NAS Benchmarks
+c_randi8.h:	Random generators included in the NAS Benchmarks
+
+check:		Script to execute a test of the program
+

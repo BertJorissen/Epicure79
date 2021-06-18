@@ -1,0 +1,45 @@
+#!/usr/bin/python
+
+import re
+import subprocess
+import os.path
+import sys
+
+# Program and number of processes
+program = "is"
+nprocs = [1,2,3,4,8,16]
+
+# Message
+print "Checking:", program
+print "------------------------"
+
+if not os.path.exists(program):
+	print "Error: Program not found"
+	sys.exit(0)
+
+
+# Loop for the processes
+for p in nprocs:
+
+	# Create the execution line
+	exelist = ["mpiexec"]
+	exelist.append("-n")
+	exelist.append(str(p))
+	exelist.append("./" + program)
+
+
+	# Execute the program
+	success = False
+	subp = subprocess.Popen(exelist, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	for line in subp.stdout.readlines():
+		if re.search('Verification.*=.*SUCCESSFUL',line):
+			success = True
+	retval = subp.wait()
+
+
+	# Print the message
+	print "[Procs " + str(p).rjust(2) + "] ",
+	if success:
+		print "Ok"
+	else:
+		print "WRONG !!!"

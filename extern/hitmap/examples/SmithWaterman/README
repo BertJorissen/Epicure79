@@ -1,0 +1,172 @@
+===========================================================================
+Info
+===========================================================================
+
+The Smith–Waterman algorithm performs local sequence alignment
+of protein sequences.
+
+This version assumes a linear gap penalty.
+This algorithm creates the matrix H as follows:
+
+                  | H(i-1,j-1) + PAM(a_i,b_j)    (diagonal)
+H(i,j) =  MAX of  | H(i-1,j)   + gappenalty      (up)
+                  | H(i,j-1)   + gappenalty      (left)
+                  | 0
+
+The PAM matrix is the amino acid substitution matrix that encode
+the expected evolutionary change at the amino acid level.
+
+To obtain the optimum local alignment, we start with the highest value
+in the matrix (i,j). Then, we go backwards to one of positions
+(i − 1,j), (i, j − 1), and (i − 1, j − 1) depending on the direction
+of movement used to construct the matrix.
+
+
+===========================================================================
+Info 2
+===========================================================================
+
+The sequential C reference version is a reimplementation of the SW.c program
+by Peter Clote (https://github.com/jawad-manzoor/DNASequenceAlignment),
+this program support different protein sizes and the names of the
+amino acids are read from the PAM matrix file.
+
+The parallel versions have been developed following the sequential version,
+the data distribution uses blocks and both the similarity matrix and
+backtracking phases are calculated in parallel.
+
+
+===========================================================================
+Inputset and parameters
+===========================================================================
+
+The inputset folder contains two different inputsets:
+* wiki: wikipedia example
+* 500k: inputset from Peter Clote.
+
+
+The parameters of every program are:
+
+Usage: Program protein1 protein2 PAM [GapPenalty] [SIZE/SIZE1] [SIZE2] [ITERS]
+	 protein1:   file with the first protein.
+	 protein2:   file with the second protein.
+	 PAM:        Point accepted mutation (PAM) Matrix.
+	 GapPenalty: Penalty for gaps. Default = -1.0.
+	 SIZE/1:     Size limit of the proteins of just the first one. Default=8.
+	 SIZE2:      Size limit of the second protein. Default=8.
+	 ITERS       Number of iterations. Default = 1. Reads another sequence from the files.
+
+
+If ITERS > 1, the programs read several protein sequences using the same
+data structures and distribution, the sequences are obtained from the 
+same file.
+If the file is not big enough, the sequence continues from the start.
+
+
+===========================================================================
+Wikipedia example
+===========================================================================
+URL:     http://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm
+Execute: SWseq inputset/a_wiki inputset/b_wiki inputset/pam_wiki -1 
+
+
+=== Smith Waterman alignment parameters ===
+ Protein1: inputset/a_wiki, size: 8
+ Protein2: inputset/b_wiki, size: 8
+ Iterations: 1
+ PAM Matrix: inputset/pam_wiki
+ Gap penalty: -1.000000
+
+
+=== AA2char ===
+AA2char(  0)=a AA2char(  1)=c AA2char(  2)=t AA2char(  3)=g AA2char(  4)=! 
+AA2char(  5)=! AA2char(  6)=! AA2char(  7)=! AA2char(  8)=! AA2char(  9)=! 
+AA2char( 10)=! AA2char( 11)=! AA2char( 12)=! AA2char( 13)=! AA2char( 14)=! 
+AA2char( 15)=! AA2char( 16)=! AA2char( 17)=! AA2char( 18)=! AA2char( 19)=! 
+AA2char( 20)=! AA2char( 21)=! AA2char( 22)=! AA2char( 23)=! AA2char( 24)=! 
+AA2char( 25)=! AA2char( 26)=! AA2char( 27)=! AA2char( 28)=! AA2char( 29)=! 
+AA2char( 30)=- 
+
+=== char2AA === (only ASCII printable characters) 
+char2AA( )= -2 char2AA(!)= -2 char2AA(")= -2 char2AA(#)= -2 char2AA($)= -2 
+char2AA(%)= -2 char2AA(&)= -2 char2AA(')= -2 char2AA(()= -2 char2AA())= -2 
+char2AA(*)= -2 char2AA(+)= -2 char2AA(,)= -2 char2AA(-)= 30 char2AA(.)= -2 
+char2AA(/)= -2 char2AA(0)= -2 char2AA(1)= -2 char2AA(2)= -2 char2AA(3)= -2 
+char2AA(4)= -2 char2AA(5)= -2 char2AA(6)= -2 char2AA(7)= -2 char2AA(8)= -2 
+char2AA(9)= -2 char2AA(:)= -2 char2AA(;)= -2 char2AA(<)= -2 char2AA(=)= -2 
+char2AA(>)= -2 char2AA(?)= -2 char2AA(@)= -2 char2AA(A)=  0 char2AA(B)= -2 
+char2AA(C)=  1 char2AA(D)= -2 char2AA(E)= -2 char2AA(F)= -2 char2AA(G)=  3 
+char2AA(H)= -2 char2AA(I)= -2 char2AA(J)= -2 char2AA(K)= -2 char2AA(L)= -2 
+char2AA(M)= -2 char2AA(N)= -2 char2AA(O)= -2 char2AA(P)= -2 char2AA(Q)= -2 
+char2AA(R)= -2 char2AA(S)= -2 char2AA(T)=  2 char2AA(U)= -2 char2AA(V)= -2 
+char2AA(W)= -2 char2AA(X)= -2 char2AA(Y)= -2 char2AA(Z)= -2 char2AA([)= -2 
+char2AA(\)= -2 char2AA(])= -2 char2AA(^)= -2 char2AA(_)= -2 char2AA(`)= -2 
+char2AA(a)=  0 char2AA(b)= -2 char2AA(c)=  1 char2AA(d)= -2 char2AA(e)= -2 
+char2AA(f)= -2 char2AA(g)=  3 char2AA(h)= -2 char2AA(i)= -2 char2AA(j)= -2 
+char2AA(k)= -2 char2AA(l)= -2 char2AA(m)= -2 char2AA(n)= -2 char2AA(o)= -2 
+char2AA(p)= -2 char2AA(q)= -2 char2AA(r)= -2 char2AA(s)= -2 char2AA(t)=  2 
+char2AA(u)= -2 char2AA(v)= -2 char2AA(w)= -2 char2AA(x)= -2 char2AA(y)= -2 
+char2AA(z)= -2 char2AA({)= -2 char2AA(|)= -2 char2AA(})= -2 
+
+=== PAM Matrix ===
+        a     c     t     g
+a |   2.0  -1.0  -1.0  -1.0
+c |  -1.0   2.0  -1.0  -1.0
+t |  -1.0  -1.0   2.0  -1.0
+g |  -1.0  -1.0  -1.0   2.0
+
+=== Iteration: 0/1 ===
+
+PRT1: acacacta
+PRT2: agcacaca
+
+        -     a     g     c     a     c     a     c     a
+- |   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0   0.0
+a |   0.0   2.0   1.0   0.0   2.0   1.0   2.0   1.0   2.0
+c |   0.0   1.0   1.0   3.0   2.0   4.0   3.0   4.0   3.0
+a |   0.0   2.0   1.0   2.0   5.0   4.0   6.0   5.0   6.0
+c |   0.0   1.0   1.0   3.0   4.0   7.0   6.0   8.0   7.0
+a |   0.0   2.0   1.0   2.0   5.0   6.0   9.0   8.0  10.0
+c |   0.0   1.0   1.0   3.0   4.0   7.0   8.0  11.0  10.0
+t |   0.0   0.0   0.0   2.0   3.0   6.0   7.0  10.0  10.0
+a |   0.0   2.0   1.0   1.0   4.0   5.0   8.0   9.0  12.0
+
+         -       a       g       c       a       c       a       c       a
+- |(-1,-1) (-1,-1) (-1,-1) (-1,-1) (-1,-1) (-1,-1) (-1,-1) (-1,-1) (-1,-1) 
+a |(-1,-1) ( 0, 0) ( 1, 1) ( 1, 2) ( 0, 3) ( 1, 4) ( 0, 5) ( 1, 6) ( 0, 7) 
+c |(-1,-1) ( 1, 1) ( 1, 1) ( 1, 2) ( 2, 3) ( 1, 4) ( 2, 5) ( 1, 6) ( 2, 7) 
+a |(-1,-1) ( 2, 0) ( 3, 1) ( 2, 3) ( 2, 3) ( 3, 4) ( 2, 5) ( 3, 6) ( 2, 7) 
+c |(-1,-1) ( 3, 1) ( 3, 1) ( 3, 2) ( 3, 4) ( 3, 4) ( 4, 5) ( 3, 6) ( 4, 7) 
+a |(-1,-1) ( 4, 0) ( 5, 1) ( 4, 3) ( 4, 3) ( 4, 5) ( 4, 5) ( 5, 6) ( 4, 7) 
+c |(-1,-1) ( 5, 1) ( 5, 1) ( 5, 2) ( 5, 4) ( 5, 4) ( 5, 6) ( 5, 6) ( 6, 7) 
+t |(-1,-1) ( 6, 1) ( 6, 1) ( 6, 3) ( 6, 4) ( 6, 5) ( 6, 6) ( 6, 7) ( 6, 7) 
+a |(-1,-1) ( 7, 0) ( 8, 1) ( 7, 3) ( 7, 3) ( 7, 5) ( 7, 5) ( 7, 7) ( 7, 7) 
+
+Match length of A: 8
+Match length of B: 8
+Alignment length: 9
+
+
+MCH1: ACACACTA
+MCH2: AGCACACA
+
+OUT1: a-cacacta
+OUT2: agcacac-a
+
+=== Result ===
+Init time: 0.002984
+Comp time: 0.003115
+  Read:         0.000214
+  H matrix:     0.002425
+  Backtracking: 0.000438
+
+Last Match length of A: 8
+Last Match length of B: 8
+Last Alignment length: 9
+
+Last MCH1: ACACACTA
+Last MCH2: AGCACACA
+
+Last OUT1: a-cacacta
+Last OUT2: agcacac-a
+

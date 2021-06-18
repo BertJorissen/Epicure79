@@ -1,0 +1,89 @@
+# Ignore object files
+src/*.o
+
+# Ignore metis objects
+metis/Lib/*.o
+metis/libmetis.a
+
+# Ignore the IOHB lib objects
+iohb1.0/iohb.o
+iohb1.0/libiohb.a
+
+# Ignore matrix_io objects
+matrix_io/libmatrix_io.a
+matrix_io/matrix_io.o
+
+# Ignore the tmp files
+*~
+
+# Ignore extern objects
+extern/**/*.o
+extern/**/*.a
+
+# Ignore eclipse files
+.cproject
+.project
+
+# Ignore libhit.a
+lib/
+
+# Ignore ciTests executables
+ciTests/*/*.test
+
+# Ignore generated examples execs
+
+examples/CannonMM/cannonAsync
+examples/CannonMM/refMPICannon
+examples/CannonMM/check.err
+
+examples/Heat/heat
+
+examples/layWeighted/layWeighted
+
+examples/LU_BackSubst/luBack
+examples/LU_BackSubst/refMPIluBack
+examples/LU_BackSubst/*.dtxt
+examples/LU_BackSubst/check.err
+
+examples/Mmult/mmult_csr
+examples/Mmult/mmult_bit
+
+examples/NAS_IS/is
+
+examples/NAS_MG/mg_classA
+examples/NAS_MG/mg_classS
+examples/NAS_MG/mg_classA
+examples/NAS_MG/mg_classB
+examples/NAS_MG/mg_classC
+examples/NAS_MG/mg_classD
+examples/NAS_MG/mg_classE
+
+examples/QuickSort/quickSort
+examples/QuickSort/check.err
+
+examples/SmithWaterman/SWseq_ref
+examples/SmithWaterman/SWpar_ref
+examples/SmithWaterman/SWseq
+examples/SmithWaterman/SWpar
+
+examples/Spring/spring_csr
+examples/Spring/spring_csr_sec
+examples/Spring/spring_bitmap
+examples/Spring/spring_bitmap_sec
+examples/Spring/spring_bitmap_iterskip
+examples/Spring/spring_bitmap_iterdense
+examples/Spring/spring_csr_rows
+
+examples/SpringDense/spring_dense
+examples/SpringDense/spring_full_dense
+examples/SpringDense/matrix_sig_vs_bit
+
+examples/Stencil_GaussSeidel2D/gaussSeidel2D
+examples/Stencil_GaussSeidel2D/seqGaussSeidel2D
+examples/Stencil_GaussSeidel2D/refMPIGaussSeidel2D.v1.1
+examples/Stencil_GaussSeidel2D/check.err
+
+examples/Stencil_Jacobi2D/seqJacobi2D
+examples/Stencil_Jacobi2D/refMPIJacobi2D.v2.1
+examples/Stencil_Jacobi2D/jacobi2D
+examples/Stencil_Jacobi2D/check.err

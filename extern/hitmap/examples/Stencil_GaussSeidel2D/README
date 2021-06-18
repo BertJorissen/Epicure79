@@ -1,0 +1,16 @@
+
+Hitmap EXAMPLE
+Stencil code: Gauss-Seidel 2D for the heat equation.
+
+
+seqGaussSeidel2D.c:		Sequential basic code.
+gaussSeidel2D.c:		Hitmap example code.
+refMPIGaussSeidel2D.v1.1.c:	Reference MPI code. Manually developed and optimized.
+				NOTE: This code does not support a number of matrix rows/columns 
+				that are not integer divisible of the number of processors in the 
+				same axis. Some tests done by the check script will fail due 
+				to this.
+
+check:			Script to execute a test of the programs
+CorrectResults:		Folder with data files for the check script
+

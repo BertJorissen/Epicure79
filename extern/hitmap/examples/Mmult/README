@@ -1,0 +1,11 @@
+
+Hitmap EXAMPLE
+Program that perform a Sparse matrix - vector multiplication with a CSR
+and a Bitmap structure in parallel.
+
+
+mmult_csr	CSR version
+mmult_bit	Bitmap version
+
+check:		Script to execute a test of the program
+

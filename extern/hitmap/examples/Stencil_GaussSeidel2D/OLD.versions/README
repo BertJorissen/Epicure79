@@ -1,0 +1,5 @@
+OLD VERSIONS
+-------------------
+
+refMPIGaussSeidel2D.v1.c:	All procs. allocate memory for the whole matrix
+

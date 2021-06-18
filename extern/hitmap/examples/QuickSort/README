@@ -1,0 +1,9 @@
+
+Hitmap EXAMPLE
+Quicksort algorithm. Data type 'double'
+
+quickSort.c:		Hitmap example code
+
+check:			Script to execute a test of the programs
+CorrectResults:		Folder with data files for the check script
+

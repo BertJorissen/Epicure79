@@ -1,0 +1,66 @@
+#!/usr/bin/python
+
+import re
+import subprocess
+import os.path
+import sys
+
+# Input files
+hbfiles = ["../graphs/cage4.rb","../graphs/commanche_dual.rb"]
+hbfile_solutions = [91.836735,1000.0]
+result_error = 0.1
+
+def check_program(program,parallel,nprocs,hbfile,hbfile_solution):
+
+	# Check the input file
+	if not os.path.exists(hbfile):
+		print "Error: input file not found"
+		sys.exit(0)
+
+	# Message
+	print "Checking:" , program, hbfile
+	print "------------------------"
+
+	if not os.path.exists(program):
+		print "Error: Program not found"
+		sys.exit(0)
+
+	# Loop for the processes
+	for p in nprocs:
+
+		# Create the execution line
+		exelist = []
+		if parallel:
+			exelist = ["mpiexec"]
+			exelist.append("-n")
+			exelist.append(str(p))
+		exelist.append("./" + program)
+		exelist.append(hbfile)
+
+		# Execute the program
+		success = False
+		subp = subprocess.Popen(exelist, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		for line in subp.stdout.readlines():
+			result = re.search('Result: ([0-9\.]+)',line)
+			if result:
+				norm = float(result.group(1))
+				error = abs(norm-hbfile_solution)
+				if error < result_error:
+					success = True
+		retval = subp.wait()
+
+
+		# Print the message
+		print "[Procs " + str(p).rjust(2) + "] ",
+		if success:
+			print "Ok"
+		else:
+			print "WRONG !!!"
+
+	print
+
+
+
+
+for i in range(len(hbfiles)):
+	check_program("heat",True,[1,2,3,5,7,9,13],hbfiles[i],hbfile_solutions[i])

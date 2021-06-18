@@ -1,0 +1,14 @@
+
+Hitmap EXAMPLE
+Stencil code: Jacobi 2D for the heat equation. Implemented as a 2D cellular automata. 
+
+seqJacobi2D.c:		Sequential basic code
+jacobi2D.c:		Hitmap example code
+refMPIJacobi2D.v2.1.c:	Reference MPI code. Manually developed and optimized.
+			NOTE: This code does not support a number of matrix rows/columns that are 
+			not integer divisible of the number of processors in the same axis.
+			Some tests done by the check script will fail due to this.
+
+check:			Script to execute a test of the programs
+CorrectResults:		Folder with data files for the check script
+

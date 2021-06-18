@@ -1,0 +1,104 @@
+=============================================================================
+			    Hitmap Release 1.3
+=============================================================================
+			
+Hitmap is a highly-efficient library for hierarchical tiling and mapping of
+arrays and sparse structures. It is designed to be used with an SPMD
+(Single Process, Multiple Data) parallel programming language and it aims to
+simplify parallel programming, providing functionalities to create, manipulate,
+distribute, and communicate tiles and hierarchies of tiles.
+ 
+Hitmap library supports functionalities to:
+
+	- Generate a virtual topology structure arranging the available physical
+	  processors.
+	- mapping the data to the different processor with chosen partitioning and
+	  load-balancing techniques.
+	- automatically determine inactive processors at any stage of the computation,
+	  preventing the active processors may be affected.
+	- identify the neighbor processors to use in point-to-point or collective
+	  communications.
+	- build communication patterns to be reused across algorithm iterations.
+
+
+This README file should contain enough information to get you started
+with Hitmap. More information could be found in the documentation.
+See Documentation section bellow.
+
+
+
+
+	Getting Started
+=============================================================================
+
+The following instructions take you through a sequence of steps to
+compile the library.
+
+(a) You will need the following prerequisites.
+
+- A C compiler.
+- An MPI implementation.
+- The GNU make utility.
+
+(c) Configuring Hitmap:
+	
+The config directory contains configurations files for the make utility and the compilers:
+- make.def: Generic definitions for the Makefiles of the  Hitmap library and the examples.
+- make.platforms.def: Menu of compiler flags set for specific platforms or operative systems.
+		Check your platform specifics in this file, add a new menu entry if needed.
+		Choose the default platform setting the PLATFORM variable in this file, 
+		or execute $make PLATFORM=.... when building the library, or an example.
+    
+(d) Building Hitmap:
+
+This distribution contains all the needed files to compile Hitmap.
+- Execute the make command in the top directory.
+
+(f) Build Hitmap examples:
+
+- Go to the selected example directory and execute the make command.
+- Testing the examples:
+	1) Some examples include a ./check script to execute basic tests comparing the results
+	produced by the code with some provided files for specific problem sizes.
+	These tests only work if all the processors write by default in a shared filesystem.
+	In the example directory, execute the check script: $ check
+	The script is some examples directories will advice you to recompile with: $ make check 
+	to activate the functionalities that generate the output files used in the tests.
+
+	2) Examples derived from the NAS Paralell benchmarks suite include their own correctness 
+	test in the main code, and the programs report about it at the end of the execution.
+
+
+	Documentation
+=============================================================================
+
+The 'doc' directory contains the full documentation generated in HTML, and man pages.
+Open with your favourite web browser the file ./doc/html/index.html
+
+The documentation is generated automatically from code annotations using the utilities:
+- doxygen 1.8
+- graphviz 2.28
+
+
+	
+	Files in the root directory
+=============================================================================
+
+README:		This file
+LICENSE:	License for this software product
+Doxyfile:	Configuration file to generate the documentation with doxygen
+doc:		Documentation directory
+
+Makefile:	Main makefile of the whole Hitmap package
+config:		Configuration files to adapt the Makefiles to your platform
+include:	Header files for the Hitmap library
+src:		Source codes of the Hitmap library
+lib:		Where the Hitmap library is located after building
+cutest:		Examples for the CUDA support extension
+libcuda:	CUDA support extension: Using Nvidia GPUs with Hitmap 
+
+examples:	Examples of the use of the Hitmap library
+
+iohb1.0:	External library for Harwell-Boeing matrix format input/output v1.0
+metis:		External library for sparse data structures partition: Metis 4.0.1
+

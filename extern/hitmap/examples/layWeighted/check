@@ -1,0 +1,46 @@
+#!/usr/bin/python
+
+import re
+import subprocess
+import os.path
+import sys
+
+def check_program(program,parallel,nprocs, sizes):
+
+	# Message
+	print "Checking:" , program
+	print "------------------------"
+
+	if not os.path.exists(program):
+		print "Error: Program not found"
+		sys.exit(0)
+
+	# Loop for the processes
+	for p in nprocs:
+		for s in sizes:
+			# Create the execution line
+			exelist = []
+			if parallel:
+				exelist = ["mpiexec"]
+				exelist.append("-n")
+				exelist.append(str(p))
+			exelist.append("./" + program)
+			exelist.append(str(s))
+
+			# Execute the program
+			success = False
+			DEVNULL = open(os.devnull, 'w')
+			subp = subprocess.Popen(exelist, stdout=DEVNULL , stderr=subprocess.PIPE)
+			success = True
+			if subp.stderr.readlines() :
+					success = False
+			# Print the message
+			print "[Procs " + str(p).rjust(2) + " " + str(s).rjust(3) + "] ",
+			if success:
+				print "Ok"
+			else:
+				print "WRONG !!!"
+		print
+
+
+check_program("layWeighted",True,[2,4], [20, 100, 200])

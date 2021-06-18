@@ -1,0 +1,161 @@
+#
+# Hitmap 1.2
+# make.def: Generic compiler definitions for Hitmap library and examples
+#
+# (c) 2011-2015, Arturo Gonzalez-Escribano
+#
+
+#
+# LOOK FOR SPECIFIC COMPILER VALUES IN: make.platforms.def
+#
+
+#
+# ================== PRIVATE SECTION ==============================
+# (DO NOT MODIFY ANYTHING BELLOW UNLESS YOU KNOW WHAT YOU ARE DOING)
+#
+VERSION=1.2
+
+#
+# 1. INCLUDE PLATFORM SPECIFIC DEFINITIONS (COMPILER NAMES, FLAGS, etc.)
+#
+include $(HIT_BASEDIR)/config/make.platforms.def
+
+#
+# 2. GENERIC PATHS TO HITMAP
+#
+HIT_INCLUDE_DIR=$(HIT_BASEDIR)/include
+HIT_LIB_DIR=$(HIT_BASEDIR)/lib
+HIT_LIBNAME=hit
+HIT_LIBNAME_FILE=lib$(HIT_LIBNAME).a
+
+#
+# 3. EXTERNAL LIBRARIES
+#
+
+HIT_EXT_METIS_INCLUDE_DIRS=-I$(HIT_BASEDIR)/extern/metis/Lib -I$(HIT_BASEDIR)/extern/iohb1.0/ -I$(HIT_BASEDIR)/extern/matrix_io/
+HIT_EXT_METIS_LIB_DIRS=-L$(HIT_BASEDIR)/extern/metis/ -L$(HIT_BASEDIR)/extern/iohb1.0/ -L$(HIT_BASEDIR)/extern/matrix_io/
+HIT_EXT_METIS_LIBS=-lmetis -liohb -lmatrix_io
+
+#
+# 4. BUILD FULL COMPILER FLAGS
+#
+INCLUDEDIRS=-I$(HIT_INCLUDE_DIR) $(HIT_EXT_METIS_INCLUDE_DIRS)
+LIBDIRS=-L$(HIT_LIB_DIR) $(HIT_EXT_METIS_LIB_DIRS)
+#
+# ACTIVATION OF OPENMP PLATFORM DEPENDENT FLAGS
+#
+ifeq ($(APP_OPENMP),y)
+	ACTIVE_OPENMP=$(OPENMP_FLAGS)
+endif
+
+CFLAGS=$(PLATFORM_FLAGS) $(WARNINGS) $(DEBUG) $(PROFILING) $(OPTIMIZATION) $(ACTIVE_OPENMP) $(TESTING) $(INCLUDEDIRS) $(LIBDIRS)
+
+HIT_COMPILE=$(MPICC) $(CFLAGS) $(APP_FLAGS)
+HIT_COMPILE_CC=$(CC) $(CFLAGS) $(APP_FLAGS)
+HIT_LIBS=-l:lib$(HIT_LIBNAME).a -lm $(HIT_EXT_METIS_LIBS) $(HIT_DEBUG_LIBS) $(APP_LIBS)
+
+#
+# 5. DEFAULT TARGET
+#
+ifeq ($(APP_TARGETS),)
+all:
+	@echo
+	@echo "Error: No targets defined"
+	@echo
+else
+all: $(APP_TARGETS)
+	@echo
+	@echo "Compilation ended successfully (platform $(PLATFORM))"
+	@echo
+endif
+
+#
+# 6. DEBUG, PROFILING, AND TESTING VERSIONS
+#
+debug:
+	make DEBUG="$(DEBUG_FLAGS)" OPTIMIZATION="" $(patsubst $@%,%,$(MAKECMDGOALS))
+
+mpelog:
+	make DEBUG="-mpe=mpilog" HIT_DEBUG_LIBS="-llmpe -lmpe" $(patsubst $@%,%,$(MAKECMDGOALS))
+
+profiling:
+	make PROFILING="$(PROFILER_FLAGS)" $(patsubst $@%,%,$(MAKECMDGOALS))
+
+check:
+	make TESTING="$(APP_TESTING)" $(patsubst $@%,%,$(MAKECMDGOALS))
+
+# This target is for Hitmap developers only
+debug-devel:
+	make DEBUG="-DDEBUG $(DEBUG_FLAGS)" OPTIMIZATION="" $(patsubst $@%,%,$(MAKECMDGOALS))
+
+
+#
+# 7. DEPENDENCE RULE: ALL TARGETS DEPEND BY DEFAULT ON THE HITMAP LIBRARY
+#		EXCEPT THE Hitmap LIBRARY ITSELF. APP_HITMAP=y IS SET ON THE Makefile OF THE LIBRARY
+#		IF THE LIBRARY IS LOST, ASK FOR BUILDING THE LIBRARY
+#
+ifneq ($(APP_HITMAP),y)
+	$(APP_TARGETS): | $(HIT_BASEDIR)/lib/$(HIT_LIBNAME_FILE)
+
+$(HIT_BASEDIR)/lib/$(HIT_LIBNAME_FILE) :
+	$(error $@ is not found. Check paths, build the Hitmap library)
+endif
+
+#
+# 8.1. GENERICE BUILDING RULE FOR FINAL TARGETS
+#		SIMPLIFY LOCAL MAKEFILES: ALLOW TO SKIP DEPENDENCE DECLARATION FOR ONLY THE .c FILE
+#
+% :: %.c
+	$(HIT_COMPILE) $(filter %.c,$^) $(HIT_LIBS) -o $@
+
+#
+# 8.2. GENERIC BUILDING RULE FOR FINAL TARGETS WITH ANY DEPENDENCES DECLARED IN LOCAL MAKEFILE
+#
+% ::
+	$(HIT_COMPILE) $(filter %.c,$^) $(HIT_LIBS) -o $@
+
+
+#
+# 9. CLEAN
+#
+
+ifneq ($(APP_HITMAP),y)
+clean:
+	rm -f *.o $(APP_TARGETS) $(APP_CLEAN)
+else
+clean:
+	rm -f *.o $(APP_CLEAN)
+endif
+
+
+#
+# 10. HELP
+#
+help:
+	@echo
+	@echo Hitmap v$(VERSION) Makefiles
+	@echo
+	@echo "    Hitmap makefiles have been developed for gmake 3.x"
+	@echo "    Example programs use an instance of the Makefile.example.template in the config/ directory"
+	@echo
+	@echo "    To compile for a specific platform use: $$ make PLATFORM=name"
+	@echo "    See platform definitions in config/make.platforms.def"
+	@echo
+	@echo "    Predefined targets:"
+	@echo "      make help          Show this help"
+	@echo "      make clean         Clean application target files"
+	@echo "      make check         Compile with application specific testing flags"
+	@echo "      make debug         Compile with debug flags activated"
+	@echo "      make mpelog        Compile with debug, and MPICH mpelog flags activated"
+	@echo "      make profiling     Compile with profiling flags activated"
+	@echo
+
+#
+# 11. DECLARE PHONY TARGETS
+#
+.PHONY: hit_default clean debug debug-devel profiling check mpelog help
+
+
+#
+# END
+#
