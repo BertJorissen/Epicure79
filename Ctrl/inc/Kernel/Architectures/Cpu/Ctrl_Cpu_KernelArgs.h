@@ -45,7 +45,7 @@
  */
 #define CTRL_KERNEL_CPU_KTILE_DEVICE_DATA( name ) \
 	case CTRL_TYPE_CPU: \
-		((KHitTile *)&k_##name)->data = (((Ctrl_Cpu_Tile *)name->ext)->p_device_data);; \
+		k_##name##_void.data = (((Ctrl_Cpu_Tile *)name->ext)->p_device_data); \
 		break; 
 ///@endcond
 #endif // _CTRL_KERNEL_CPU_ARGS_H_

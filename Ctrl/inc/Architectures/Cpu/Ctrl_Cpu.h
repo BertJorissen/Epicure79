@@ -51,6 +51,10 @@
 
 #include "Architectures/Cpu/Ctrl_Cpu_Tile.h"
 
+#ifdef _CTRL_MKL_
+#include "mkl.h"
+#endif // _CTRL_MKL_
+
 /**
  * Launch a kernel to the ctrl queue
  * @hideinitializer
@@ -67,11 +71,13 @@
 #define CTRL_CPU_LAUNCH( p_ctrl, name, threads, group, ... ) \
 	case CTRL_TYPE_CPU: \
 		if(group.dims == 0){ \
-			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CPU, threads, blocksize_CPU_##name, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CPU, threads, blocksize_CPU_##name, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
 		}else{ \
-			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CPU, threads, group, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CPU, threads, group, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
 		} \
 		break;
+
+#define CTRL_CPU_LAUNCH_STREAM( p_ctrl, name, threads, group, stream, ... ) CTRL_CPU_LAUNCH(p_ctrl, name, threads, group, __VA_ARGS__)
 
 /**
  * CPU implementation of abstract ctrl

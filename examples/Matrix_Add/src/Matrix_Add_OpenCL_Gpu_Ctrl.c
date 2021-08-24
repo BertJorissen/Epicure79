@@ -20,10 +20,10 @@ CTRL_KERNEL_CHAR(Add, MANUAL, LOCAL_SIZE_0, LOCAL_SIZE_1);
 CTRL_KERNEL(Add, GENERIC, DEFAULT, int n_iter, KHitTile_float A, KHitTile_float B, KHitTile_float C,
 {
 	for (int k = 0; k < n_iter; k++) {
-		hit(C, thread_id.x, thread_id.y) =
-				hit(C, thread_id.x, thread_id.y) +
-				hit(A, thread_id.x, thread_id.y) +
-				hit(B, thread_id.x, thread_id.y);
+		hit(C, thread_id_x, thread_id_y) =
+				hit(C, thread_id_x, thread_id_y) +
+				hit(A, thread_id_x, thread_id_y) +
+				hit(B, thread_id_x, thread_id_y);
 	}
 });
 

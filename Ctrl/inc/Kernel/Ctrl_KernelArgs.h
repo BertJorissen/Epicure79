@@ -96,6 +96,12 @@
  *******************************************************************************************
  */
 
+#ifdef __cplusplus
+	#define C_GUARD extern "C"
+#else // __cplusplus
+	#define C_GUARD
+#endif // __cplusplus
+
 #define CTRL_KERNEL_STRINGIFY( arg ) #arg
 
 /* Copy parameter types and names */
@@ -432,17 +438,19 @@
 
 //TODO @waxa las lineas de deviceType hay que moverlas a compilacion condicional
 #define CTRL_KERNEL_KTILE_STORE_IN(list, type, name)		\
-		K##type k_##name;				\
+		KHitTile k_##name##_void; \
 		switch(ctrl_type) { \
 			CTRL_KERNEL_CPU_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA( name ) \
 			default: \
-				/* TODO @waxa comprobar algo? */ \
+				fprintf(stderr, "[Ctrl_KernelArgs] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", ctrl_type); \
+				exit(EXIT_FAILURE); \
 				break; \
 		} \
-		/*printf( STRINGIFY( Desde el lado k_##name->data %p \n ), &(k_##name->data));	*/			\
+		K##type k_##name; \
+		memcpy(&k_##name, &k_##name##_void, sizeof(KHitTile));  \
 		k_##name.shape.info.sig = name->shape.info.sig;					\
 		k_##name.origAcumCard[0] = name->origAcumCard[0];				\
 		k_##name.origAcumCard[1] = name->origAcumCard[1];				\
@@ -455,17 +463,19 @@
 
 //TODO @waxa las lineas de deviceType hay que moverlas a compilacion condicional
 #define CTRL_KERNEL_KTILE_STORE_IO(list, type, name)		\
-		K##type k_##name;				\
+		KHitTile k_##name##_void; \
 		switch(ctrl_type) { \
 			CTRL_KERNEL_CPU_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA( name ) \
 			default: \
-				/* TODO @waxa comprobar algo? */ \
+				fprintf(stderr, "[Ctrl_KernelArgs] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", ctrl_type); \
+				exit(EXIT_FAILURE); \
 				break; \
 		} \
-		/*printf( STRINGIFY( Desde el lado k_##name->data %p \n ), &(k_##name->data));	*/	\
+		K##type k_##name; \
+		memcpy(&k_##name, &k_##name##_void, sizeof(KHitTile));  \
 		k_##name.shape.info.sig = name->shape.info.sig;					\
 		k_##name.origAcumCard[0] = name->origAcumCard[0];				\
 		k_##name.origAcumCard[1] = name->origAcumCard[1];				\
@@ -479,17 +489,19 @@
 
 //TODO @waxa las lineas de deviceType hay que moverlas a compilacion condicional
 #define CTRL_KERNEL_KTILE_STORE_OUT(list, type, name)		\
-		K##type k_##name;				\
+		KHitTile k_##name##_void; \
 		switch(ctrl_type) { \
 			CTRL_KERNEL_CPU_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA( name ) \
 			CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA( name ) \
 			default: \
-				/* TODO @waxa comprobar algo? */ \
+				fprintf(stderr, "[Ctrl_KernelArgs] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", ctrl_type); \
+				exit(EXIT_FAILURE); \
 				break; \
 		} \
-		/*printf( STRINGIFY( Desde el lado k_##name->data %p \n ), &(k_##name->data));*/		\
+		K##type k_##name; \
+		memcpy(&k_##name, &k_##name##_void, sizeof(KHitTile));  \
 		k_##name.shape.info.sig = name->shape.info.sig;					\
 		k_##name.origAcumCard[0] = name->origAcumCard[0];				\
 		k_##name.origAcumCard[1] = name->origAcumCard[1];				\

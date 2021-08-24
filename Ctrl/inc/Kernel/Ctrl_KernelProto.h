@@ -52,25 +52,28 @@
 #else
 	#define CTRL_KERNEL_CPU( ... )
 	#define CTRL_KERNEL_WRAP_CPU( ... )
-	#define CTRL_KERNEL_CPU_LIB( ... )
-	#define CTRL_KERNEL_WRAP_CPU_LIB( ... )
+	#define CTRL_KERNEL_CPULIB( ... )
+	#define CTRL_KERNEL_FUNCTION_CPULIB( ... )
+	#define CTRL_KERNEL_WRAP_CPULIB( ... )
 	#define CTRL_KERNEL_CPU_GENERIC( ... )
 	#define CTRL_KERNEL_WRAP_CPU_GENERIC( ... )
-	#define CTRL_KERNEL_LAUNCH_POINTERS_CPU( ... )
 	#define CTRL_KERNEL_DECLARATION_CPU( ... )
+	#define CTRL_KERNEL_DECLARATION_CPULIB( ... )
 #endif // _CTRL_ARCH_CPU_
 
 #ifdef _CTRL_ARCH_CUDA_
 	#include "Kernel/Architectures/Cuda/Ctrl_Cuda_KernelProto.h"
 #else
 	#define CTRL_KERNEL_CUDA( ... )
+	#define CTRL_KERNEL_FUNCTION_CUDA( ... )
 	#define CTRL_KERNEL_WRAP_CUDA( ... )
-	#define CTRL_KERNEL_CUDA_LIB( ... )
-	#define CTRL_KERNEL_WRAP_CUDA_LIB( ... )
+	#define CTRL_KERNEL_CUDALIB( ... )
+	#define CTRL_KERNEL_FUNCTION_CUDALIB( ... )
+	#define CTRL_KERNEL_WRAP_CUDALIB( ... )
 	#define CTRL_KERNEL_CUDA_GENERIC( ... )
 	#define CTRL_KERNEL_WRAP_CUDA_GENERIC( ... )
-	#define CTRL_KERNEL_LAUNCH_POINTERS_CUDA( ... )
 	#define CTRL_KERNEL_DECLARATION_CUDA( ... )
+	#define CTRL_KERNEL_DECLARATION_CUDALIB( ... )
 #endif
 
 #ifdef _CTRL_ARCH_OPENCL_GPU_
@@ -82,19 +85,19 @@
 	#define CTRL_KERNEL_WRAP_OPENCLGPULIB( ... )
 	#define CTRL_KERNEL_OPENCLGPU_GENERIC( ... )
 	#define CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC( ... )
-	#define CTRL_KERNEL_LAUNCH_POINTERS_OPENCLGPU( ... )
 	#define CTRL_KERNEL_DECLARATION_OPENCLGPU( ... )
+	#define CTRL_KERNEL_DECLARATION_OPENCLGPULIB( ... )
 #endif // _CTRL_ARCH_OPENCL_GPU_
 
 #ifdef _CTRL_ARCH_FPGA_
 	#include "Kernel/Architectures/FPGA/Ctrl_FPGA_KernelProto.h"
 #else
-	#define CTRL_KERNEL_FPGA( ... )
+	#define CTRL_KERNEL_FUNCTION_FPGA( ... )
 	#define CTRL_KERNEL_WRAP_FPGA( ... )
-	#define CTRL_KERNEL_FPGA_LIB( ... )
-	#define CTRL_KERNEL_WRAP_FPGA_LIB( ... )
-	#define CTRL_KERNEL_LAUNCH_POINTERS_FPGA( ... )
+	#define CTRL_KERNEL_FPGALIB( ... )
+	#define CTRL_KERNEL_WRAP_FPGALIB( ... )
 	#define CTRL_KERNEL_DECLARATION_FPGA( ... )
+	#define CTRL_KERNEL_DECLARATION_FPGALIB( ... )
 #endif // _CTRL_ARCH_FPGA_
 
 /*
@@ -121,10 +124,21 @@
  * 
  * @see CTRL_KERNEL_WRAP_CPU_GENERIC, CTRL_KERNEL_WRAP_CUDA_GENERIC, CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC
  */
-#define CTRL_KERNEL_WRAP_GENERIC( ... ) \
-		CTRL_KERNEL_WRAP_CPU_GENERIC( __VA_ARGS__ ) \
-		CTRL_KERNEL_WRAP_CUDA_GENERIC( __VA_ARGS__ ) \
-		CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC( __VA_ARGS__ )
+#define CTRL_KERNEL_WRAP_GENERIC( name, ... ) \
+	switch (ctrl_type) { \
+		case CTRL_TYPE_CPU: \
+			CTRL_KERNEL_WRAP_CPU_GENERIC( name, __VA_ARGS__ ) \
+			break; \
+		case CTRL_TYPE_CUDA: \
+			CTRL_KERNEL_WRAP_CUDA_GENERIC( name, __VA_ARGS__ ) \
+			break; \
+		case CTRL_TYPE_OPENCL_GPU: \
+			CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC( name, __VA_ARGS__ ) \
+			break; \
+		default: \
+			fprintf(stderr, "Ctrl Internal error: Wrong ctrl type on launching wrapper: %s, %s[%d]\n", #name, __FILE__, __LINE__ ); \
+			break; \
+		} \
 
 ///@endcond
 
@@ -138,11 +152,12 @@
  * @param subtype Kernel subtype (Ctrl_ImplSubType).
  * @param ... Parameters to the kernel and kernel body.
  * 
+ * @pre \p type must not be FPGA. FPGA type kernels must use \e CTRL_KERNEL_FUNCTION instead.
  * @see Ctrl_ImplType, CTRL_KERNEL_PROTO
  * @if INTERNAL
  * @see CTRL_KERNEL_CPU_GENERIC, CTRL_KERNEL_CUDA_GENERIC, CTRL_KERNEL_OPENCLGPU_GENERIC,
  * CTRL_KERNEL_CPU, CTRL_KERNEL_CUDA, CTRL_KERNEL_OPENCLGPU,
- * CTRL_KERNEL_CPU_LIB, CTRL_KERNEL_CUDA_LIB, CTRL_KERNEL_OPENCLGPULIB
+ * CTRL_KERNEL_CPULIB, CTRL_KERNEL_CUDALIB, CTRL_KERNEL_OPENCLGPULIB
  * @endif
  */
 #define CTRL_KERNEL( name, type, subtype, ... ) \
@@ -162,10 +177,10 @@
  * @param subtype Kernel subtype (Ctrl_ImplSubType).
  * @param ... Parameters to the kernel.
  * 
- * @pre \p type must be CPU, CUDA or FPGA other types must use \e CTRL_KERNEL instead.
+ * @pre \p type must be CUDA, FPGA or a lib type. Other types must use \e CTRL_KERNEL instead.
  * @see Ctrl_ImplType, CTRL_KERNEL_PROTO
  * @if INTERNAL
- * @see CTRL_KERNEL_FUNCTION_CPU, CTRL_KERNEL_FUNCTION_CUDA, CTRL_KERNEL_FUNCTION_FPGA
+ * @see CTRL_KERNEL_FUNCTION_CUDA, CTRL_KERNEL_FUNCTION_FPGA
  * @endif
  */
 #define CTRL_KERNEL_FUNCTION( name, type, subtype, ... ) \
@@ -239,11 +254,6 @@
 #define CTRL_KERNEL_WRAP_DEFINE( name, type, subtype, ... )	\
 	CTRL_KERNEL_WRAP_##type( name, type, subtype, __VA_ARGS__ )
 #endif
-
-#define CTRL_KERNEL_LAUNCH_POINTERS( name, type, subtype, ... ) \
-	CTRL_KERNEL_LAUNCH_POINTERS_##type( name, type, subtype, __VA_ARGS__ )
-
-#define CTRL_KERNEL_LAUNCH_POINTERS_GENERIC( name, type, subtype, ... )
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
@@ -385,7 +395,7 @@
 	#define CTRL_KERNEL_PROTO( name, n_implementations, ... ) \
 		CTRL_KERNEL_DECLARATION_##n_implementations( name, __VA_ARGS__ ) \
 		\
-		void Ctrl_KernelWrapper_##name( Ctrl_Request request, int device_id, Ctrl_Thread threads, Ctrl_Thread blocksize, void * args_list ) { \
+		void Ctrl_KernelWrapper_##name( Ctrl_Request request, int device_id, Ctrl_Type ctrl_type, Ctrl_Thread threads, Ctrl_Thread blocksize, void * args_list ) { \
 			switch ( device_id ) { \
 				CTRL_KERNEL_WRAP_LAUNCH_##n_implementations( name, args_list, __VA_ARGS__ ) \
 				default: \
@@ -393,10 +403,11 @@
 			} \
 		} \
 		\
-		Ctrl_Task Ctrl_KernelTaskCreate_##name( Ctrl_Type ctrl_type, Ctrl_Thread threads, Ctrl_Thread blocksize, CTRL_KERNEL_SKIP_IMPL( TYPED_POINTER, NULL, n_implementations, __VA_ARGS__ ) ) { \
+		Ctrl_Task Ctrl_KernelTaskCreate_##name( Ctrl_Type ctrl_type, Ctrl_Thread threads, Ctrl_Thread blocksize, int stream, CTRL_KERNEL_SKIP_IMPL( TYPED_POINTER, NULL, n_implementations, __VA_ARGS__ ) ) { \
 			Ctrl_Task task = CTRL_TASK_NULL; \
 			task.threads = threads; \
 			task.blocksize = blocksize; \
+			task.stream = stream; \
 			task.task_type = CTRL_TASK_TYPE_KERNEL; \
 			task.n_arguments = CTRL_KERNEL_SKIP_IMPL( ARG_COUNT_LIST_ELEMENTS, NULL, n_implementations, __VA_ARGS__ ); \
 			task.pfn_kernel_wrapper = Ctrl_KernelWrapper_##name; \

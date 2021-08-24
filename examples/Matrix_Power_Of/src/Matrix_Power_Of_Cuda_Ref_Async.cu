@@ -347,13 +347,16 @@ int main(int argc, char **argv) {
 	cudaFree(d_C);
 	CUDA_CHECK();
 
-	/* Calculate NORM */
-	#ifdef _CTRL_EXAMPLES_EXP_MODE_
+	/* PRINT RESULTS */
+	#ifdef _CTRL_EXAMPLES_TEST_MODE_
 		for (int i = 0; i < POWER; i++) {
 			printf("%lf, %lf, ", p_sum[i], p_res[i]);
 		}
 		fflush(stdout);
-	#else	
+	#elif _CTRL_EXAMPLES_EXP_MODE_
+		printf("%lf, %lf, ", p_sum[POWER-1], p_res[POWER-1]);
+		fflush(stdout);
+	#else
 		printf("\n ----------------------- NORM ----------------------- \n\n");
 		for (int i = 0; i < POWER; i++) {
 			printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]);

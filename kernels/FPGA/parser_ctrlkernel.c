@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
             #elif FPGA_EMULATION\n\n \
                 printf(\"_emu\");\n\n \
             #endif\n\n \
-            printf(\"_Ctrl.aocx\");\n\n \
+            printf(\"_Ctrl\");\n\n \
         }";
 
         fwrite(program, strlen(program), 1, ctrl_kernel_file);

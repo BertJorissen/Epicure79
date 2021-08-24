@@ -232,12 +232,16 @@ int main(int argc, char *argv[]) {
 		Ctrl_GlobalSync(ctrl);
 		exec_clock = omp_get_wtime() - exec_clock;
 
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
+		/* PRINT RESULTS */
+		#ifdef _CTRL_EXAMPLES_TEST_MODE_
 			for (int i = 0; i < N_ITER; i++) {
 				printf("%lf, %lf, ", p_sum[i], p_res[i]);
 			}
 			fflush(stdout);
-		#else	
+		#elif _CTRL_EXAMPLES_EXP_MODE_
+			printf("%lf, %lf, ", p_sum[N_ITER-1], p_res[N_ITER-1]);
+			fflush(stdout);
+		#else
 			printf("\n ----------------------- NORM ----------------------- \n\n"); fflush(stdout);
 			for (int i = 0; i < N_ITER; i++) {
 				printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]); fflush(stdout);

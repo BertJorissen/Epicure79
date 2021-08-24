@@ -49,24 +49,58 @@
  * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPU
  */
 #define CTRL_KERNEL_CPU( name, type, subtype, ... ) \
-	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name ( Ctrl_Thread thread_id, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__) ){ \
-		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
-	}
-
-/**
- * Defines the function containing the user provided code for a \e CPU type kernel
- * @hideinitializer
- * 
- * @param name Name of the kernel.
- * @param type Type of the kernel.
- * @param subtype Subtype of the kernel.
- * @param ... Parameters to the kernel.
- * 
- * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPU
- */
-#define CTRL_KERNEL_FUNCTION_CPU( name, type, subtype, ... ) \
-	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name ( Ctrl_Thread thread_id, __VA_ARGS__ ) \
-	{
+	C_GUARD \
+	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name ( Ctrl_Thread threads, Ctrl_Thread blocksize, int n_cores, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__) ){ \
+		int threads_x = threads.x; \
+		int threads_y = threads.y; \
+		int threads_z = threads.z; \
+		int block_x = blocksize.x; \
+		int block_y = blocksize.y; \
+		int block_z = blocksize.z; \
+		int thread_id_x __attribute__((unused)) = 0; \
+		int thread_id_y __attribute__((unused)) = 0; \
+		int thread_id_z __attribute__((unused)) = 0; \
+		if (threads.z > 1) {  /* Executing in parallel the 3D threads */ \
+			_Pragma("omp parallel for num_threads(n_cores)")  \
+			for (int i_outer = 0; i_outer < threads_x; i_outer+=block_x) { \
+				for (int j_outer = 0; j_outer < threads_y; j_outer+=block_y) { \
+					for (int k_outer = 0; k_outer < threads_z; k_outer+=block_z) { \
+						int i_max = ((i_outer+block_x) > threads_x) ? threads_x : (i_outer+block_x); \
+						int j_max = ((j_outer+block_y) > threads_y) ? threads_y : (j_outer+block_y); \
+						int k_max = ((k_outer+block_z) > threads_z) ? threads_z : (k_outer+block_z); \
+						for (int thread_id_x = i_outer; thread_id_x < i_max; thread_id_x++){ \
+							for (int thread_id_y = j_outer; thread_id_y < j_max; thread_id_y++){ \
+								for (int thread_id_z = k_outer; thread_id_z < k_max; thread_id_z++){ \
+									CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
+								} \
+							} \
+						} \
+					} \
+				} \
+			} \
+		} else if (threads.y > 1) { /* Executing in parallel the 2D threads */ \
+			_Pragma("omp parallel for num_threads(n_cores)")  \
+			for (int i_outer = 0; i_outer < threads_x; i_outer+=block_x) { \
+				for (int j_outer = 0; j_outer < threads_y; j_outer+=block_y) { \
+					int i_max = ((i_outer+block_x) > threads_x) ? threads_x : (i_outer+block_x); \
+					int j_max = ((j_outer+block_y) > threads_y) ? threads_y : (j_outer+block_y); \
+					for (int thread_id_x = i_outer; thread_id_x < i_max; thread_id_x++){ \
+						for (int thread_id_y = j_outer; thread_id_y < j_max; thread_id_y++){ \
+							CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
+						} \
+					} \
+				} \
+			} \
+		} else { /* Executing in parallel the 1D threads */ \
+			_Pragma("omp parallel for num_threads(n_cores)")  \
+			for (int i_outer = 0; i_outer < threads_x; i_outer+=block_x) { \
+			int i_max = ((i_outer+block_x) > threads_x) ? threads_x : (i_outer+block_x); \
+				for (int thread_id_x = i_outer; thread_id_x < i_max; thread_id_x++){ \
+					CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
+				}\
+			} \
+		} \
+	}\
 
 /**
  * Defines the function containing the user provided code for a \e GENERIC type kernel
@@ -83,7 +117,7 @@
 	CTRL_KERNEL_CPU(name, type, subtype, __VA_ARGS__)
 
 /**
- * Defines the function containing the user provided code for a \e CPU_LIB type kernel
+ * Defines the function containing the user provided code for a \e CPULIB type kernel
  * @hideinitializer
  * 
  * @param name Name of the kernel.
@@ -91,16 +125,63 @@
  * @param subtype Subtype of the kernel.
  * @param ... Parameters to the kernel.
  * 
- * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPU_LIB
+ * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPULIB
  */
-#define CTRL_KERNEL_CPULIB( name, type, subtype, ... ) \
-	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name (CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__) ){ \
-		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
-	}
+#define CTRL_KERNEL_CPULIB( name, type, subtype, ... ) CTRL_KERNEL_CPULIB_##subtype( name, type, subtype, __VA_ARGS__)
+
+/**
+ * Defines the function containing the user provided code for a \e CPULIB type kernel
+ * @hideinitializer
+ * 
+ * @param name Name of the kernel.
+ * @param type Type of the kernel.
+ * @param subtype Subtype of the kernel.
+ * @param ... Parameters to the kernel.
+ * 
+ * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPULIB
+ */
+#define CTRL_KERNEL_FUNCTION_CPULIB( name, type, subtype, ... ) CTRL_KERNEL_FUNCTION_CPULIB_##subtype( name, type, subtype, __VA_ARGS__)
+
+#ifdef _CTRL_MKL_
+	/**
+	 * Defines the function containing the user provided code for a \e CPULIB_MKL type kernel
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPULIB
+	 */
+	#define CTRL_KERNEL_CPULIB_MKL( name, type, subtype, ... ) \
+		C_GUARD \
+		void Ctrl_Kernel_Cpu_##type##_##subtype##_##name (CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__) ){ \
+			CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
+		}
+
+	/**
+	 * Defines the function containing the user provided code for a \e CPULIB_MKL type kernel
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CPULIB
+	 */
+	#define CTRL_KERNEL_FUNCTION_CPULIB_MKL( name, type, subtype, ... ) \
+		C_GUARD \
+		void Ctrl_Kernel_Cpu_##type##_##subtype##_##name (__VA_ARGS__)
+#else // _CTRL_MKL_
+	#define CTRL_KERNEL_CPULIB_MKL(...)
+	#define CTRL_KERNEL_FUNCTION_CPULIB_MKL(...)
+#endif // _CTRL_MKL_
 
 /**
  * Block of code that launches a \e CPU kernel, this calculates thread ids and calls to the function defined in either
- * \e CTRL_KERNEL_CPU or \e CTRL_KERNEL_FUNCTION_CPU.
+ * \e CTRL_KERNEL_CPU.
  * @hideinitializer
  * 
  * @param name kernel name.
@@ -110,63 +191,15 @@
  * @param ... Parameters to the kernel.
  * 
  * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
- * @see CTRL_KERNEL_CPU, CTRL_KERNEL_FUNCTION_CPU
+ * @see CTRL_KERNEL_CPU
  */
 #define CTRL_KERNEL_WRAP_CPU( name, argsList, type, subtype, ... ) \
 	{ \
-		if (threads.z > 1) {  /* Executing in parallel the 3D threads */ \
-			_Pragma("omp parallel for num_threads(request.cpu.n_cores)")  \
-			for (unsigned int i_outer = 0; i_outer < threads.x; i_outer+=blocksize.x) { \
-				for (unsigned int j_outer = 0; j_outer < threads.y; j_outer+=blocksize.y) { \
-					for (unsigned int k_outer = 0; k_outer < threads.z; k_outer+=blocksize.z) { \
-						unsigned int i_max = ((i_outer+blocksize.x) > threads.x) ? threads.x : (i_outer+blocksize.x); \
-						unsigned int j_max = ((j_outer+blocksize.y) > threads.y) ? threads.y : (j_outer+blocksize.y); \
-						unsigned int k_max = ((k_outer+blocksize.z) > threads.z) ? threads.z : (k_outer+blocksize.z); \
-						for (unsigned int i_inner = i_outer; i_inner < i_max; i_inner++){ \
-							for (unsigned int j_inner = j_outer; j_inner < j_max; j_inner++){ \
-								for (unsigned int k_inner = k_outer; k_inner < k_max; k_inner++){ \
-									Ctrl_Thread thread_id = CTRL_THREAD_NULL; \
-									thread_id.x = i_inner; \
-									thread_id.y = j_inner; \
-									thread_id.z = k_inner; \
-									Ctrl_Kernel_Cpu_##type##_##subtype##_##name( thread_id, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE( argsList, __VA_ARGS__ ) ); \
-								} \
-							} \
-						} \
-					} \
-				} \
-			} \
-		} else if (threads.y > 1) { /* Executing in parallel the 2D threads */ \
-			_Pragma("omp parallel for num_threads(request.cpu.n_cores)")  \
-			for (unsigned int i_outer = 0; i_outer < threads.x; i_outer+=blocksize.x) { \
-				for (unsigned int j_outer = 0; j_outer < threads.y; j_outer+=blocksize.y) { \
-					unsigned int i_max = ((i_outer+blocksize.x) > threads.x) ? threads.x : (i_outer+blocksize.x); \
-					unsigned int j_max = ((j_outer+blocksize.y) > threads.y) ? threads.y : (j_outer+blocksize.y); \
-					for (unsigned int i_inner = i_outer; i_inner < i_max; i_inner++){ \
-						for (unsigned int j_inner = j_outer; j_inner < j_max; j_inner++){ \
-							Ctrl_Thread thread_id = CTRL_THREAD_NULL; \
-							thread_id.x = i_inner; \
-							thread_id.y = j_inner; \
-							Ctrl_Kernel_Cpu_##type##_##subtype##_##name( thread_id, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE( argsList, __VA_ARGS__ ) ); \
-						} \
-					} \
-				} \
-			} \
-		} else { /* Executing in parallel the 1D threads */ \
-			_Pragma("omp parallel for num_threads(request.cpu.n_cores)") \
-			for (unsigned int i_outer = 0; i_outer < threads.x; i_outer+=blocksize.x) { \
-			unsigned int i_max = ((i_outer+blocksize.x) > threads.x) ? threads.x : (i_outer+blocksize.x); \
-				for (unsigned int i_inner = i_outer; i_inner < i_max; i_inner++){ \
-					Ctrl_Thread thread_id = CTRL_THREAD_NULL; \
-					thread_id.x = i_inner; \
-					Ctrl_Kernel_Cpu_##type##_##subtype##_##name( thread_id, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE( argsList, __VA_ARGS__ ) );\
-				}\
-			} \
-		} \
+		Ctrl_Kernel_Cpu_##type##_##subtype##_##name(threads, blocksize, request.cpu.n_cores, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__)); \
 	};
 
 /**
- * Block of code that launches a \e GENERIC kernel on \e CPU architecture, this calculates thread ids and calls directly to the 
+ * Block of code that launches a \e GENERIC kernel on \e CPU architecture, this calculates thread ids and calls the 
  * function defined in \e CTRL_KERNEL_CPU_GENERIC.
  * @hideinitializer
  * 
@@ -183,7 +216,7 @@
 	CTRL_KERNEL_WRAP_CPU(name, argslist, type, subtype, __VA_ARGS__)
 
 /**
- * Block of code that launches a \e CPU_LIB kernel, this calls directly to the function defined in \e CTRL_KERNEL_CPU_LIB.
+ * Block of code that launches a \e CPULIB kernel, this calls the function defined in \e CTRL_KERNEL_CPULIB.
  * @hideinitializer
  * 
  * @param name Kernel name.
@@ -193,12 +226,32 @@
  * @param ... Parameters to the kernel.
  * 
  * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
- * @see CTRL_KERNEL_CPU_LIB
+ * @see CTRL_KERNEL_CPULIB
  */
-#define CTRL_KERNEL_WRAP_CPULIB(name, argslist, type, subtype, ...) \
-	{ \
-		Ctrl_Kernel_Cpu_##type##_##subtype##_##name(CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argslist, __VA_ARGS__)); \
-	};
+#define CTRL_KERNEL_WRAP_CPULIB(name, argslist, type, subtype, ...) CTRL_KERNEL_WRAP_CPULIB_##subtype(name, argslist, type, subtype, __VA_ARGS__)
+
+#ifdef _CTRL_MKL_
+	/**
+	 * Block of code that launches a \e CPULIB_MKL kernel, this calls the function defined in \e CTRL_KERNEL_CPULIB.
+	 * @hideinitializer
+	 * 
+	 * @param name Kernel name.
+	 * @param argslist List of arguments passed inside task when launching a kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
+	 * @see CTRL_KERNEL_CPULIB
+	 */
+	#define CTRL_KERNEL_WRAP_CPULIB_MKL(name, argslist, type, subtype, ...) \
+		{ \
+			mkl_set_num_threads_local(request.cpu.n_cores); \
+			Ctrl_Kernel_Cpu_##type##_##subtype##_##name(CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argslist, __VA_ARGS__)); \
+		};
+#else // _CTRL_MKL_
+	#define CTRL_KERNEL_WRAP_CPULIB_MKL(...)
+#endif // _CTRL_MKL_
 
 /**
  * Kernel function prototype for \e CPU type kernels to allow moving kernel definitions to another file.
@@ -214,7 +267,7 @@
  * @param ... Arguments recieved by the kernel (with roles).
  */
 #define CTRL_KERNEL_DECLARATION_CPU( name, type, subtype, n_params, ... ) \
-	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name( Ctrl_Thread thread_id, CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ) ); 
+	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name(Ctrl_Thread threads, Ctrl_Thread blocksize, int n_cores, CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ) ); 
 
 /**
  * Kernel function prototype for \e CPULIB type kernels to allow moving kernel definitions to another file.
@@ -227,9 +280,24 @@
  * @param ... Arguments recieved by the kernel (with roles).
  */
 #define CTRL_KERNEL_DECLARATION_CPULIB( name, type, subtype, n_params, ... ) \
-	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name( CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ) ); 
+	CTRL_KERNEL_DECLARATION_CPULIB_##subtype( name, type, subtype, n_params, __VA_ARGS__)
 
-#define CTRL_KERNEL_LAUNCH_POINTERS_CPU( name, type, subtype, ... )
+#ifdef _CTRL_MKL_
+	/**
+	 * Kernel function prototype for \e CPULIB_MKL type kernels to allow moving kernel definitions to another file.
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of this implementation.
+	 * @param subtype Subtype of this implementation.
+	 * @param n_params Number of arguments recieved by the kernel.
+	 * @param ... Arguments recieved by the kernel (with roles).
+	 */
+	#define CTRL_KERNEL_DECLARATION_CPULIB_MKL( name, type, subtype, n_params, ... ) \
+		void Ctrl_Kernel_Cpu_##type##_##subtype##_##name( CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ) ); 
+#else // _CTRL_MKL_
+	#define CTRL_KERNEL_DECLARATION_CPULIB_MKL(...)
+#endif // _CTRL_MKL_
 
 ///@endcond
 #endif //_CTRL_CPU_KERNELPROTO_H_

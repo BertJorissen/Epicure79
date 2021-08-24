@@ -365,7 +365,7 @@ int main(int argc, char *argv[]) {
 
 		Ctrl_HostTask(ctrl, Norm_Calc, MatrixCopy);
 
-		Ctrl_Sycnhronize();
+		Ctrl_Synchronize();
 		Ctrl_Free(ctrl, MatrixTemp[0], MatrixTemp[1], MatrixPower);
 		hit_tileFree(MatrixCopy);
 		Ctrl_Destroy(ctrl);

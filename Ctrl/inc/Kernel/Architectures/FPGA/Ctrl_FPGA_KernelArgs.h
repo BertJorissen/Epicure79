@@ -47,7 +47,7 @@
     case CTRL_TYPE_FPGA : \
         { \
             Ctrl_FPGA_Tile *p_tile_data = (Ctrl_FPGA_Tile *)(name->ext); \
-            ((KHitTile *) &k_##name)->data = (void *)(&(p_tile_data->device_data)); \
+            k_##name##_void.data = (void *)(&(p_tile_data->device_data)); \
         } \
         break;
 

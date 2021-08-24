@@ -45,7 +45,7 @@
 /**
  * Flag to see the debug messages.
  */
-// #define DEBUG
+#define DEBUG
 
 
 

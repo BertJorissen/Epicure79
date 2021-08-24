@@ -46,27 +46,28 @@
  * \brief Metadata from a tile associated to a FPGA ctrl
  */
 typedef struct Ctrl_FPGA_Tile {
-    struct Ctrl_FPGA                *p_ctrl;                    /**< Pointer to the ctrl to which this tile is associated */
+	struct Ctrl_FPGA                *p_ctrl;                    /**< Pointer to the ctrl to which this tile is associated */
 
-    struct Ctrl_FPGA_Tile_List      *p_tile_elem;               /**< Node of the linked list containing all tiles of the ctrl to which this tile is associated */
+	struct Ctrl_FPGA_Tile_List      *p_tile_elem;               /**< Node of the linked list containing all tiles of the ctrl to which this tile is associated */
 
-    cl_command_queue			    queue;                      /**< OpenCL command queue used for memory transfers related to this tile */
-    
-    cl_mem                          device_data;                /**< OpenCL buffer for device image of this tile */
+	cl_command_queue			    queue;                      /**< OpenCL command queue used for memory transfers related to this tile */
+	
+	cl_mem                          device_data;                /**< OpenCL buffer for device image of this tile */
 
-    cl_event                        kernel_last_read_event;     /**< Event to sincronyze tasks, represents last write operation on device*/
-    cl_event                        kernel_last_write_event;    /**< Event to sincronyze tasks, represents last read operation on device*/
+	cl_event                        kernel_last_read_event;     /**< Event to sincronyze tasks, represents last write operation on device*/
+	cl_event                        kernel_last_write_event;    /**< Event to sincronyze tasks, represents last read operation on device*/
 
-    cl_event                        offloading_last_read_event; /**< Event to sincronyze tasks, represents last DTH comunication*/
-    cl_event                        offloading_last_write_event;/**< Event to sincronyze tasks, represents last HTD comunication*/
+	cl_event                        offloading_last_read_event; /**< Event to sincronyze tasks, represents last DTH comunication*/
+	cl_event                        offloading_last_write_event;/**< Event to sincronyze tasks, represents last HTD comunication*/
 
-    cl_event                        host_last_read_event;       /**< Event to sincronyze tasks, represents last write operation on host*/
-    cl_event                        host_last_write_event;      /**< Event to sincronyze tasks, represents last read operation on host*/
+	cl_event                        host_last_read_event;       /**< Event to sincronyze tasks, represents last write operation on host*/
+	cl_event                        host_last_write_event;      /**< Event to sincronyze tasks, represents last read operation on host*/
 
-    int                             last_update;                /**< Information about where the updated data of this tile is located (host, device or both) */
+	int                             last_update;                /**< Information about where the updated data of this tile is located (host, device or both) */
 
-	int								mem_flags;      	    	/**< Flags to choose allocation method */
-	bool							is_initialized;     		/**< Flag to check if tile has been initialized */
+	int                             mem_flags;                  /**< Flags to choose allocation method */
+	bool                            is_initialized;             /**< Flag to check if tile has been initialized */
+	struct Ctrl_FPGA_Tile           *p_parent_ext;              /**< Pointer to parent's ext field in hierarchical subselections */
 } Ctrl_FPGA_Tile;
 
 /**
@@ -74,7 +75,7 @@ typedef struct Ctrl_FPGA_Tile {
  */
 typedef struct Ctrl_FPGA_Tile_List {
 	Ctrl_FPGA_Tile                *p_tile_ext;
-    struct Ctrl_FPGA_Tile_List    *p_prev;
+	struct Ctrl_FPGA_Tile_List    *p_prev;
 	struct Ctrl_FPGA_Tile_List    *p_next;
 } Ctrl_FPGA_Tile_List;
 

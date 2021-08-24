@@ -32,7 +32,7 @@
  * @copyright More information on http://trasgo.infor.uva.es/
  */
 
-#ifdef _CTRL_OPENCL_GPU_ERROR_CHECK_
+#ifdef _CTRL_CUDA_ERROR_CHECK_
     #include <cuda_runtime_api.h>
 
     #define CUDA_ERROR()                                                                  \

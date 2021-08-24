@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
 	main_clock = omp_get_wtime();
 
 	if (argc != 10) {
-		fprintf(stderr, "Usage: %s <grid_rows/grid_cols> <pyramid_height> <sim_time> <device> <platform> <exec_mode> <policy> <affinity>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <grid_rows/grid_cols> <pyramid_height> <sim_time> <iters_per_copy> <device> <platform> <exec_mode> <policy> <affinity>\n", argv[0]);
 		fprintf(stderr, "\t<grid_rows/grid_cols> - number of rows/cols in the grid (positive integer)\n");
 		fprintf(stderr, "\t<pyramid_height> - pyramid heigh(positive integer)\n");
 		fprintf(stderr, "\t<sim_time> - number of iterations\n");
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 
 		Ctrl_HostTask(ctrl, Norm_Calc, MatrixCopy);
 
-		Ctrl_Sycnhronize();
+		Ctrl_Synchronize();
 		Ctrl_Free(ctrl, MatrixTemp[0], MatrixTemp[1], MatrixPower);
 		hit_tileFree(MatrixCopy);
 		Ctrl_Destroy(ctrl);

@@ -68,6 +68,7 @@ typedef struct Ctrl_OpenCL_Tile {
 
 	int								mem_flags;					/**< Flags to choose allocation method */
 	bool							is_initialized;				/**< Flag to check if tile has been initialized */
+	struct Ctrl_OpenCL_Tile         *p_parent_ext;              /**< Pointer to parent's ext field in hierarchical subselections */
 } Ctrl_OpenCL_Tile;
 
 /**

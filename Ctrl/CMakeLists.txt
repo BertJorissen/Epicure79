@@ -38,7 +38,14 @@ if (SUPPORT_CPU)
 	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_ARCH_CPU_ ")
 
 	set(CTRL_SOURCES ${CTRL_SOURCES} src/Architectures/Cpu/Ctrl_Cpu.c)
-	set(CTRL_LIBS ${CTRL_LIBS} ${OPENCLLIB})
+
+	# MKL support
+	if (MKL)
+		set(BLA_VENDOR Intel10_64lp)
+		find_package(BLAS REQUIRED)
+		set(CTRL_LIBS ${CTRL_LIBS} ${BLAS_LIBRARIES})
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_MKL_ ")
+	endif (MKL)
 endif (SUPPORT_CPU)
 
 # Support for OpenCl Gpu
@@ -83,8 +90,8 @@ if (SUPPORT_OPENCL_GPU)
 	endif (OPENCL_GPU_PROFILING)
 
 	if (SUPPORT_OPENCL_GPU_AMD)
-		set(OPENCL_LIB_DIRS ${OPENCL_LIB_DIRS} /opt/rocm-4.1.0/opencl/lib)
-		set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} /opt/rocm-4.1.0/opencl/include)
+		set(OPENCL_LIB_DIRS ${OPENCL_LIB_DIRS} /opt/rocm/opencl/lib)
+		set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} /opt/rocm/opencl/include)
 	else (SUPPORT_OPENCL_GPU_AMD)
 		set(OPENCL_LIB_DIRS ${OPENCL_LIB_DIRS} /usr/local/cuda/lib64)
 		set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} /usr/local/cuda/include/)
@@ -143,7 +150,7 @@ if (SUPPORT_FPGA)
 
 	set(OPENCL_LIB_DIRS ${OPENCL_LIB_DIRS} /opt/intel/oneapi/compiler/2021.2.0/linux/lib)
 	set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} /opt/intel/oneapi/compiler/2021.2.0/linux/include/sycl)
-	
+
 	find_library(OPENCLLIB OpenCL HINTS ${OPENCL_LIB_DIRS})
 	
 	set (CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_ARCH_FPGA_ ")
@@ -160,6 +167,11 @@ endif (SUPPORT_FPGA)
 
 # Support for CUDA
 if (SUPPORT_CUDA)
+	if (CUDA_ERROR_CHECK)
+		set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_CUDA_ERROR_CHECK_ ")
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_CUDA_ERROR_CHECK_ ")
+	endif (CUDA_ERROR_CHECK)
+
 	if (CUDA_DEBUG)
 		set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_CUDA_DEBUG_ ")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_CUDA_DEBUG_ ")
@@ -174,14 +186,26 @@ if (SUPPORT_CUDA)
 	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_ARCH_CUDA_")
 	set (NVCC_FLAGS "-lcuda")
 
-	set(CUDA_LIB_DIRS ${CUDA_LIB_DIRS} /usr/local/cuda/lib64/stubs)
-	#find_library(CUDALIBS cuda HINTS ${CUDA_LIB_DIRS})
-	
 	set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} /usr/local/cuda/samples/common/inc)
 	set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${CUDAToolkit_INCLUDE_DIRS})
 	
 	set(CTRL_SOURCES ${CTRL_SOURCES} src/Architectures/Cuda/Ctrl_Cuda.c)
 	set(CTRL_LIBS ${CTRL_LIBS} CUDA::cudart)
+
+	# CUBLAS support
+	if (CUBLAS)
+		set(CTRL_LIBS ${CTRL_LIBS} CUDA::cublas)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_CUBLAS_ ")
+	endif (CUBLAS)
+
+	# Magma support
+	if (MAGMA)
+		#TODO @sergioalo move magma lib to a common dir
+		set(MAGMA_ROOT /frontend/sergioalo/magma-2.6.0-gcc-10.3-mkl-2021.2.0-cuda-11.3)
+		set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${MAGMA_ROOT}/include)
+		set(CTRL_LIBS ${CTRL_LIBS} ${MAGMA_ROOT}/lib/libmagma.so)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_MAGMA_ -DADD_ ")
+	endif (MAGMA)
 endif (SUPPORT_CUDA)
 
 if (CTRL_CMAKE_VERBOSE_CTRL)

@@ -77,12 +77,35 @@
 #define CTRL_OPENCL_GPU_LAUNCH( p_ctrl, name, threads, group, ... ) \
 	case CTRL_TYPE_OPENCL_GPU: \
 		if(group.dims == 0){ \
-			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_OPENCL_GPU, threads, local_size_OPENCL_GPU_##name, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_OPENCL_GPU, threads, local_size_OPENCL_GPU_##name, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
 		}else{ \
-			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_OPENCL_GPU, threads, group, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_OPENCL_GPU, threads, group, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
 		} \
 		break;
 
+/**
+ * Launch a kernel to a specific stream of the ctrl queue
+ * @hideinitializer
+ * 
+ * @param p_ctrl: pointer to the ctrl to launch the kernel
+ * @param name: name of the kernel to be launched
+ * @param threads: thread block to launch the kernel with. (Ctrl_Thread)
+ * @param group block sizes for this kernel execution.
+ *    Optional, if a block with 0 dimensions is passed (such as CTRL_THREAD_NULL), default characterization is used instead.
+ * @param stream: stream to launch the kernel to.
+ * @param ...: arguments passed to the kernel.
+ * 
+ * @see Ctrl_LaunchToStream, Ctrl_Thread
+ */
+
+#define CTRL_OPENCL_GPU_LAUNCH_STREAM( p_ctrl, name, threads, group, stream, ... ) \
+  case CTRL_TYPE_OPENCL_GPU: \
+    if(group.dims == 0){ \
+      Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_OPENCL_GPU, threads, local_size_OPENCL_GPU_##name, stream, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
+    }else{ \
+      Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_OPENCL_GPU, threads, group, stream, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
+    } \
+    break;
 
 /**
  * OpenCL Gpu implementation of abstract ctrl
@@ -95,7 +118,6 @@ typedef struct Ctrl_OpenCLGpu {
 	cl_context							context;				/**< OpenCL context used to create and launch everything related to OpenCL*/
 
 	cl_command_queue_properties			queue_properties;		/**< Properties to use when creating OpenCL queues */
-	cl_command_queue					queue;					/**< OpenCl queue to launch kernels */
 
 	struct Ctrl_OpenCL_Tile_List		*p_tile_list_head;		/**< Head of the list of tiles associate to this ctrl */
 	struct Ctrl_OpenCL_Tile_List		*p_tile_list_tail;		/**< Tail of the list of tiles associate to this ctrl */
@@ -105,7 +127,7 @@ typedef struct Ctrl_OpenCLGpu {
 	cl_event							default_event;			/**< Event used to create all events initially */
 
 	#ifdef _CTRL_QUEUE_
-    omp_lock_t							*p_lock_first_host;		/**< Lock used for sync between main thread and queue manager thread */
+	omp_lock_t							*p_lock_first_host;		/**< Lock used for sync between main thread and queue manager thread */
 	omp_lock_t							*p_lock_first_ctrl;		/**< Lock used for sync between main thread and queue manager thread */
 	omp_lock_t							*p_lock_host;			/**< Lock used for sync between main thread and queue manager thread */
 	omp_lock_t							*p_lock_ctrl;			/**< Lock used for sync between main thread and queue manager thread */
@@ -114,6 +136,9 @@ typedef struct Ctrl_OpenCLGpu {
 	Ctrl_Policy							policy;					/**< Policy to be used by this ctrl (sync or async) */
 
 	int									dependance_mode;		/**< Dependance mode to be used by this ctrl */
+
+	int												n_queues;				/**< Number of OpenCl queues for kernel launching available to this cltr */
+	cl_command_queue					*queues;				/**< OpenCl queues to launch kernels */
 	#ifdef _CTRL_OPENCL_GPU_PROFILING_
 		int							platform;
 		int							device;
@@ -162,7 +187,7 @@ typedef struct Ctrl_OpenCLGpu {
  * @param device index of the device to be used.
  * @param platform Index of the OpenCL platform to be used.
  */
-void Ctrl_OpenCLGpu_Create(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Policy policy, int device, int platform);
+void Ctrl_OpenCLGpu_Create(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Policy policy, int device, int platform, int streams);
 
 /**
  * Evaluate a task on a OpenCL ctrl.

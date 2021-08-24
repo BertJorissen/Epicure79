@@ -173,6 +173,15 @@ void Ctrl_Cpu_EvalTaskDomainTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 void Ctrl_Cpu_EvalTaskAllocTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
+ * Evaluation of subselecting tiles.
+ *
+ * @param p_ctrl: Ctrl in charge of task.
+ * @param p_task: task to be evaluated.
+ *
+ * @see Ctrl_Cpu_EvalTask, Ctrl_Select
+ */
+void Ctrl_Cpu_EvalTaskSelectTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
+/**
  * Evaluation of freeing of tiles.
  * 
  * @param p_ctrl Ctrl in charge of task.
@@ -244,8 +253,8 @@ void Ctrl_Cpu_Create(Ctrl_Cpu *p_ctrl, Ctrl_Policy policy, int n_cores, int *p_n
 		hwloc_obj_t obj;
 		for (int i = 0; i < n_numa_nodes; i++){
 			obj=hwloc_get_obj_by_type(p_ctrl->topo, HWLOC_OBJ_NUMANODE, p_numa_nodes[i]);
-			if (!obj){
-				printf("Numanode %d not found\n", p_numa_nodes[i]);
+			if (!obj) {
+				fprintf(stderr, "[Ctrl_Cpu] warning: Numanode %d not found\n", p_numa_nodes[i]);
 				break;
 				// exit(EXIT_FAILURE);
 			}
@@ -286,6 +295,9 @@ void Ctrl_Cpu_EvalTask(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 		case CTRL_TASK_TYPE_DOMAINTILE:
 			Ctrl_Cpu_EvalTaskDomainTile(p_ctrl, p_task);
 			break;
+		case CTRL_TASK_TYPE_SELECTTILE:
+			Ctrl_Cpu_EvalTaskSelectTile(p_ctrl, p_task);
+			break;
 		case CTRL_TASK_TYPE_FREETILE:
 			Ctrl_Cpu_EvalTaskFreeTile(p_ctrl,p_task);
 			break;
@@ -305,7 +317,7 @@ void Ctrl_Cpu_EvalTask(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 			Ctrl_Cpu_EvalTaskSetDependanceMode(p_ctrl, p_task);
 			break;
 		default:
-			fprintf(stderr, "[Ctrl_Cpu] Unsupported task type:%d.\n", p_task->task_type);
+			fprintf(stderr, "[Ctrl_Cpu] Unsupported task type: %d.\n", p_task->task_type);
 			exit(EXIT_FAILURE);
 	}
 }
@@ -375,13 +387,16 @@ void Ctrl_Cpu_CreateTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	p_tile_data->p_ctrl = p_ctrl;
 
 	p_tile_data->last_update = CTRL_TILE_LAST_UPDATE_HOST_DEV;
+	if (p_tile->ref != NULL) ((Ctrl_Cpu_Tile *)(p_tile->ref->ext))->last_update = CTRL_TILE_LAST_UPDATE_DEV;
 
 	p_tile->ext = (void *)p_tile_data;
+
+	p_tile_data->p_parent_ext = NULL;
 
 	p_tile_data->is_initialized = false;
 }
 
-void Ctrl_Cpu_InitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task){
+void Ctrl_Cpu_InitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	HitTile *p_tile = (HitTile *)(p_task->p_tile);
 	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);	
 
@@ -526,15 +541,79 @@ void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream){
 void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task){
 	switch ( p_task->task_type ) {
 		case CTRL_TASK_TYPE_KERNEL:
-            p_task->pfn_kernel_wrapper(p_task->request, p_task->device_id, p_task->threads, p_task->blocksize, p_task->p_arguments);
+            p_task->pfn_kernel_wrapper(p_task->request, p_task->device_id, p_task->ctrl_type, p_task->threads, p_task->blocksize, p_task->p_arguments);
 			break;
-		case CTRL_TASK_TYPE_MOVEFROM:
-			{Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_task->p_tile->ext);
-			memcpy(p_task->p_tile->data, p_tile_data->p_device_data, ((size_t)(p_task->p_tile->acumCard)) * (p_task->p_tile->baseExtent));
-			break;}
 		case CTRL_TASK_TYPE_MOVETO:
 			{Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_task->p_tile->ext);
-			memcpy(p_tile_data->p_device_data, p_task->p_tile->data, ((size_t)(p_task->p_tile->acumCard)) * (p_task->p_tile->baseExtent));
+			HitTile *p_tile = p_task->p_tile;
+			/* TODO: STRIDED TILES */
+
+			/* TILES WITH THEIR OWN MEMORY ALLOCATION, OR CONTIGUOUS 1D TILES NEED ONLY ONE CONTIGUOUS COPY */
+			if ((p_tile->memStatus == HIT_MS_OWNER) || (p_tile->shape.info.sig.numDims == 1)) {
+				memcpy(p_tile_data->p_device_data, p_tile->data, ((size_t)(p_tile->acumCard)) * (p_tile->baseExtent));
+			}
+			/* CONTIGUOUS 2D TILES */
+			else if (p_tile->shape.info.sig.numDims == 2) {
+				for (int i=0; i<p_tile->card[0]; i++) {
+					memcpy(
+						(void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1])),
+						(void *)(p_tile->data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1])),
+						((size_t)(p_tile->card[1])) * (p_tile->baseExtent)
+					);
+				}
+			}
+			/* CONTIGUOUS 3D TILES */
+			// TODO: Check if 3D transfers are correct! - Manu 04/2021
+			else if (p_tile->shape.info.sig.numDims == 3) {
+				for (int i=0; i<p_tile->card[0]; i++) {
+					for (int j=0; j<p_tile->card[1]; j++) {
+						memcpy(
+							(void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1] + j*p_tile->origAcumCard[2])),
+							(void *)(p_tile->data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1] + j*p_tile->origAcumCard[2])),
+						((size_t)(p_tile->card[2])) * (p_tile->baseExtent)
+						);
+					}
+				}
+			} else {
+				fprintf(stderr, "[Ctrl_Cpu] error: Number of dimensions not supported for non-owner tile in MoveTo: %d\n",
+					p_tile->shape.info.sig.numDims);
+			}
+			break;}
+		case CTRL_TASK_TYPE_MOVEFROM:
+			{Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_task->p_tile->ext);
+			HitTile *p_tile = p_task->p_tile;
+			/* TODO: STRIDED TILES */
+
+			/* TILES WITH THEIR OWN MEMORY ALLOCATION, OR CONTIGUOUS 1D TILES NEED ONLY ONE CONTIGUOUS COPY */
+			if ((p_tile->memStatus == HIT_MS_OWNER) || (p_tile->shape.info.sig.numDims == 1)) {
+				memcpy(p_tile->data, p_tile_data->p_device_data, ((size_t)(p_tile->acumCard)) * (p_tile->baseExtent));
+			}
+			/* CONTIGUOUS 2D TILES */
+			else if (p_tile->shape.info.sig.numDims == 2) {
+				for (int i=0; i<p_tile->card[0]; i++) {
+					memcpy(
+						(void *)(p_tile->data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1])),
+						(void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1])),
+						((size_t)(p_tile->card[1])) * (p_tile->baseExtent)
+					);
+				}
+			}
+			/* CONTIGUOUS 3D TILES */
+			// TODO: Check if 3D transfers are correct! - Manu 04/2021
+			else if (p_tile->shape.info.sig.numDims == 3) {
+				for (int i=0; i<p_tile->card[0]; i++) {
+					for (int j=0; j<p_tile->card[1]; j++) {
+						memcpy(
+							(void *)(p_tile->data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1] + j*p_tile->origAcumCard[2])),
+							(void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i*p_tile->origAcumCard[1] + j*p_tile->origAcumCard[2])),
+							((size_t)(p_tile->card[2])) * (p_tile->baseExtent)
+						);
+					}
+				}
+			} else {
+				fprintf(stderr, "[Ctrl_Cpu] error: Number of dimensions not supported for non-owner tile in MoveFrom: %d\n",
+					p_tile->shape.info.sig.numDims);
+			}
 			break;}
         case CTRL_TASK_TYPE_WAITEVENT:
             Ctrl_GenericEvent_Wait(p_task->event);
@@ -546,9 +625,8 @@ void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task){
             Ctrl_GenericEvent_Release(p_task->event);
             break;
         default:
-            printf("Cpu EvalTaskInner: task type %d not implemented on this stream\n", p_task->task_type);
+            fprintf(stderr, "[Ctrl_Cpu] EvalTaskInner: task type %d not implemented on this stream\n", p_task->task_type);
             exit(EXIT_FAILURE);
-            break;
 	}
 }
 
@@ -564,7 +642,7 @@ void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl) {
 	Ctrl_TaskQueue_Push(p_ctrl_host_stream,task);
 	
 	// send destroy task to transfer streams 
-	if (p_ctrl->mem_moves){
+	if (p_ctrl->mem_moves) {
 		Ctrl_TaskQueue_Push(p_ctrl->p_moveFrom_stream,task);
 		Ctrl_TaskQueue_Push(p_ctrl->p_moveTo_stream,task);
 	}
@@ -648,6 +726,7 @@ void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	request.cpu.n_cores = p_ctrl->n_cores;
 
 	p_task->request=request;
+	p_task->ctrl_type=CTRL_TYPE_CPU;
 
 	//wait for previous task to finish if policy is sync
 	if(p_ctrl->policy==CTRL_POLICY_SYNC){
@@ -791,6 +870,35 @@ void Ctrl_Cpu_EvalTaskAllocTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 		fprintf(stderr, "Internal Error: Not supported flag in Alloc: CTRL_MEM_ALLOC_HOST\n"); fflush(stderr); exit(EXIT_FAILURE);
 	} else if (p_tile_data->mem_flags & CTRL_MEM_ALLOC_DEV) { // Allocate memory only in device
 		fprintf(stderr, "Internal Error: Not supported flag in Alloc: CTRL_MEM_ALLOC_DEV\n"); fflush(stderr); exit(EXIT_FAILURE);
+	}
+
+	Ctrl_Cpu_Sync(p_ctrl);
+}
+
+void Ctrl_Cpu_EvalTaskSelectTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
+	Ctrl_Cpu_CreateTile(p_ctrl, p_task);
+
+	HitTile *p_tile = (HitTile *)(p_task->p_tile);
+
+	if ( hit_tileIsNull( *p_tile ) ) {
+		Ctrl_Cpu_Sync(p_ctrl);
+		return;
+	}
+
+	HitTile *p_parent = p_tile->ref;
+
+	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+
+	p_tile_data->p_parent_ext = ((Ctrl_Cpu_Tile *)(p_tile->ref->ext));
+
+	Ctrl_Cpu_Tile *p_parent_data = p_tile_data->p_parent_ext;
+
+	if ((p_task->flags & CTRL_SELECT_INIT) == CTRL_SELECT_INIT) {
+		Ctrl_Cpu_InitTile(p_ctrl, p_task);
+	}
+
+	if (p_tile->memStatus == HIT_MS_NOT_OWNER) {
+		p_tile_data->p_device_data = p_parent_data->p_device_data + (p_tile->data - p_parent->data);
 	}
 
 	Ctrl_Cpu_Sync(p_ctrl);

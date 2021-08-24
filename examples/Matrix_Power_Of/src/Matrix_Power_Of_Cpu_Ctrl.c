@@ -18,12 +18,14 @@ CTRL_KERNEL_CHAR(Reset, MANUAL, BLOCKSIZE, BLOCKSIZE);
 
 CTRL_KERNEL(Mult, CPU, DEFAULT, KHitTile_float matrix_result, KHitTile_float matrix_a, KHitTile_float matrix_b,
 {
-	hit(matrix_result, thread_id.x, thread_id.z) += hit(matrix_a, thread_id.x, thread_id.y) * hit(matrix_b, thread_id.y, thread_id.z);
+	// using the same size to address all matrixes for compiler optimization issues
+	int size = hit_tileDimCard(matrix_result, 0);
+	matrix_result.data[thread_id_x * size + thread_id_z] += matrix_a.data[thread_id_x * size + thread_id_y] * matrix_b.data[thread_id_y * size + thread_id_z];
 });
 
 CTRL_KERNEL(Reset, CPU, DEFAULT, KHitTile_float matrix,
 {
-	hit(matrix, thread_id.x, thread_id.y) = 0;
+	hit(matrix, thread_id_x, thread_id_y) = 0;
 });
 
 float RandomFloat(float min, float max) {
@@ -202,12 +204,16 @@ int main(int argc, char *argv[]) {
 		Ctrl_GlobalSync(ctrl);
 		exec_clock = omp_get_wtime() - exec_clock;
 
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
+		/* PRINT RESULTS */
+		#ifdef _CTRL_EXAMPLES_TEST_MODE_
 			for (int i = 0; i < N_ITER; i++) {
 				printf("%lf, %lf, ", p_sum[i], p_res[i]);
 			}
 			fflush(stdout);
-		#else	
+		#elif _CTRL_EXAMPLES_EXP_MODE_
+			printf("%lf, %lf, ", p_sum[N_ITER-1], p_res[N_ITER-1]);
+			fflush(stdout);
+		#else
 			printf("\n ----------------------- NORM ----------------------- \n\n"); fflush(stdout);
 			for (int i = 0; i < N_ITER; i++) {
 				printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]); fflush(stdout);
@@ -216,7 +222,6 @@ int main(int argc, char *argv[]) {
 		#endif
 
 		Ctrl_Free(ctrl, matrix_a, matrix_b, matrix_c, matrix_tmp);
-			
 		Ctrl_Destroy(ctrl);
 	}
 

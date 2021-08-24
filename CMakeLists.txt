@@ -36,8 +36,19 @@ project (Ctrl LANGUAGES C)
 option(SUPPORT_CPU "SUPPORT_CPU" OFF) # Support for CPU Ctrl
 option(SUPPORT_CUDA "SUPPORT_CUDA" OFF) # Support for CUDA Ctrl
 option(SUPPORT_OPENCL_GPU "SUPPORT_OPENCL_GPU" OFF) # Support for OpenCL GPU Ctrl
-option(SUPPORT_OPENCL_GPU_AMD "Use AMD platform" OFF) # Use AMD platform
+option(SUPPORT_OPENCL_GPU_AMD "Use AMD platform" OFF) # Use AMD platform in OpenCL_GPU backend
 option(SUPPORT_FPGA "SUPPORT_FPGA" OFF) # Support for OpenCL FPGA Ctrl
+option(SUPPOPRT_INTEL "SUPPORT_INTEL" ON) # Use Intel platform in FPGA backend
+
+if(SUPPORT_INTEL)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_INTEL_KERNELS")
+endif(SUPPORT_INTEL)
+
+
+# BLAS library support
+option(CUBLAS "CUBLAS" OFF)
+option(MKL "MKL" OFF)
+option(MAGMA "MAGMA" OFF)
 
 # Examples selector
 option(USE_EXPERIMENTATION_EXAMPLES "USE_EXPERIMENTATION_EXAMPLES" OFF) # Short output, easier to parse automatically
@@ -73,7 +84,7 @@ set(OPENCL_GPU_PROFILING_N_WRITE_TASKS "5000") # Numero de tareas de escritura
 set(OPENCL_GPU_PROFILING_N_KERNEL_TASKS "5000") # Numero de tareas de kernels
 
 # Extra options Cuda
-set(CUDA_ERROR_CHECK OFF) # Use assert for all OpenCL operations and error checks
+set(CUDA_ERROR_CHECK ON) # Activate CUDA error checking on kernel launch
 set(CUDA_DEBUG OFF) # Internal debug (Ctrl library)
 set(CUDA_EVENT_DEBUG OFF) # Internal debug (Ctrl library)
 
@@ -96,6 +107,8 @@ option(COMPILE_KERNELS "COMPILE_KERNELS" ON)
 option(COMPILE_CTRL "COMPILE_CTRL" ON)
 option(COMPILE_REF "COMPILE_REF" ON)
 
+option(COMPILE_INTEL "COMPILE_INTEL" ON)
+
 # Extra options Verbose
 if (CTRL_CMAKE_VERBOSE)
     set(CTRL_CMAKE_VERBOSE_MAIN ON) # Debug cmake Main (this)
@@ -105,16 +118,16 @@ endif(CTRL_CMAKE_VERBOSE)
 
 # Common flags and libs
 if(CTRL_DEBUGGER)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -g -O0 -Wall" )
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -O0 -Wall" )
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -g3 -O0 -Wall" )
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g3 -O0 -Wall" )
 else(CTRL_DEBUGGER)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -O3 -Wall -Wno-strict-aliasing " )
-	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -Wall -Wno-strict-aliasing " )
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -O3 -Wall " )
+	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -Wall " )
 endif(CTRL_DEBUGGER)
 
 if(CTRL_DEBUG)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_DEBUG_ -Wall " )
-	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_DEBUG_ -Wall " )
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_DEBUG_ " )
+	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_DEBUG_ " )
 endif(CTRL_DEBUG)
 
 set(CTRL_LIBS ${CTRL_LIBS} -lm)
@@ -164,6 +177,10 @@ endif(OPENMP_FOUND)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lhwloc ")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lhwloc ")
 
+set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} "/opt/ohpc/pub/libs/hwloc/2.1.0/include")
+link_directories("/opt/ohpc/pub/libs/hwloc/2.1.0/lib")
+
+
 # CUDA
 if (SUPPORT_CUDA)
 	enable_language(CUDA)
@@ -210,6 +227,9 @@ endif(USE_EXPERIMENTATION_EXAMPLES)
 
 # Examples
 add_subdirectory(examples)
+
+# Parallel stencil skeleton
+add_subdirectory(ParallelStencilSkeleton)
 
 # Verbose
 if (CTRL_CMAKE_VERBOSE_MAIN)

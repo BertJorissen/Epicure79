@@ -60,8 +60,9 @@ typedef struct Ctrl_Cuda_Tile {
     cudaEvent_t                     host_last_write_event;          /**< Event to sincronyze tasks, represents last read operation on host*/
 
     int                             last_update;                    /**< Information about where the updated data of this tile is located (host, device or both) */
-	int								mem_flags;                      /**< Flags to choose allocation method */
-	bool							is_initialized;                 /**< Flag to check if tile has been initialized */
+    int	                            mem_flags;                      /**< Flags to choose allocation method */
+    bool                            is_initialized;                 /**< Flag to check if tile has been initialized */
+    struct Ctrl_Cuda_Tile           *p_parent_ext;									/**< Pointer to parent's ext field in hierarchical subselections */
 } Ctrl_Cuda_Tile;
 
 /**
@@ -69,7 +70,7 @@ typedef struct Ctrl_Cuda_Tile {
  */
 typedef struct Ctrl_Cuda_Tile_List {
 	Ctrl_Cuda_Tile                *p_tile_ext;
-    struct Ctrl_Cuda_Tile_List    *p_prev;
+  struct Ctrl_Cuda_Tile_List    *p_prev;
 	struct Ctrl_Cuda_Tile_List    *p_next;
 } Ctrl_Cuda_Tile_List;
 ///@endcond

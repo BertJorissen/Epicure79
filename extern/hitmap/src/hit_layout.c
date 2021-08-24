@@ -2635,13 +2635,20 @@ HitRanks	hit_layNeighborRanksFrom(HitLayout self, HitRanks source, int dim, int 
 }
 
 /* 10.6.2. INTERNAL WRAPPER: GENERIC SHIFTED NEIGHBOUR RANKS IN SEVERAL DIMENSIONS */
-HitRanks	hit_layNeighborRanksFromRanks(HitLayout self, HitRanks source, HitRanks shifts) {
+HitRanks hit_layNeighborRanksFromRanks(HitLayout self, HitRanks source, HitRanks shifts) {
 	HitRanks neighbor = source;
 
 	int d;
 	for (d=0; d<hit_shapeDims(hit_layShape(self)); d++) {
+		/* COPY RANKs FOR DIMs ABOVE THE DIMENSIONS IN THE TOPOLOGY */
+		if( d >= self.topo.numDims ) {
+			if ( shifts.rank[d] == 0 )
+				neighbor.rank[d] = self.topo.self.rank[d];
+			else
+				neighbor.rank[d] = HIT_RANK_NULL;
+		}
 		/* SHIFT RANK IN THE DIMENSION */
-		neighbor.rank[d] = hit_layNeighborFrom( self, source.rank[d], d, shifts.rank[d] );
+		else neighbor.rank[d] = hit_layNeighborFrom( self, source.rank[d], d, shifts.rank[d] );
 
 		/* IF ANY RESULTING RANK IS NULL, RETURN NULL RANKS */
 		if ( neighbor.rank[d] == HIT_RANK_NULL ) return HIT_RANKS_NULL;

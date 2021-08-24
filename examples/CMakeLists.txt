@@ -30,7 +30,7 @@ cmake_minimum_required (VERSION 3.17)
 
 # Compilation verbose info
 if (CTRL_CMAKE_VERBOSE_EXAMPLES)
-	set(CTRL_CMAKE_VERBOSE_EXAMPLES_HOTSPOT ON)
+    set(CTRL_CMAKE_VERBOSE_EXAMPLES_HOTSPOT ON)
     set(CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD ON)
     set(CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_POWER_OF ON)
     set(CTRL_CMAKE_VERBOSE_EXAMPLES_SOBEL ON)
@@ -69,3 +69,4 @@ add_subdirectory(Matrix_Add)
 add_subdirectory(Matrix_Power_Of)
 add_subdirectory(hotspot)
 add_subdirectory(Sobel_YUV)
+add_subdirectory(CtrlBlas)

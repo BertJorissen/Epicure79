@@ -531,6 +531,7 @@ printf("Ranks: Lay1: %d, Lay2: %d, Global: %d COM to RLay2: %d, RGlobal: %d\n", 
  */
 #define HIT_PAT_REDISTRIBUTE_TAG	15001
 HitPattern hit_patternLayRedistribute(	HitLayout lay1, HitLayout lay2, void *tileP1, void *tileP2, HitType baseType ) {
+#define DEBUG
 	int i;
 
 	/* 1. CHECK THAT THE TOPOLOGY IS THE SAME IN BOTH LAYOUTS */
@@ -648,6 +649,7 @@ fprintf(stderr, "%s Adding recv from %d to %d with shape %d [%d:%d:%d][%d:%d:%d]
 
 	/* 7. RETURN */
 	return allToAll;
+#undef DEBUG
 }
 
 

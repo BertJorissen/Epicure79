@@ -53,7 +53,7 @@
  * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDA
  */
 #define CTRL_KERNEL_CUDA(name, type, subtype, ...) \
-	extern "C" \
+	C_GUARD \
 	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread threads, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)){ \
 		unsigned int thread_idx = blockIdx.x * blockDim.x + threadIdx.x; \
 		unsigned int thread_idy = blockIdx.y * blockDim.y + threadIdx.y; \
@@ -73,7 +73,9 @@
 		if (thread_idx >= threads.x || thread_idy >= threads.y  \
 			|| thread_idz >= threads.z) \
 			return; \
-		Ctrl_Thread thread_id = { threads.dims, thread_idx,	thread_idy, thread_idz }; \
+		int thread_id_x __attribute__((unused)) = thread_idx; \
+		int thread_id_y __attribute__((unused)) = thread_idy; \
+		int thread_id_z __attribute__((unused)) = thread_idz; \
 		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
 	}
 
@@ -86,10 +88,10 @@
  * @param subtype Subtype of the kernel.
  * @param ... Parameters to the kernel.
  * 
- * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDA
+ * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDA
  */
 #define CTRL_KERNEL_FUNCTION_CUDA(name, type, subtype, ...) \
-	extern "C" \
+	C_GUARD \
 	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread threads, __VA_ARGS__){ \
 		unsigned int thread_idx = blockIdx.x * blockDim.x + threadIdx.x; \
 		unsigned int thread_idy = blockIdx.y * blockDim.y + threadIdx.y; \
@@ -109,7 +111,9 @@
 		if (thread_idx >= threads.x || thread_idy >= threads.y \
 			|| thread_idz >= threads.z) \
 			return; \
-		Ctrl_Thread thread_id = { threads.dims, thread_idx,	thread_idy, thread_idz };
+		int thread_id_x __attribute__((unused)) = thread_idx; \
+		int thread_id_y __attribute__((unused)) = thread_idy; \
+		int thread_id_z __attribute__((unused)) = thread_idz; \
 
 /**
  * Defines the function containing the user provided code for a \e GENERIC type kernel
@@ -126,7 +130,7 @@
 	CTRL_KERNEL_CUDA(name, type, subtype, __VA_ARGS__)
 
 /**
- * Defines the function containing the user provided code for a \e CUDA_LIB type kernel
+ * Defines the function containing the user provided code for a \e CUDALIB type kernel
  * @hideinitializer
  * 
  * @param name Name of the kernel.
@@ -134,13 +138,96 @@
  * @param subtype Subtype of the kernel.
  * @param ... Parameters to the kernel.
  * 
- * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDA_LIB
+ * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDALIB
  */
-#define CTRL_KERNEL_CUDALIB(name, type, subtype, ...) \
-	extern "C" \
-	void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)){ \
-		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
-	}
+#define CTRL_KERNEL_CUDALIB(name, type, subtype, ...) CTRL_KERNEL_CUDALIB_##subtype(name, type, subtype, __VA_ARGS__)
+
+/**
+ * Defines the function containing the user provided code for a \e CUDALIB type kernel
+ * @hideinitializer
+ * 
+ * @param name Name of the kernel.
+ * @param type Type of the kernel.
+ * @param subtype Subtype of the kernel.
+ * @param ... Parameters to the kernel.
+ * 
+ * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDALIB
+ */
+#define CTRL_KERNEL_FUNCTION_CUDALIB(name, type, subtype, ...) CTRL_KERNEL_FUNCTION_CUDALIB_##subtype(name, type, subtype, __VA_ARGS__)
+
+#ifdef _CTRL_CUBLAS_
+	/**
+	 * Defines the function containing the user provided code for a \e CUDALIB_CUBLAS type kernel
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDALIB, CTRL_KERNEL_CUDALIB
+	 */
+	#define CTRL_KERNEL_CUDALIB_CUBLAS(name, type, subtype, ...) \
+		C_GUARD \
+		void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(cublasHandle_t handle, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)){ \
+			CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
+		}
+
+	/**
+	 * Defines the function containing the user provided code for a \e CUDALIB_CUBLAS type kernel
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDALIB, CTRL_KERNEL_CUDALIB
+	 */
+	#define CTRL_KERNEL_FUNCTION_CUDALIB_CUBLAS(name, type, subtype, ...) \
+		C_GUARD \
+		void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(cublasHandle_t handle, __VA_ARGS__)
+#else // _CTRL_CUBLAS_
+	#define CTRL_KERNEL_CUDALIB_CUBLAS(...)
+	#define CTRL_KERNEL_FUNCTION_CUDALIB_CUBLAS(...)
+#endif // _CTRL_CUBLAS_
+
+#ifdef _CTRL_MAGMA_
+	/**
+	 * Defines the function containing the user provided code for a \e CUDALIB_MAGMA type kernel
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDALIB, CTRL_KERNEL_CUDALIB
+	 */
+	#define CTRL_KERNEL_CUDALIB_MAGMA(name, type, subtype, ...) \
+		C_GUARD \
+		void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(magma_queue_t queue, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)){ \
+			CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
+		}
+
+	/**
+	 * Defines the function containing the user provided code for a \e CUDALIB_MAGMA type kernel
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDALIB, CTRL_KERNEL_CUDALIB
+	 */
+	#define CTRL_KERNEL_FUNCTION_CUDALIB_MAGMA(name, type, subtype, ...) \
+		C_GUARD \
+		void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(magma_queue_t queue, __VA_ARGS__)
+#else // _CTRL_MAGMA_
+	#define CTRL_KERNEL_CUDALIB_MAGMA(...)
+	#define CTRL_KERNEL_FUNCTION_CUDALIB_MAGMA(...)
+#endif // _CTRL_MAGMA_
 
 /**
  * Block of code that launches a \e CUDA kernel, this calls to the kernel function defined on either \e CTRL_KERNEL_CUDA or 
@@ -164,7 +251,7 @@
 			&threads, \
 			CTRL_KERNEL_ARG_LIST_ACCESS_KTILE_REF(argsList, __VA_ARGS__) \
 		}; \
-		cudaLaunchKernel((void*)Ctrl_Kernel_Cuda_##type##_##subtype##_##name, grid, block, args, (size_t)0, *(request.cuda.stream)); \
+		cudaLaunchKernel((void*)Ctrl_Kernel_Cuda_##type##_##subtype##_##name, grid, block, args, (size_t)0, *(request.cuda.p_stream)); \
 		CUDA_ERROR(); \
 	};
 
@@ -186,7 +273,7 @@
 	CTRL_KERNEL_WRAP_CUDA(name, argsList, type, subtype, __VA_ARGS__);
 
 /**
- * Block of code that launches a \e CUDA_LIB kernel, this calls directly to the function defined in \e CTRL_KERNEL_CUDA_LIB.
+ * Block of code that launches a \e CUDALIB kernel, this calls the macro for the appropiate subtype wrapper.
  * @hideinitializer
  * 
  * @param name kernel name.
@@ -196,12 +283,53 @@
  * @param ... Parameters to the kernel.
  * 
  * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
- * @see CTRL_KERNEL_CUDA_LIB
+ * @see CTRL_KERNEL_CUDALIB
  */
-#define CTRL_KERNEL_WRAP_CUDALIB(name, argsList, type, subtype, ...) \
-	{ \
-		Ctrl_Kernel_Cuda_##type##_##subtype##_##name(CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__)); \
-	};
+#define CTRL_KERNEL_WRAP_CUDALIB(name, argsList, type, subtype, ...) CTRL_KERNEL_WRAP_CUDALIB_##subtype(name, argsList, type, subtype, __VA_ARGS__)
+
+#ifdef _CTRL_CUBLAS_
+	/**
+	 * Block of code that launches a \e CUDALIB_CUBLAS kernel, this calls the function defined in \e CTRL_KERNEL_CUDALIB.
+	 * @hideinitializer
+	 * 
+	 * @param name kernel name.
+	 * @param argsList list of arguments passed inside task when launching a kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
+	 * @see CTRL_KERNEL_CUDALIB
+	 */
+	#define CTRL_KERNEL_WRAP_CUDALIB_CUBLAS(name, argsList, type, subtype, ...) \
+		{ \
+			Ctrl_Kernel_Cuda_##type##_##subtype##_##name(*(request.cuda.p_cublas_handle), CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__)); \
+		};
+#else // _CTRL_CUBLAS_
+	#define CTRL_KERNEL_WRAP_CUDALIB_CUBLAS(...)
+#endif // _CTRL_CUBLAS_
+
+#ifdef _CTRL_MAGMA_
+	/**
+	 * Block of code that launches a \e CUDALIB_CUBLAS kernel, this calls the function defined in \e CTRL_KERNEL_CUDALIB.
+	 * @hideinitializer
+	 * 
+	 * @param name kernel name.
+	 * @param argsList list of arguments passed inside task when launching a kernel.
+	 * @param type Type of the kernel.
+	 * @param subtype Subtype of the kernel.
+	 * @param ... Parameters to the kernel.
+	 * 
+	 * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
+	 * @see CTRL_KERNEL_CUDALIB
+	 */
+	#define CTRL_KERNEL_WRAP_CUDALIB_MAGMA(name, argsList, type, subtype, ...) \
+		{ \
+			Ctrl_Kernel_Cuda_##type##_##subtype##_##name(*(request.cuda.p_magma_queue), CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__)); \
+		};
+#else // _CTRL_MAGMA_
+	#define CTRL_KERNEL_WRAP_CUDALIB_MAGMA(...)
+#endif // _CTRL_MAGMA_
 
 /**
  * Kernel declaration for host code or header files.
@@ -230,11 +358,45 @@
  * @param n_params Number of arguments recieved by the kernel.
  * @param ... Arguments recieved by the kernel (with roles).
  */
-#define CTRL_KERNEL_DECLARATION_CUDALIB( name, type, subtype, n_params, ... ) \
-	void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ));
-	
-#define CTRL_KERNEL_LAUNCH_POINTERS_CUDA( name, type, subtype, ... ) \
-	void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__));
+#define CTRL_KERNEL_DECLARATION_CUDALIB( name, type, subtype, n_params, ... ) CTRL_KERNEL_DECLARATION_CUDALIB_##subtype(name, type, subtype, n_params, __VA_ARGS__)
+
+#ifdef _CTRL_CUBLAS_
+	/**
+	 * Kernel declaration for host code or header files for \e CUDALIB_CUBLAS type kernels.
+	 * Used to declare the kernel prototype in included header files, as the kernel defintions may be written in a separate file 
+	 * from the host code.
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of this implementation.
+	 * @param subtype Subtype of this implementation.
+	 * @param n_params Number of arguments recieved by the kernel.
+	 * @param ... Arguments recieved by the kernel (with roles).
+	 */
+	#define CTRL_KERNEL_DECLARATION_CUDALIB_CUBLAS( name, type, subtype, n_params, ... ) \
+		void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(cublasHandle_t handle, CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ));
+#else // _CTRL_CUBLAS_
+	#define CTRL_KERNEL_DECLARATION_CUDALIB_CUBLAS(...)
+#endif // _CTRL_CUBLAS_
+
+#ifdef _CTRL_MAGMA_
+	/**
+	 * Kernel declaration for host code or header files for \e CUDALIB_MAGMA type kernels.
+	 * Used to declare the kernel prototype in included header files, as the kernel defintions may be written in a separate file 
+	 * from the host code.
+	 * @hideinitializer
+	 * 
+	 * @param name Name of the kernel.
+	 * @param type Type of this implementation.
+	 * @param subtype Subtype of this implementation.
+	 * @param n_params Number of arguments recieved by the kernel.
+	 * @param ... Arguments recieved by the kernel (with roles).
+	 */
+	#define CTRL_KERNEL_DECLARATION_CUDALIB_MAGMA( name, type, subtype, n_params, ... ) \
+		void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(magma_queue_t queue, CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params( __VA_ARGS__ ));
+#else // _CTRL_MAGMA
+	#define CTRL_KERNEL_DECLARATION_CUDALIB_MAGMA(...)
+#endif // _CTRL_MAGMA_
 
 ///@endcond
 #endif // _CTRL_CUDA_KERNELPROTO_H_

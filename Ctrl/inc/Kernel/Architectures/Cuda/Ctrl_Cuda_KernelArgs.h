@@ -44,10 +44,9 @@
  * 
  * @see KHitTile
  */
-#define CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA(name) 			\
-    case CTRL_TYPE_CUDA: 									\
-        ((KHitTile *)&k_##name)->data = 					\
-            (((Ctrl_Cuda_Tile *)name->ext)->p_device_data); \
+#define CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA(name) \
+    case CTRL_TYPE_CUDA: \
+        k_##name##_void.data =	(((Ctrl_Cuda_Tile *)name->ext)->p_device_data); \
         break;
 
 ///@endcond 

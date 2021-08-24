@@ -61,9 +61,9 @@ void Save_Frame(BYTE *Output_Img[N_IMG], FILE *File_writer, size_t sizes[N_IMG])
 
 Ctrl_NewType(BYTE);
 
-CTRL_KERNEL_CHAR(Sobel_Operation, MANUAL, LOCAL_SIZE_0, LOCAL_SIZE_1);
+CTRL_KERNEL_CHAR(Sobel, MANUAL, LOCAL_SIZE_0, LOCAL_SIZE_1);
 
-CTRL_KERNEL_PROTO(Sobel_Operation, 1, FPGA, DEFAULT, 3, 
+CTRL_KERNEL_PROTO(Sobel, 1, FPGA, DEFAULT, 3, 
 		IN, HitTile_BYTE, frame_in, 
 		OUT, HitTile_BYTE, frame_out, 
 		INVAL, int, iterations
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
 		for (Frame_num = 0; Frame_num < Num_Frames; Frame_num++) {
 
 			for (int i = 0; i < N_IMG; i++) {
-				Ctrl_Launch(ctrl, Sobel_Operation, threads[i], group, Input_Img[i], Output_Img[i], iterations[i]);
+				Ctrl_Launch(ctrl, Sobel, threads[i], group, Input_Img[i], Output_Img[i], iterations[i]);
 			}
 			if (Frame_num + 1 < Num_Frames) {
 				Ctrl_HostTask(ctrl, Load_Frame, Input_Img[IMG_Y], Input_Img[IMG_U], Input_Img[IMG_V], File_reader);

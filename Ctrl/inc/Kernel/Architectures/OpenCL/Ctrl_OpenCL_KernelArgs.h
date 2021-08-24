@@ -47,7 +47,7 @@
     case CTRL_TYPE_OPENCL_GPU : \
         { \
             Ctrl_OpenCL_Tile *p_tile_data = (Ctrl_OpenCL_Tile *)(name->ext); \
-            ((KHitTile *) &k_##name)->data = (void *)(&(p_tile_data->device_data)); \
+            k_##name##_void.data = (void *)(&(p_tile_data->device_data)); \
         } \
         break;
 

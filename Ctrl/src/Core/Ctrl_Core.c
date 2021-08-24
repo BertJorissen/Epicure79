@@ -94,7 +94,7 @@ void Ctrl_AddTask(Ctrl *p_ctrl, Ctrl_TaskType type, HitTile *p_tile);
  * @param p_tile tile to place inside the task. This can be null for certain task's type.
  * @param flags flags to pass to the task.
  * 
- * @see Ctrl_ExecTask, Ctrl_ConsumeTaskQueue, Ctrl_TaskQueue_Push, Ctrl_AllocInner
+ * @see Ctrl_ExecTask, Ctrl_ConsumeTaskQueue, Ctrl_TaskQueue_Push, Ctrl_AllocInner, Ctrl_SelectInner
  */
 void Ctrl_AddTaskFlagged(Ctrl *p_ctrl, Ctrl_TaskType type, HitTile *p_tile, int flags);
 
@@ -103,7 +103,7 @@ void Ctrl_AddTaskFlagged(Ctrl *p_ctrl, Ctrl_TaskType type, HitTile *p_tile, int 
  * 
  * @param p_task task to evaluate.
  * 
- * @see Ctrl_Thread_HostTaskThread
+ * @see Ctrl_Thread_HostTask_Thread
  */
 void Ctrl_EvalTask(Ctrl_Task *p_task);
 
@@ -123,7 +123,7 @@ void Ctrl_Sync(Ctrl *p_ctrl);
 void Ctrl_SyncIfSync(Ctrl *p_ctrl);
 
 /**
- * Function for extra threads for ctrls. If extra threads are needed for a ctrl, this function takes the spawner thread created 
+ * Function for extra threads for ctrls. If extra threads are needed for a ctrl, this function takes the spawner thread created
  * and divides it and distributes it as needed depending on the configuration of \e Ctrl_global.
  * 
  * @see Ctrl_Thread_Init
@@ -135,7 +135,7 @@ void Ctrl_Thread_EvalThread();
  * 
  * @see Ctrl_Thread_Init, Ctrl_EvalTask
  */
-void Ctrl_Thread_HostTaskThread();
+void Ctrl_Thread_HostTask_Thread();
 
 /**
  * Calculates the number of threads needed for \p p_ctrl.
@@ -166,7 +166,7 @@ int Ctrl_Thread_Init() {
 		if (obj){
 		   hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
 		}
-		Ctrl_Thread_HostTaskThread();
+		Ctrl_Thread_HostTask_Thread();
 		#ifdef _CTRL_QUEUE_
 		#pragma omp barrier
 		#endif //_CTRL_QUEUE_
@@ -182,7 +182,7 @@ int Ctrl_Thread_Init() {
 	return 1;
 }
 
-void Ctrl_Thread_HostTaskThread(){
+void Ctrl_Thread_HostTask_Thread(){
 	// Create host task queue
 	p_ctrl_host_stream=(Ctrl_TaskQueue *)malloc(sizeof(Ctrl_TaskQueue));
 	Ctrl_TaskQueue_Init(p_ctrl_host_stream);
@@ -208,7 +208,7 @@ void Ctrl_Thread_HostTaskThread(){
 			// free stuff inside task
 			if (p_task->task_type != CTRL_TASK_TYPE_HOST){
 				Ctrl_TaskQueue_FreeTask(p_task);
-			}      
+			}	
 		}
 	}
 	// Destroy queue (clean up)
@@ -301,11 +301,11 @@ void Ctrl_CreateWrapper(Ctrl_Type type, Ctrl *p_ctrl, Ctrl_Policy policy) {
 }
 
 #ifdef _CTRL_ARCH_FPGA_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_FPGA(Ctrl_Policy policy, int device, int platform, int exec_mode) {
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_FPGA(Ctrl_Policy policy, int device, int platform, int exec_mode, int streams) {
 		Ctrl_CreateWrapper(CTRL_TYPE_FPGA, &Ctrl_global, policy);
 
 		PCtrl p_ctrl = &Ctrl_global;
-		Ctrl_FPGA_Create((&(p_ctrl->p_impl->fpga)), policy, device, platform, exec_mode );
+		Ctrl_FPGA_Create((&(p_ctrl->p_impl->fpga)), policy, device, platform, exec_mode, streams);
 		#ifdef _CTRL_QUEUE_
 		p_ctrl->p_impl->fpga.p_lock_first_host = p_ctrl->p_lock_first_host;
 		p_ctrl->p_impl->fpga.p_lock_first_ctrl = p_ctrl->p_lock_first_ctrl;
@@ -321,11 +321,11 @@ void Ctrl_CreateWrapper(Ctrl_Type type, Ctrl *p_ctrl, Ctrl_Policy policy) {
 	}
 #endif //_CTRL_ARCH_FPGA_
 #ifdef _CTRL_ARCH_OPENCL_GPU_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(Ctrl_Policy policy, int device, int platform) {
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(Ctrl_Policy policy, int device, int platform, int streams) {
 		Ctrl_CreateWrapper(CTRL_TYPE_OPENCL_GPU, &Ctrl_global, policy);
 
 		PCtrl p_ctrl = &Ctrl_global;
-		Ctrl_OpenCLGpu_Create((&(p_ctrl->p_impl->opencl_gpu)), policy, device, platform);
+		Ctrl_OpenCLGpu_Create((&(p_ctrl->p_impl->opencl_gpu)), policy, device, platform, streams);
 		#ifdef _CTRL_QUEUE_
 		p_ctrl->p_impl->opencl_gpu.p_lock_first_host = p_ctrl->p_lock_first_host;
 		p_ctrl->p_impl->opencl_gpu.p_lock_first_ctrl = p_ctrl->p_lock_first_ctrl;
@@ -341,11 +341,11 @@ void Ctrl_CreateWrapper(Ctrl_Type type, Ctrl *p_ctrl, Ctrl_Policy policy) {
 	}
 #endif //_CTRL_ARCH_OPENCL_GPU_
 #ifdef _CTRL_ARCH_CUDA_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CUDA(Ctrl_Policy policy, int device) {
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CUDA(Ctrl_Policy policy, int device, int streams) {
 		Ctrl_CreateWrapper(CTRL_TYPE_CUDA, &Ctrl_global, policy);
 
 		PCtrl p_ctrl = &Ctrl_global;
-		Ctrl_Cuda_Create((&(p_ctrl->p_impl->cuda)), policy, device);
+		Ctrl_Cuda_Create((&(p_ctrl->p_impl->cuda)), policy, device, streams);
 		#ifdef _CTRL_QUEUE_
 		p_ctrl->p_impl->cuda.p_lock_first_host = p_ctrl->p_lock_first_host;
 		p_ctrl->p_impl->cuda.p_lock_first_ctrl = p_ctrl->p_lock_first_ctrl;
@@ -361,7 +361,7 @@ void Ctrl_CreateWrapper(Ctrl_Type type, Ctrl *p_ctrl, Ctrl_Policy policy) {
 	}
 #endif //_CTRL_ARCH_CUDA_
 #ifdef _CTRL_ARCH_CPU_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CPU(Ctrl_Policy policy, int n_threads, int *p_numa_nodes, int n_numa_nodes, bool mem_moves){
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CPU(Ctrl_Policy policy, int n_threads, int *p_numa_nodes, int n_numa_nodes, bool mem_moves) {
 		Ctrl_CreateWrapper(CTRL_TYPE_CPU, &Ctrl_global, policy);
 
 		PCtrl p_ctrl = &Ctrl_global;
@@ -429,7 +429,7 @@ void Ctrl_ExecTask(Ctrl *p_ctrl, Ctrl_Task *p_task){
 				break;
 		#endif // _CTRL_ARCH_FPGA_
 			default:
-				fprintf(stderr, "Ctrl_ExecTask: Not supported architecture. Recompile Ctrl library with the proper support.\n");
+				fprintf(stderr, "Ctrl_ExecTask: Unsupported architecture. Recompile Ctrl library with the proper support.\n");
 				exit(EXIT_FAILURE);
 	}
 	#ifdef _CTRL_QUEUE_
@@ -549,7 +549,7 @@ void Ctrl_GlobalSync(Ctrl *p_ctrl) {
 }
 
 void Ctrl_AllocInner(Ctrl *p_ctrl, HitTile *p_tile, int flags) {
-	/* UPDATES FOR SHADOW COPIES, OR ALLOCATION OF NO-MEMORY VARIABLES */
+	/* UPDATES FOR SHADOW COPIES, OR ALLOCATION OF SELECTIONS OF NO-MEMORY VARIABLES */
 	// ADJUST ORIG_ACUM_CARD TO CARDINALITIES TO TRANSFORM ON MEMORY_OWNER, AS IN HITMAP
 	if ( (p_tile->memStatus == HIT_MS_NOT_OWNER) || (p_tile->memStatus == HIT_MS_NOMEM) ) {
 			/* 3.1. NEW STRIDES TO ACCESS ARE ALWAYS 1 */
@@ -569,7 +569,31 @@ void Ctrl_AllocInner(Ctrl *p_ctrl, HitTile *p_tile, int flags) {
 			p_tile->acumCard = p_tile->origAcumCard[0];
 	}
 	p_tile->memStatus = HIT_MS_OWNER;
+
+	// RE-ADJUST TO PITCHED CARDINALITIES
+#ifdef ALIGNED_SIZE
+	// TODO: Check if this works. This code was written by Arturo.
+	//  Manu 04/2021
+	int dims = hit_tileDims( *p_tile);
+	if ( dims > 1 ) {
+		size_t toPitch = p_tile->card[dims - 1] * p_tile->baseExtent;
+
+		toPitch = ( ( toPitch + ALIGNED_SIZE - 1) / ALIGNED_SIZE ) * ALIGNED_SIZE / p_tile->baseExtent;
+		p_tile->origAcumCard[dims - 1] = toPitch;
+		for (int i = dims - 2; i >= 0; i--) {
+			toPtich *= p_tile->card[1];
+			p_tile->origAcumCard[i] = toPitch;
+		}
+	}
+#endif
+
 	Ctrl_AddTaskFlagged(p_ctrl, CTRL_TASK_TYPE_ALLOCTILE, p_tile, flags);
+
+	Ctrl_Sync(p_ctrl);
+}
+
+void Ctrl_SelectInner(Ctrl *p_ctrl, HitTile *p_tile, int flags) {
+	Ctrl_AddTaskFlagged(p_ctrl, CTRL_TASK_TYPE_SELECTTILE, p_tile, flags);
 
 	Ctrl_Sync(p_ctrl);
 }
@@ -604,17 +628,17 @@ void Ctrl_WaitTileInner(Ctrl *p_ctrl, HitTile *p_tile) {
 	Ctrl_Sync(p_ctrl);
 }
 
-void Ctrl_Hosttask_Sync(){
-	Ctrl_TaskQueue_Syncronize(p_ctrl_host_stream);
+void Ctrl_Hosttask_Sync() {
+	Ctrl_TaskQueue_Synchronize(p_ctrl_host_stream);
 }
 
-void Ctrl_Sycnhronize(){
+void Ctrl_Synchronize() {
 	Ctrl_GlobalSync(&Ctrl_global);
 	Ctrl_Hosttask_Sync();
 }
 
-void Ctrl_SetHostAffinity(int node){
-	host_node=node;
+void Ctrl_SetHostAffinity(int node) {
+	host_node = node;
 }
 
 void Ctrl_SetDependanceMode(Ctrl *p_ctrl, int mode){
@@ -624,51 +648,51 @@ void Ctrl_SetDependanceMode(Ctrl *p_ctrl, int mode){
 
 int Ctrl_Dev(Ctrl_Type type, int* avail_impls, int n_impl) {
 	int result = -1;
-	switch (type) {
-		case CTRL_TYPE_CPU:
-			for (int i = 0; i < n_impl; i++) {
-				if (avail_impls[i] > result && 
-					( CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], CPU) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], CPULIB) )) {
-					result = avail_impls[i];
-				}
+	for (int i = 0; i < n_impl; i++) {
+		if ( avail_impls[i] > result ) {
+			switch (type) {
+				case CTRL_TYPE_CPU:
+					if ( CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || CTRL_IMPL_IN_RANGE(avail_impls[i], CPU) ) {
+						result = avail_impls[i];
+					}
+					#ifdef _CTRL_MKL_
+						else if (avail_impls[i] == CPULIB_MKL) {
+							result = avail_impls[i];
+						}
+					#endif // _CTRL_MKL_
+					break;
+				case CTRL_TYPE_CUDA:
+					if ( CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || CTRL_IMPL_IN_RANGE(avail_impls[i], CUDA) ) {
+						result = avail_impls[i];
+					}
+					#ifdef _CTRL_CUBLAS_
+						else if (avail_impls[i] == CUDALIB_CUBLAS) {
+							result = avail_impls[i];
+						}
+					#endif // _CTRL_CUBLAS_ 
+					#ifdef _CTRL_MAGMA_
+						else if (avail_impls[i] == CUDALIB_MAGMA) {
+							result = avail_impls[i];
+						}
+					#endif // _CTRL_MAGMA_ 
+					break;
+				case CTRL_TYPE_OPENCL_GPU:
+					if ( CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || CTRL_IMPL_IN_RANGE(avail_impls[i], OPENCLGPU) ) {
+						result = avail_impls[i];
+					}
+					break;
+				case CTRL_TYPE_FPGA:
+					if ( CTRL_IMPL_IN_RANGE(avail_impls[i], FPGA) ) {
+						result = avail_impls[i];
+					}
+					break;
 			}
-			break;
-		case CTRL_TYPE_CUDA:
-			for (int i = 0; i < n_impl; i++) {
-				if (avail_impls[i] > result && 
-					( CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], CUDA) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], CUDALIB) )) {
-					result = avail_impls[i];
-				}
-			}
-			break;
-		case CTRL_TYPE_OPENCL_GPU:
-			for (int i = 0; i < n_impl; i++) {
-				if (avail_impls[i] > result && 
-					( CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], OPENCLGPU) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], OPENCLGPULIB) )) {
-					result = avail_impls[i];
-				}
-			}
-			break;
-		case CTRL_TYPE_FPGA:
-			for (int i = 0; i < n_impl; i++) {
-				if (avail_impls[i] > result && 
-					( CTRL_IMPL_IN_RANGE(avail_impls[i], FPGA) || 
-					CTRL_IMPL_IN_RANGE(avail_impls[i], FPGALIB) )) {
-					result = avail_impls[i];
-				}
-			}
-			break;
+		}
 	}
 	return result;
 }
 
-void Ctrl_EvalTask(Ctrl_Task *p_task){
+void Ctrl_EvalTask(Ctrl_Task *p_task) {
 	// Evaluation of task
 	switch ( p_task->task_type ) {
 		case CTRL_TASK_TYPE_HOST: 
@@ -691,7 +715,7 @@ void Ctrl_EvalTask(Ctrl_Task *p_task){
 }
 
 /* returns the number of threads p_ctrl will need */
-int Ctrl_GetNumThreads(Ctrl *p_ctrl){
+int Ctrl_GetNumThreads(Ctrl *p_ctrl) {
 	#ifdef _CTRL_QUEUE_
 		int default_num_threads= 1;
 	#else
@@ -708,4 +732,5 @@ int Ctrl_GetNumThreads(Ctrl *p_ctrl){
 		return default_num_threads;
 	}
 }
+
 ///@endcond

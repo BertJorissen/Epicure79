@@ -431,14 +431,16 @@ int main (int argc, char *argv[]) {
 		} // omp single
 	} // omp parallel 
 
-	/* CALCULATION OF RESULTS */
-
-	#ifdef _CTRL_EXAMPLES_EXP_MODE_
+	/* PRINT RESULTS */
+	#ifdef _CTRL_EXAMPLES_TEST_MODE_
 		for (int i = 0; i < N_ITER; i++) {
 			printf("%lf, %lf, ", p_sum[i], p_res[i]);
 		}
 		fflush(stdout);
-	#else // _CTRL_EXAMPLES_EXP_MODE_
+	#elif _CTRL_EXAMPLES_EXP_MODE_
+		printf("%lf, %lf, ", p_sum[N_ITER-1], p_res[N_ITER-1]);
+		fflush(stdout);
+	#else
 		printf("\n ---------------------- RESULT ---------------------- \n");
 		for (int i = 0; i < N_ITER; i++) {
 			printf("\n iter: %d, Sum: %lf, Res: %lf", i, p_sum[i], p_res[i]);

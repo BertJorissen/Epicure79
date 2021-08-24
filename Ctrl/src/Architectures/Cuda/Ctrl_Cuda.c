@@ -51,7 +51,7 @@ void Ctrl_Cuda_Sync(Ctrl_Cuda *p_ctrl);
  * 
  * @param p_task Task to be executed.
  */
-void Ctrl_Cuda_LaunchHost(void* p_task);
+void Ctrl_Cuda_LaunchHost(void *p_task);
 
 /**
  * Allocate memory for a new \e Ctrl_Cuda_Tile.
@@ -71,6 +71,7 @@ void Ctrl_Cuda_CreateTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
  * initialized.
  */
 void Ctrl_Cuda_InitTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
+
 
 /**
  * Perform memory transfer from host to device.
@@ -142,6 +143,7 @@ void Ctrl_Cuda_EvalTaskGlobalSync(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
  */ 
 void Ctrl_Cuda_EvalTaskDomainTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
 
+
 /**
  * Evaluation of allocation of tiles.
  * 
@@ -151,6 +153,16 @@ void Ctrl_Cuda_EvalTaskDomainTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
  * @see Ctrl_Cuda_EvalTask, Ctrl_Alloc
  */
 void Ctrl_Cuda_EvalTaskAllocTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
+
+/**
+ * Evaluation of subselecting tiles.
+ *
+ * @param p_ctrl: Ctrl in charge of task.
+ * @param p_task: task to be evaluated.
+ *
+ * @see Ctrl_Cuda_EvalTask, Ctrl_Select
+ */
+void Ctrl_Cuda_EvalTaskSelectTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
 
 /**
  * Evaluation of freeing of tiles.
@@ -212,9 +224,15 @@ void Ctrl_Cuda_NewThreadSetup(Ctrl_Cuda *p_ctrl) {
     CUDA_OP( cudaSetDevice(p_ctrl->device) );
 }
 
-void Ctrl_Cuda_Create(Ctrl_Cuda *p_ctrl, Ctrl_Policy policy, int device) {
+void Ctrl_Cuda_Create(Ctrl_Cuda *p_ctrl, Ctrl_Policy policy, int device, int streams) {
 	p_ctrl->policy = policy;
-    p_ctrl->device = device;
+	p_ctrl->device = device;
+	p_ctrl->n_kernel_streams = streams <= 0 ? 1 : streams;
+	if (streams <= 0) {
+		fprintf(stderr, "[Ctrl_Cuda] Warning: Tried to create Cuda Ctrl with less than one stream; defaulting to 1.");
+		fflush(stderr);
+	}
+	p_ctrl->kernel_streams = (cudaStream_t *)malloc(p_ctrl->n_kernel_streams * sizeof(cudaStream_t));
 	p_ctrl->dependance_mode = CTRL_MODE_IMPLICIT;
 	p_ctrl->default_alloc_mode = CTRL_MEM_PINNED;
 
@@ -224,10 +242,26 @@ void Ctrl_Cuda_Create(Ctrl_Cuda *p_ctrl, Ctrl_Policy policy, int device) {
 	p_ctrl->p_tile_list_head = NULL;
 	p_ctrl->p_tile_list_tail = NULL;
 
-    CUDA_OP( cudaStreamCreateWithFlags(&(p_ctrl->stream_kernel), cudaStreamNonBlocking) );
-    CUDA_OP( cudaStreamCreateWithFlags(&(p_ctrl->stream_host), cudaStreamNonBlocking) );
+	// Init CUDA streams
+	for (int i = 0; i < p_ctrl->n_kernel_streams; i++) {
+		CUDA_OP( cudaStreamCreateWithFlags(&(p_ctrl->kernel_streams[i]), cudaStreamNonBlocking) );
+	}
+	CUDA_OP( cudaStreamCreateWithFlags(&(p_ctrl->stream_host), cudaStreamNonBlocking) );
 
 	CUDA_OP( cudaEventCreateWithFlags(&(p_ctrl->event_seq), cudaEventDisableTiming) );
+
+	#ifdef _CTRL_CUBLAS_
+		cublasCreate(&(p_ctrl->cublas_handle));
+		cublasSetStream(p_ctrl->cublas_handle, p_ctrl->stream_kernel);
+	#endif // _CTRL_CUBLAS_	
+
+	#ifdef _CTRL_MAGMA_
+		magma_init();
+		magma_setdevice(p_ctrl->device);
+		cudaDeviceSynchronize();
+		// TODO @sergioalo reuse cublas handle if both are active???
+		magma_queue_create_from_cuda(p_ctrl->device, p_ctrl->stream_kernel, NULL, NULL, &p_ctrl->magma_queue);
+	#endif // _CTRL_MAGMA_
 }
 
 void Ctrl_Cuda_EvalTask(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
@@ -246,6 +280,9 @@ void Ctrl_Cuda_EvalTask(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 			break;
 		case CTRL_TASK_TYPE_DOMAINTILE:
 			Ctrl_Cuda_EvalTaskDomainTile(p_ctrl, p_task);
+			break;
+		case CTRL_TASK_TYPE_SELECTTILE:
+			Ctrl_Cuda_EvalTaskSelectTile(p_ctrl, p_task);
 			break;
 		case CTRL_TASK_TYPE_FREETILE:
 			Ctrl_Cuda_EvalTaskFreeTile(p_ctrl, p_task);
@@ -266,8 +303,36 @@ void Ctrl_Cuda_EvalTask(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 			Ctrl_Cuda_EvalTaskSetDependanceMode(p_ctrl, p_task);
 			break;
 		default:
-			fprintf(stderr, "[Ctrl_Cuda] Unsupported task type:%d.\n", p_task->task_type);
+			fprintf(stderr, "[Ctrl_Cuda] Unsupported task type: %d.\n", p_task->task_type); fflush(stderr);
 			exit(EXIT_FAILURE);
+	}
+}
+
+bool Ctrl_Cuda_IsArchCompatible(Ctrl_Cuda *p_ctrl, Ctrl_ImplType arch) {
+	struct cudaDeviceProp prop;
+	cudaGetDeviceProperties(&prop, p_ctrl->device);
+	int devArch = 10 * prop.major + prop.minor;
+
+	switch (arch) {
+		case CUDA_DEFAULT:
+			return true;
+		case CUDA_FERMI:
+			return devArch >= 20;
+		case CUDA_KEPLER:
+			return devArch >= 30;
+		case CUDA_MAXWELL:
+			return devArch >= 50;
+		case CUDA_PASCAL:
+			return devArch >= 60;
+		case CUDA_VOLTA:
+			return devArch >= 70;
+		case CUDA_TURING:
+			return devArch >= 75;
+		case CUDA_AMPERE:
+			return devArch >= 80;
+		default:
+			fprintf(stderr, "[Ctrl_Cuda] Unknown CUDA architecture: %d.\n", arch); fflush(stderr);
+			return false;
 	}
 }
 
@@ -275,7 +340,7 @@ void Ctrl_Cuda_EvalTask(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
  ******* Private functions *******
  *********************************/
 
-void Ctrl_Cuda_LaunchHost(void* p_task){
+void Ctrl_Cuda_LaunchHost(void* p_task) {
 	//push task to host queue
 	Ctrl_TaskQueue_Push(p_ctrl_host_stream, *(Ctrl_Task*)p_task);
 	free(p_task);
@@ -310,6 +375,8 @@ void Ctrl_Cuda_CreateTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	if (p_tile->ref != NULL) ((Ctrl_Cuda_Tile *)(p_tile->ref->ext))->last_update = CTRL_TILE_LAST_UPDATE_DEV;
 
 	p_tile->ext = (void *)p_tile_data;
+
+	p_tile_data->p_parent_ext = NULL;
 
 	p_tile_data->is_initialized = false;
 }
@@ -360,7 +427,7 @@ void Ctrl_Cuda_EvalTaskMoveToInner(Ctrl_Cuda *p_ctrl, HitTile *p_tile) {
 	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
 		CUDA_OP( cudaStreamWaitEvent(p_tile_data->stream, p_ctrl->event_seq, 0) );
 	}
-
+	
 	/* @arturo TODO: STRIDED TILES */
 
 	//Send memcpy to cuda stream
@@ -472,7 +539,7 @@ void Ctrl_Cuda_EvalTaskMoveFromInner(Ctrl_Cuda *p_ctrl, HitTile *p_tile) {
 				p_tile_data->stream
 			)
 		);
-}
+	}
 	/* CONTIGUOUS 3D TILES */
 	else if (p_tile->shape.info.sig.numDims == 3) {		
 		struct cudaMemcpy3DParms params = { 0 };
@@ -519,11 +586,22 @@ void Ctrl_Cuda_Destroy(Ctrl_Cuda *p_ctrl) {
 	p_ctrl->p_tile_list_head = NULL;
 	p_ctrl->p_tile_list_tail = NULL;
 
-	CUDA_OP( cudaStreamDestroy(p_ctrl->stream_kernel) );
-    CUDA_OP( cudaStreamDestroy(p_ctrl->stream_host) );
+	for (int i = 0; i < p_ctrl->n_kernel_streams; i++) {
+		CUDA_OP( cudaStreamDestroy(p_ctrl->kernel_streams[i]) );
+	}
+	CUDA_OP( cudaStreamDestroy(p_ctrl->stream_host) );
 
 	CUDA_OP( cudaEventDestroy(p_ctrl->event_seq) );
 
+	#ifdef _CTRL_CUBLAS_
+	cublasDestroy(p_ctrl->cublas_handle);
+	#endif // _CTRL_CUBLAS_	
+
+	#ifdef _CTRL_MAGMA_
+	magma_queue_destroy(p_ctrl->magma_queue);
+	magma_finalize();
+	#endif // _CTRL_MAGMA_
+	
 	//send destroy task to host task stream
 	Ctrl_Task task=CTRL_TASK_NULL;
 	task.task_type=CTRL_TASK_TYPE_DESTROYCNTRL;
@@ -536,6 +614,14 @@ void Ctrl_Cuda_EvalTaskGlobalSync(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 }
 
 void Ctrl_Cuda_EvalTaskKernelLaunch(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
+	// Check if the specified stream exists:
+	if (p_task->stream < 0 || p_task->stream >= p_ctrl->n_kernel_streams) {
+		fprintf(stderr, "[Ctrl_Cuda] Internal Error: Tried to execute a task on a nonexistent stream: %d", p_task->stream); fflush(stderr);
+		exit(EXIT_FAILURE);
+	}
+
+	cudaStream_t stream_kernel = p_ctrl->kernel_streams[p_task->stream];
+
 	//wait for appropiate events from arguments according to their role
 	for (int i = 0; i < p_task->n_arguments; i++) {
 		if (p_task->p_roles[i] != KERNEL_INVAL) {
@@ -557,27 +643,35 @@ void Ctrl_Cuda_EvalTaskKernelLaunch(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 
 			p_ktile->data = p_tile_data->p_device_data;
 
-			CUDA_OP( cudaStreamWaitEvent(p_ctrl->stream_kernel, p_tile_data->kernel_last_write_event, 0) );
-			CUDA_OP( cudaStreamWaitEvent(p_ctrl->stream_kernel, p_tile_data->offloading_last_write_event, 0) );
+			CUDA_OP( cudaStreamWaitEvent(stream_kernel, p_tile_data->kernel_last_write_event, 0) );
+			CUDA_OP( cudaStreamWaitEvent(stream_kernel, p_tile_data->offloading_last_write_event, 0) );
 
 			if (p_task->p_roles[i] != KERNEL_IN) {
-				CUDA_OP( cudaStreamWaitEvent(p_ctrl->stream_kernel, p_tile_data->kernel_last_read_event, 0) );
-				CUDA_OP( cudaStreamWaitEvent(p_ctrl->stream_kernel, p_tile_data->offloading_last_read_event, 0) );
+				CUDA_OP( cudaStreamWaitEvent(stream_kernel, p_tile_data->kernel_last_read_event, 0) );
+				CUDA_OP( cudaStreamWaitEvent(stream_kernel, p_tile_data->offloading_last_read_event, 0) );
 			}
 		}
 	}
 
 	//wait for previous task to finish if policy is sync
 	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		CUDA_OP( cudaStreamWaitEvent(p_ctrl->stream_kernel, p_ctrl->event_seq, 0) );
+		CUDA_OP( cudaStreamWaitEvent(stream_kernel, p_ctrl->event_seq, 0) );
 	}
 
 	//create request with info for kernel execution
 	Ctrl_Request request;
-	request.cuda.stream = &(p_ctrl->stream_kernel);
+	request.cuda.p_stream = &stream_kernel;
+
+	#ifdef _CTRL_CUBLAS_
+	request.cuda.p_cublas_handle = &(p_ctrl->cublas_handle);
+	#endif // _CTRL_CUBLAS_	
+
+	#ifdef _CTRL_MAGMA_
+	request.cuda.p_magma_queue = &(p_ctrl->magma_queue);
+	#endif // _CTRL_MAGMA_	
 	
 	//Launch kernel to CUDA kernel stream
-	p_task->pfn_kernel_wrapper(request, p_task->device_id, p_task->threads, p_task->blocksize, p_task->p_arguments);
+	p_task->pfn_kernel_wrapper(request, p_task->device_id, CTRL_TYPE_CUDA, p_task->threads, p_task->blocksize, p_task->p_arguments);
 
 	//update events on arguments according to their roles
 	for (int i = 0; i < p_task->n_arguments; i++) {
@@ -587,17 +681,17 @@ void Ctrl_Cuda_EvalTaskKernelLaunch(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 
 			if (p_task->p_roles[i] != KERNEL_IN) {
 				p_tile_data->last_update = CTRL_TILE_LAST_UPDATE_DEV;
-				CUDA_OP( cudaEventRecord(p_tile_data->kernel_last_write_event, p_ctrl->stream_kernel) );
+				CUDA_OP( cudaEventRecord(p_tile_data->kernel_last_write_event, stream_kernel) );
 			}
 
 			if (p_task->p_roles[i] != KERNEL_OUT) {
-				CUDA_OP( cudaEventRecord(p_tile_data->kernel_last_read_event, p_ctrl->stream_kernel) );
+				CUDA_OP( cudaEventRecord(p_tile_data->kernel_last_read_event, stream_kernel) );
 			}
 		}
 	}
 
 	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		CUDA_OP( cudaEventRecord(p_ctrl->event_seq, p_ctrl->stream_kernel) );
+		CUDA_OP( cudaEventRecord(p_ctrl->event_seq, stream_kernel) );
 	}
 }
 
@@ -672,9 +766,8 @@ void Ctrl_Cuda_EvalTaskAllocTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	HitTile *p_tile = (HitTile *)(p_task->p_tile);
 	Ctrl_Cuda_Tile *p_tile_data = (Ctrl_Cuda_Tile *)(p_tile->ext);
 
-	if ( ! (p_tile_data->is_initialized) ) {
+	if ( ! (p_tile_data->is_initialized) )
 		Ctrl_Cuda_InitTile(p_ctrl, p_task);
-	}
 
 	p_tile_data->mem_flags = p_task->flags;
 
@@ -702,6 +795,35 @@ void Ctrl_Cuda_EvalTaskAllocTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	Ctrl_Cuda_Sync(p_ctrl);
 }
 
+void Ctrl_Cuda_EvalTaskSelectTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
+	Ctrl_Cuda_CreateTile(p_ctrl, p_task);
+
+	HitTile *p_tile = (HitTile *)(p_task->p_tile);
+
+	// @arturo: Bug, select tasks for NULL Tiles should not be introduced in the queue
+	if ( hit_tileIsNull( *p_tile ) ) {
+		Ctrl_Cuda_Sync(p_ctrl);
+		return;
+	}
+
+	HitTile *p_parent = p_tile->ref;
+
+	Ctrl_Cuda_Tile *p_tile_data = (Ctrl_Cuda_Tile *)(p_tile->ext);
+
+	p_tile_data->p_parent_ext = ((Ctrl_Cuda_Tile *)(p_tile->ref->ext));
+
+	Ctrl_Cuda_Tile *p_parent_data = p_tile_data->p_parent_ext;
+
+	if ((p_task->flags & CTRL_SELECT_INIT) == CTRL_SELECT_INIT) {
+		Ctrl_Cuda_InitTile(p_ctrl, p_task);
+	}
+
+	if (p_tile->memStatus == HIT_MS_NOT_OWNER) {
+		p_tile_data->p_device_data = p_parent_data->p_device_data + (p_tile->data - p_parent->data);
+	}
+	Ctrl_Cuda_Sync(p_ctrl);
+}
+
 void Ctrl_Cuda_EvalTaskFreeTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	HitTile *p_tile = (HitTile *)(p_task->p_tile);
 	Ctrl_Cuda_Tile *p_tile_data = (Ctrl_Cuda_Tile *)(p_tile->ext);
@@ -710,12 +832,12 @@ void Ctrl_Cuda_EvalTaskFreeTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 		//Wait for all work related to this tile to finish 
 		CUDA_OP( cudaEventSynchronize(p_tile_data->kernel_last_read_event) );
 		CUDA_OP( cudaEventSynchronize(p_tile_data->kernel_last_write_event) );
-
+		
 		CUDA_OP( cudaEventSynchronize(p_tile_data->offloading_last_read_event) );
 		CUDA_OP( cudaEventSynchronize(p_tile_data->offloading_last_write_event) );
-
+		
 		CUDA_OP( cudaEventSynchronize(p_tile_data->host_last_read_event) );
-		CUDA_OP( cudaEventSynchronize(p_tile_data->host_last_write_event) );
+		CUDA_OP( cudaEventSynchronize(p_tile_data->host_last_write_event) );                      		
 
 		//destroy cuda streams and events inside the tile
 		CUDA_OP( cudaEventDestroy(p_tile_data->kernel_last_read_event) );
@@ -727,7 +849,7 @@ void Ctrl_Cuda_EvalTaskFreeTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 		CUDA_OP( cudaEventDestroy(p_tile_data->host_last_read_event) );
 		CUDA_OP( cudaEventDestroy(p_tile_data->host_last_write_event) );
 
-		CUDA_OP( cudaStreamDestroy(p_tile_data->stream) );
+ 		CUDA_OP( cudaStreamDestroy(p_tile_data->stream) );
 
 		//Remove tle from tile linked list 
 		if (p_tile_data->p_tile_elem->p_prev != NULL) {
@@ -748,6 +870,7 @@ void Ctrl_Cuda_EvalTaskFreeTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 			}
 		}
 
+	
 		//Clear node fields
 		p_tile_data->p_tile_elem->p_tile_ext = NULL;
 		p_tile_data->p_tile_elem->p_next = NULL;
@@ -757,6 +880,7 @@ void Ctrl_Cuda_EvalTaskFreeTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 		free(p_tile_data->p_tile_elem);
 	}
 
+	//Free host image of the tile, equivalent to hit_tileFree(*p_tile);
 	if (p_tile->memStatus == HIT_MS_OWNER) {
 		if ( (p_tile_data->mem_flags & CTRL_MEM_PINNED) || (!(p_tile_data->mem_flags & CTRL_MEM_NOPINNED) && p_ctrl->default_alloc_mode == CTRL_MEM_PINNED) ) { 
 			//Free host image of the tile
@@ -767,7 +891,7 @@ void Ctrl_Cuda_EvalTaskFreeTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 		
 		//Free device image of the tile 
 		CUDA_OP( cudaFree(p_tile_data->p_device_data) );
-		
+
 		p_tile->memPtr = NULL;
 		p_tile->data = NULL;
 		p_tile->memStatus = HIT_MS_NOMEM;
@@ -840,8 +964,9 @@ void Ctrl_Cuda_EvalTaskWaitTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 
 void Ctrl_Cuda_EvalTaskSetDependanceMode(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	p_ctrl->dependance_mode = p_task->flags;
-	if (p_ctrl->policy == CTRL_POLICY_SYNC){
+	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
 		Ctrl_Cuda_Sync(p_ctrl);
 	}
 }
+
 ///@endcond

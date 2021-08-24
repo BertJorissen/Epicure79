@@ -36,8 +36,8 @@ CTRL_KERNEL(Sobel_Operation, GENERIC, DEFAULT, KHitTile_BYTE Output, KHitTile_BY
 	float Gradient_mod;
 
 	// Calculating index id
-	unsigned int Col_Index = thread_id.y;
-	unsigned int Row_Index = thread_id.x;
+	unsigned int Col_Index = thread_id_y;
+	unsigned int Row_Index = thread_id_x;
 	if ((Row_Index != 0) && (Col_Index != 0) && (Row_Index < hit_tileDimCard(Input, 0) - 1) && (Col_Index < hit_tileDimCard(Input, 1) - 1)) {
 		Gradient_v = 
 				-(-hit(Input, (Row_Index - 1), (Col_Index - 1)) +

@@ -1,17 +1,3 @@
-/*
-LICENSE TERMS
-
-Copyright (c)2008-2014 University of Virginia
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted without royalty fees or other restrictions, provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-* Neither the name of the University of Virginia, the Dept. of Computer Science, nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE UNIVERSITY OF VIRGINIA OR THE SOFTWARE AUTHORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include "Ctrl.h"
@@ -27,21 +13,21 @@ CTRL_KERNEL_CHAR(Hotspot, MANUAL, BLOCKSIZE_0, BLOCKSIZE_1);
 CTRL_KERNEL(Hotspot, CPU, DEFAULT, KHitTile_float power, KHitTile_float temp_src, KHitTile_float temp_dst,
 		float Cap_1, float Rx_1, float Ry_1, float Rz_1, float step,
 {
-	int N = thread_id.x - 1;
-	int S = thread_id.x + 1;
-	int W = thread_id.y - 1;
-	int E = thread_id.y + 1;
+	int N = thread_id_x - 1;
+	int S = thread_id_x + 1;
+	int W = thread_id_y - 1;
+	int E = thread_id_y + 1;
 
 	N = (N < 0)								? 0								: N;
 	S = (S > hit_tileDimCard(power, 0) - 1)	? hit_tileDimCard(power, 0) - 1	: S;
 	W = (W < 0)								? 0								: W;
 	E = (E > hit_tileDimCard(power, 1) - 1)	? hit_tileDimCard(power, 1) - 1	: E;
 
-	hit(temp_dst, thread_id.x, thread_id.y) =hit(temp_src, thread_id.x, thread_id.y)+ 
-					(Cap_1 * (hit(power, thread_id.x, thread_id.y) + 
-					(hit(temp_src, S, thread_id.y) + hit(temp_src, N, thread_id.y) - 2.f*hit(temp_src, thread_id.x, thread_id.y)) * Ry_1 + 
-					(hit(temp_src, thread_id.x, E) + hit(temp_src, thread_id.x, W) - 2.f*hit(temp_src, thread_id.x, thread_id.y)) * Rx_1 + 
-					(amb_temp - hit(temp_src, thread_id.x, thread_id.y)) * Rz_1));
+	hit(temp_dst, thread_id_x, thread_id_y) =hit(temp_src, thread_id_x, thread_id_y)+ 
+					(Cap_1 * (hit(power, thread_id_x, thread_id_y) + 
+					(hit(temp_src, S, thread_id_y) + hit(temp_src, N, thread_id_y) - 2.f*hit(temp_src, thread_id_x, thread_id_y)) * Ry_1 + 
+					(hit(temp_src, thread_id_x, E) + hit(temp_src, thread_id_x, W) - 2.f*hit(temp_src, thread_id_x, thread_id_y)) * Rx_1 + 
+					(amb_temp - hit(temp_src, thread_id_x, thread_id_y)) * Rz_1));
 });
 
 CTRL_HOST_TASK(Init_Tiles, HitTile_float matrix_temp, HitTile_float matrix_power) {
@@ -229,7 +215,7 @@ int main(int argc, char **argv){
 
 		Ctrl_HostTask(ctrl, Norm_Calc, MatrixCopy);
 
-		Ctrl_Sycnhronize();
+		Ctrl_Synchronize();
 		
 		Ctrl_Free(ctrl, MatrixTemp[0], MatrixTemp[1], MatrixPower);
 		hit_tileFree(MatrixCopy);

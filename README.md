@@ -40,7 +40,6 @@ Compilation is done using CMake (3.17 or higher).
 mkdir -p build
 cd build
 cmake ..
-make clean
 make
 ```
 
@@ -66,6 +65,7 @@ cmake -LH ..
 ```
 
 Executing an example
+----
 ```
 ./build/examples/Matrix_Add/Matrix_Add_Cuda_Ctrl 100 1 0 0 1
 ```

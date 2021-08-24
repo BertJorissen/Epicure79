@@ -15,9 +15,29 @@ Ctrl_NewType( float );
 /* A. Characterization for the kernel */
 CTRL_KERNEL_CHAR(Add, MANUAL, BLOCKSIZE_0, BLOCKSIZE_1);
 
+CTRL_KERNEL(Add, CUDALIB, MAGMA, int n_iter, KHitTile_float A, KHitTile_float B, KHitTile_float C,
+{
+	for (int k = 0; k < n_iter; k++) {
+		magmablas_sgeadd(hit_tileDimCard(A, 0), hit_tileDimCard(A, 1), 1, A.data, hit_tileDimCard(A, 0), C.data, hit_tileDimCard(C, 0), queue);
+		magmablas_sgeadd(hit_tileDimCard(A, 0), hit_tileDimCard(A, 1), 1, B.data, hit_tileDimCard(A, 0), C.data, hit_tileDimCard(C, 0), queue);
+	}
+});
+
+CTRL_KERNEL(Add, CUDALIB, CUBLAS, int n_iter, KHitTile_float A, KHitTile_float B, KHitTile_float C,
+{
+	const float alpha = 1.0f;
+	for (int k = 0; k < n_iter; k++) {
+		cublasSaxpy(handle, hit_tileDimCard(A, 0)*hit_tileDimCard(A, 1), &alpha, A.data, 1, C.data, 1);
+		cublasSaxpy(handle, hit_tileDimCard(A, 0)*hit_tileDimCard(A, 1), &alpha, B.data, 1, C.data, 1);
+	}
+});
+
 /* C. Defining kernel prototypes */ 
 CTRL_KERNEL_PROTO(Add,
-	1, GENERIC, DEFAULT, 4,
+	3, GENERIC, DEFAULT, 
+	CUDALIB, MAGMA, 
+	CUDALIB, CUBLAS, 
+	4,
 	INVAL, int, n_iter,
 	IN, HitTile_float, A,
 	IN, HitTile_float, B,

@@ -89,8 +89,8 @@ typedef struct {
 		int 	card[3]; \
 		KHitShape shape;	\
 	} KHitTile_##type;\
-	char *raw_ktile_KHitTile_##type = CTRL_KERNEL_STRINGIFY( type ); \
-	char *raw_def_ktile_KHitTile_##type = CTRL_KERNEL_STRINGIFY( \
+	const char *raw_ktile_KHitTile_##type = CTRL_KERNEL_STRINGIFY( type ); \
+	const char *raw_def_ktile_KHitTile_##type = CTRL_KERNEL_STRINGIFY( \
 		typedef struct { \
 			__global type	* data; \
 			int	origAcumCard[4]; \

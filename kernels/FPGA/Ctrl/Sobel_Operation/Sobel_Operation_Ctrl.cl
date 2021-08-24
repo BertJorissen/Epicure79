@@ -30,7 +30,7 @@ typedef unsigned char BYTE;
 
 Ctrl_NewType(BYTE);
 
-CTRL_KERNEL_FUNCTION(Sobel_Operation, FPGA, DEFAULT, PIPELINE( TASK ), PARAMS( IN, OUT, INVAL, INVAL ), KHitTile_BYTE frame_in, KHitTile_BYTE frame_out,
+CTRL_KERNEL_FUNCTION(Sobel, FPGA, DEFAULT, PIPELINE( TASK ), PARAMS( IN, OUT, INVAL, INVAL ), KHitTile_BYTE frame_in, KHitTile_BYTE frame_out,
             const int iterations, const unsigned int threshold)
 {
     KTILE(frame_in, BYTE);

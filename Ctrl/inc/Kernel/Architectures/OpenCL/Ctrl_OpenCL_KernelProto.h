@@ -186,12 +186,15 @@
 
 #define CTRL_KERNEL_OPENCL_MOUNT_INNER_TILES( string, n, ... ) CTRL_KERNEL_OPENCL_MOUNT_INNER_TILES_##n( string, __VA_ARGS__ ) 
 
-#define CTRL_KERNEL_OPENCL_PARSE_THREADS " Ctrl_Thread thread_id = { .dims = ctrl_thread.dims, .x = get_global_id(0), .y = get_global_id(1), .z = get_global_id(2) }; \
-		if ( ctrl_thread.dims > 1 ) { \
-			thread_id.x = get_global_id(1); \
-			thread_id.y = get_global_id(0); \
+#define CTRL_KERNEL_OPENCL_PARSE_THREADS " \
+		int thread_id_x __attribute__((unused)) = get_global_id(0); \
+		int thread_id_y __attribute__((unused)) = get_global_id(1); \
+		int thread_id_z __attribute__((unused)) = get_global_id(2); \
+		if ( get_work_dim() > 1 ) { \
+			thread_id_x = get_global_id(1); \
+			thread_id_y = get_global_id(0); \
 		} \
-		if ( thread_id.x >= ctrl_thread.x || thread_id.y >= ctrl_thread.y || thread_id.z >= ctrl_thread.z ) { \
+		if ( thread_id_x >= ctrl_thread.x || thread_id_y >= ctrl_thread.y || thread_id_z >= ctrl_thread.z ) { \
 			return ; \
 		} " \
 
@@ -242,6 +245,7 @@
  * @todo opencl lib kernels are not fully implemented
  */
 #define CTRL_KERNEL_OPENCLGPULIB( name, type, subtype, ... ) \
+	C_GUARD \
 	void Ctrl_Kernel_OpenCLGPU_##type##_##subtype##_##name (CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__) ){ \
 		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__) \
 	}
@@ -354,8 +358,6 @@
 		clRetainEvent(*request.opencl.p_last_kernel_event); \
 	};
 
-#define CTRL_KERNEL_LAUNCH_POINTERS_OPENCLGPU( name, type, subtype, ... )
-
 /**
  * Define constructor function to preload an OpenCL kernel.
  * @hideinitializer
@@ -378,7 +380,7 @@
 		p_program_##type##_##subtype##_##name = (cl_program *)malloc(sizeof(cl_program)); \
 		\
 		/* kernel prototype, list of strings {"__kernel void ", <name>, "(", args[], */\
-		char *pp_args_names[] = { " __kernel void " , CTRL_KERNEL_STRINGIFY( CTRL_KERNEL_##type##_##subtype##_##name ), " ( ", CTRL_KERNEL_OPENCL_PARSE_ARGS( n_args, __VA_ARGS__ ) } ; \
+		const char *pp_args_names[] = { " __kernel void " , CTRL_KERNEL_STRINGIFY( CTRL_KERNEL_##type##_##subtype##_##name ), " ( ", CTRL_KERNEL_OPENCL_PARSE_ARGS( n_args, __VA_ARGS__ ) } ; \
 		p_kernel_raw_##type##_##subtype##_##name = (char *)malloc(10000 * sizeof(char)); \
 		p_kernel_raw_##type##_##subtype##_##name[0] = '\0'; \
 		/* definitions for each type at the begining of the kernel. */\
@@ -423,7 +425,7 @@
 		strcat(p_kernel_raw_##type##_##subtype##_##name, " , const Ctrl_Thread ctrl_thread ) { "); \
 		/* add stuff before user provided code */\
 		CTRL_KERNEL_OPENCL_MOUNT_INNER_TILES( p_kernel_raw_##type##_##subtype##_##name, n_args, __VA_ARGS__ ); \
-		/* define thread_id. why not use ctrl_thread directly?? */\
+		/* define thread_id */\
 		strcat(p_kernel_raw_##type##_##subtype##_##name, CTRL_KERNEL_OPENCL_PARSE_THREADS); \
 		/* add user kernel */\
 		strcat(p_kernel_raw_##type##_##subtype##_##name, &p_ctrl_kernel_string_##type##_##subtype##_##name[init_kernel] ); \

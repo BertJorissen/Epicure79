@@ -53,9 +53,7 @@
  * @see Ctrl_Thread, CTRL_KERNEL_CHAR
  */
 #define CTRL_KERNEL_CUDA_CHAR_threads(name, arch)								\
-    (CTRL_KERNEL_CUDA_CHAR_type_##name == CTRL_KERNEL_CUDA_AUTOMATIC			\
-         ? blocksize_CUDA_##name[arch]											\
-         : blocksize_CUDA_##name[0])
+    blocksize_CUDA_##name[CTRL_KERNEL_CUDA_CHAR_type_##name == CTRL_KERNEL_CUDA_AUTOMATIC ? arch : 0]
 
 /**
  * Expands to struct compatible with \e dim3 with appropiate grid sizes according to characterization for this kernel execution.

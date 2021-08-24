@@ -1,12 +1,17 @@
 #!/bin/bash
 cd "$( dirname "${BASH_SOURCE[0]}" )"
-mkdir -p ../../results/medusa/plots/hotspot
-mkdir -p ../../results/medusa/plots/matrix_pow
-mkdir -p ../../results/medusa/plots/sobel
-mkdir -p ../../results/manticore/plots/hotspot
-mkdir -p ../../results/manticore/plots/matrix_pow
-mkdir -p ../../results/manticore/plots/sobel
-for i in *.gp
-do 
-  ( gnuplot "$i" )
+
+machines=($(ls ../../results))
+for m in "${machines[@]}"; do
+	benchmarks=($(ls ../../results/$m/stats))
+	for b in "${benchmarks[@]}"; do
+		archs=($(ls ../../results/$m/stats/$b))
+		mkdir -p ../../results/$m/plots/$b
+		for a in "${archs[@]}"; do
+			modes=($(ls ../../results/$m/stats/$b/$a))
+			for mode in "${modes[@]}"; do
+				( gnuplot -e "machine='${m}'; arch='${a}'" "${b}_${mode}.gp" )
+			done
+		done
+	done
 done

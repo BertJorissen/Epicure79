@@ -1,0 +1,13 @@
+FPGA/*/Mult/Mult_*/
+FPGA/*/Sobel_Operation/Sobel_Operation_*/
+FPGA/*/Hotspot/Hotspot_*/
+FPGA/*/Cell_Autom/
+FPGA/*/matrix_trans_fpga/
+*.aocx
+*.aoco
+*.aocr
+*nohup.out
+temp.cl
+.vscode
+*OLD*
+

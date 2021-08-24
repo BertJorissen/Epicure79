@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CMAKE_FLAGS=""
-while getopts ":a:eq:hdcp" opt; do
+while getopts ":a:eq:hdcpil:" opt; do
   case $opt in
 	a) 
 		archs=(${OPTARG//,/ })
@@ -54,6 +54,37 @@ while getopts ":a:eq:hdcp" opt; do
 		echo "Compiling with profiling"
 		CMAKE_FLAGS+="-DPROFILING_ENABLED=ON "
 	;;
+	i)
+		echo "using the intel compiler"
+		CMAKE_FLAGS+="-D CMAKE_C_COMPILER=icc "
+		. /opt/intel/oneapi/setvars.sh
+		use_intel=1
+	;;
+	l)
+		libs=(${OPTARG//,/ })
+		for lib in "${libs[@]}"; do
+			case $lib in 
+				cublas)
+					echo "Compiling with cublas"
+					CMAKE_FLAGS+="-DCUBLAS:BOOL=ON "
+					;;
+				mkl)
+					echo "Compiling with mkl"
+					. /opt/intel/oneapi/setvars.sh
+					CMAKE_FLAGS+="-DMKL:BOOL=ON "
+					;;
+				magma)
+					echo "Compiling with Magma"
+					. /opt/intel/oneapi/setvars.sh
+					CMAKE_FLAGS+="-DMAGMA:BOOL=ON "
+					;;
+				*)
+					echo "Lib $lib not supported."
+					exit
+					;;
+			esac
+		done
+	;;
 	h)
 		echo "--------Controllers compiling script--------"
 		echo "This script compiles hitmap if it isnt already, deletes everything in 'build' directory and compiles controllers with the options specified."
@@ -66,6 +97,8 @@ while getopts ":a:eq:hdcp" opt; do
 		echo "	-d				Debug mode. Compile with -O0 -g and extra error checking and info."
 		echo "	-c				Allways clean and recompile hitmap."
 		echo "	-p				Enable marks for host tasks for profiling on CUDA and OpenCL AMD."
+		echo "	-i				Use intel compiler."
+		echo "	-l libs			Select blas libs to support. Comma separated. Valid values are cublas, mkl, magma"
 		echo
 		echo "Notes: "
 		echo "	'opencl' and 'openclamd' architectures cannot be active at the same time. If both are passed at the same time 'openclamd' will be active."
@@ -83,7 +116,11 @@ done
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 
 # load modules
-. ./env.sh
+if [ $use_intel ]; then
+	. ./env.sh intel
+else
+	. ./env.sh
+fi
 
 # check if hitmap is compiled, if not, compile it
 echo "Checking extern libs..."

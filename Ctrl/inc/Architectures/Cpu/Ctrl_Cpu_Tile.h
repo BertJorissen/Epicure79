@@ -39,25 +39,26 @@
  * \brief Metadata from a tile associated to a CPU ctrl
  */
 typedef struct Ctrl_Cpu_Tile {
-    struct Ctrl_Cpu                 *p_ctrl;                        /**< Pointer to the ctrl to which this tile is associated */
+	struct Ctrl_Cpu                 *p_ctrl;                        /**< Pointer to the ctrl to which this tile is associated */
 
-    struct Ctrl_Cpu_Tile_List       *p_tile_elem;                   /**< Node of the linked list containing all tiles of the ctrl to which this tile is associated */
+	struct Ctrl_Cpu_Tile_List       *p_tile_elem;                   /**< Node of the linked list containing all tiles of the ctrl to which this tile is associated */
 
-    void                            *p_device_data;                 /**< Pointer to device image of this tile */
+	void                            *p_device_data;                 /**< Pointer to device image of this tile */
 
-    int                             last_update;                    /**< Information about where the updated data of this tile is located (host, device or both) */
+	int                             last_update;                    /**< Information about where the updated data of this tile is located (host, device or both) */
 
-    Ctrl_CpuEvent                   kernel_last_read_event;         /**< Event to sincronyze tasks, represents last write operation on device*/
-    Ctrl_CpuEvent                   kernel_last_write_event;        /**< Event to sincronyze tasks, represents last read operation on device*/
+	Ctrl_CpuEvent                   kernel_last_read_event;         /**< Event to sincronyze tasks, represents last write operation on device*/
+	Ctrl_CpuEvent                   kernel_last_write_event;        /**< Event to sincronyze tasks, represents last read operation on device*/
 
-    Ctrl_CpuEvent                   offloading_last_read_event;     /**< Event to sincronyze tasks, represents last DTH comunication*/
-    Ctrl_CpuEvent                   offloading_last_write_event;    /**< Event to sincronyze tasks, represents last HTD comunication*/
+	Ctrl_CpuEvent                   offloading_last_read_event;     /**< Event to sincronyze tasks, represents last DTH comunication*/
+	Ctrl_CpuEvent                   offloading_last_write_event;    /**< Event to sincronyze tasks, represents last HTD comunication*/
 
-    Ctrl_CpuEvent   				host_last_read_event;           /**< Event to sincronyze tasks, represents last write operation on host*/
-	Ctrl_CpuEvent   				host_last_write_event;          /**< Event to sincronyze tasks, represents last read operation on host*/
+	Ctrl_CpuEvent                   host_last_read_event;           /**< Event to sincronyze tasks, represents last write operation on host*/
+	Ctrl_CpuEvent                   host_last_write_event;          /**< Event to sincronyze tasks, represents last read operation on host*/
 
-	int								mem_flags;                      /**< Flags to choose allocation method */
-	bool							is_initialized;                 /**< Flag to check if tile has been initialized */
+	int                             mem_flags;                      /**< Flags to choose allocation method */
+	bool                            is_initialized;                 /**< Flag to check if tile has been initialized */
+	struct Ctrl_Cpu_Tile						*p_parent_ext;                  /**< Pointer to parent's ext field in hierarchical subselections */
 } Ctrl_Cpu_Tile;
 
 /**
@@ -65,7 +66,7 @@ typedef struct Ctrl_Cpu_Tile {
  */
 typedef struct Ctrl_Cpu_Tile_List {
 	Ctrl_Cpu_Tile                *p_tile_ext;
-    struct Ctrl_Cpu_Tile_List    *p_prev;
+	struct Ctrl_Cpu_Tile_List    *p_prev;
 	struct Ctrl_Cpu_Tile_List    *p_next;
 } Ctrl_Cpu_Tile_List;
 ///@endcond

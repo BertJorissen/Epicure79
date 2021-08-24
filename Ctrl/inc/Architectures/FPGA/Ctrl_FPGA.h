@@ -61,7 +61,6 @@
 #include "Architectures/FPGA/Ctrl_FPGA_Helper.h"
 #include "Architectures/FPGA/Ctrl_FPGA_Tile.h"
 
-#define FPGA_DEFAULT   0
 #define FPGA_EMULATION 1
 #define FPGA_PROFILING 2
 
@@ -83,9 +82,33 @@
 #define CTRL_FPGA_LAUNCH( p_ctrl, name, threads, group, ... ) \
 	case CTRL_TYPE_FPGA: \
 		if(group.dims == 0){ \
-			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_FPGA, threads, local_size_FPGA_##name, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_FPGA, threads, local_size_FPGA_##name, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
 		}else{ \
-			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_FPGA, threads, group, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_FPGA, threads, group, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
+		} \
+		break;
+
+/**
+ * Launch a kernel to a specific stream of the ctrl queue
+ * @hideinitializer
+ * 
+ * @param p_ctrl: pointer to the ctrl to launch the kernel
+ * @param name: name of the kernel to be launched
+ * @param threads: thread block to launch the kernel with. (Ctrl_Thread)
+ * @param group block sizes for this kernel execution
+ * 		Optional, if a block with 0 dimensions is passed (such as CTRL_THREAD_NULL), default characterization is used instead.
+ * @param stream: stream to launch the kernel to.
+ * @param ...: arguments passed to the kernel.
+ * 
+ * @see Ctrl_Launch, Ctrl_Thread
+ */
+
+#define CTRL_FPGA_LAUNCH_STREAM( p_ctrl, name, threads, group, stream, ... ) \
+	case CTRL_TYPE_FPGA: \
+		if(group.dims == 0){ \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_FPGA, threads, local_size_FPGA_##name, stream, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
+		}else{ \
+			Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_FPGA, threads, group, stream, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
 		} \
 		break;
 
@@ -99,7 +122,6 @@ typedef struct Ctrl_FPGA {
 	cl_context							context;				/**< OpenCL context used to create and launch everything related to OpenCL*/
 
 	cl_command_queue_properties			queue_properties;		/**< Properties to use when creating OpenCL queues */
-	cl_command_queue					queue;					/**< OpenCl queue to launch kernels */
 
 	struct Ctrl_FPGA_Tile_List			*p_tile_list_head;		/**< Head of the list of tiles associate to this ctrl */
 	struct Ctrl_FPGA_Tile_List			*p_tile_list_tail;		/**< Tail of the list of tiles associate to this ctrl */
@@ -118,6 +140,9 @@ typedef struct Ctrl_FPGA {
 	Ctrl_Policy							policy;					/**< Policy to be used by this ctrl (sync or async) */
 
 	int									dependance_mode;		/**< Dependance mode to be used by this ctrl */
+
+	int                       n_queues;       /**< Number of OpenCl queues for kernel launching available to this cltr */
+  cl_command_queue          *queues;        /**< OpenCl queues to launch kernels */
 	#ifdef _CTRL_OPENCL_GPU_PROFILING_
 		int							platform;
 		int							device;
@@ -167,7 +192,7 @@ typedef struct Ctrl_FPGA {
  * @param platform Index of the OpenCL platform to be used.
  * @param exec_mode Execution mode.
  */
-void Ctrl_FPGA_Create(Ctrl_FPGA *p_ctrl, Ctrl_Policy policy, int device, int platform, int exec_mode);
+void Ctrl_FPGA_Create(Ctrl_FPGA *p_ctrl, Ctrl_Policy policy, int device, int platform, int exec_mode, int streams);
 
 /**
  * Evaluate a task on a FPGA ctrl.

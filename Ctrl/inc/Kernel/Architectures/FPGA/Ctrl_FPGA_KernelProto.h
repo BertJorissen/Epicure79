@@ -597,12 +597,6 @@
 		clRetainEvent(*request.fpga.p_last_kernel_event); \
 	};
 
-#define CTRL_KERNEL_LAUNCH_POINTERS_FPGA( name, type, subtype, ... ) \
-	static cl_kernel *p_kernel_##type##_##subtype##_##name = NULL; \
-	static cl_program *p_program_##type##_##subtype##_##name = NULL; \
-	static char *p_kernel_raw_##type##_##subtype##_##name = NULL; \
-	static const char *p_ctrl_kernel_name_##type##_##subtype##_##name = CTRL_KERNEL_STRINGIFY( CTRL_KERNEL_##type##_##subtype##_##name ) ;
-
 /**
  * Declares variables related to this kernel's info.
  * @hideinitializer

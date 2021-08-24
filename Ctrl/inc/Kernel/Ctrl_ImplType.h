@@ -43,8 +43,9 @@
  * @hideinitializer
  * 
  * @param val Value to check.
- * @param impl_type Type to check against. This corersponds to only the \e type portion of a \e Ctrl_ImplType member.
+ * @param impl_type Type to check against. This corresponds to only the \e type portion of a \e Ctrl_ImplType member.
  * 
+ * @pre \p impl_type must have a default subtype.
  * @see Ctrl_ImplType
  */
 #define CTRL_IMPL_IN_RANGE(val, impl_type) ((val)>=impl_type##_DEFAULT && (val)<(impl_type##_DEFAULT + CTRL_IMPL_RANGE_SIZE))
@@ -58,15 +59,23 @@
  * @see CTRL_KERNEL, CTRL_KERNEL_PROTO
  */
 typedef enum {
-		GENERIC_DEFAULT			 = CTRL_IMPL_RANGE_SIZE * 0,
-		CPU_DEFAULT				 = CTRL_IMPL_RANGE_SIZE * 1,
-		CPULIB_DEFAULT			 = CTRL_IMPL_RANGE_SIZE * 2,
-		CUDA_DEFAULT			 = CTRL_IMPL_RANGE_SIZE * 3,
-		CUDALIB_DEFAULT			 = CTRL_IMPL_RANGE_SIZE * 4,
-		OPENCLGPU_DEFAULT		 = CTRL_IMPL_RANGE_SIZE * 5,
-		OPENCLGPULIB_DEFAULT	 = CTRL_IMPL_RANGE_SIZE * 6,
-		FPGA_DEFAULT			 = CTRL_IMPL_RANGE_SIZE * 7,
-		FPGALIB_DEFAULT			 = CTRL_IMPL_RANGE_SIZE * 8,
+		GENERIC_DEFAULT			= CTRL_IMPL_RANGE_SIZE * 0,
+		CPU_DEFAULT				= CTRL_IMPL_RANGE_SIZE * 1,
+		CPULIB_MKL		 		= CTRL_IMPL_RANGE_SIZE * 2,
+		CUDA_DEFAULT			= CTRL_IMPL_RANGE_SIZE * 3,
+		CUDA_FERMI,
+		CUDA_KEPLER,
+		CUDA_MAXWELL,
+		CUDA_PASCAL,
+		CUDA_VOLTA,
+		CUDA_TURING,
+		CUDA_AMPERE,
+		CUDALIB_MAGMA			= CTRL_IMPL_RANGE_SIZE * 4,
+		CUDALIB_CUBLAS,
+		OPENCLGPU_DEFAULT		= CTRL_IMPL_RANGE_SIZE * 5,
+		OPENCLGPULIB_DEFAULT	= CTRL_IMPL_RANGE_SIZE * 6,
+		FPGA_DEFAULT			= CTRL_IMPL_RANGE_SIZE * 7,
+		FPGALIB_DEFAULT			= CTRL_IMPL_RANGE_SIZE * 8,
 } Ctrl_ImplType;
 
 #endif // _CTRL_KERNEL_IMPLTYPE_H_

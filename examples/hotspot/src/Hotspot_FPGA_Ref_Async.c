@@ -256,7 +256,7 @@ void usage(int argc, char **argv) {
 	fprintf(stderr, "\t<iters_per_copy> - nº of iter between each copy back\n");
 	fprintf(stderr, "\t<device> - GPU index\n");
 	fprintf(stderr, "\t<platform> - OpenCL platform index\n");
-	fprintf(stderr, "\t<exec_mode> - FPGA execution mode (0 - default, 1 - emulation, 2 - profiling)");
+	fprintf(stderr, "\t<exec_mode> - FPGA execution mode (0 - default, 1 - emulation, 2 - profiling)\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -346,7 +346,11 @@ void run (int argc, char *argv[]) {
 		strcat(kernel_path, "_profiling");
 	else if(EXEC_MODE == FPGA_EMULATION)
 		strcat(kernel_path, "_emu");
-	strcat(kernel_path, "_Ref.aocx");
+	#ifdef _INTEL_KERNELS
+		strcat(kernel_path, "_Ref.aocx");
+	#elif _XILINX_KERNELS
+		strcat(kernel_path, "_Ref.xclbin");
+	#endif
 	if(!(binary_file = fopen(kernel_path, "rb"))) {
 		printf("Kernel file not found.\n");
 		exit(ERR_NOT_FOUND);

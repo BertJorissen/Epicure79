@@ -206,7 +206,11 @@ int main (int argc, char *argv[]) {
 		strcat(kernel_path, "_emu");
 	else if(EXEC_MODE == FPGA_PROFILING)
 		strcat(kernel_path, "_profiling");
-	strcat(kernel_path, "_Ref.aocx");
+		#ifdef _INTEL_KERNELS
+		strcat(kernel_path, "_Ref.aocx");
+	#elif _XILINX_KERNELS
+		strcat(kernel_path, "_Ref.xclbin");
+	#endif
 	if(!(binary_file = fopen(kernel_path, "rb"))) {
 		printf("Kernel file not found.\n");
 		exit(ERR_NOT_FOUND);
@@ -303,19 +307,22 @@ int main (int argc, char *argv[]) {
 	clFinish(main_command_queue);
 	exec_clock = omp_get_wtime() - exec_clock ;
 
-	/* RESULTS CALCULATION */
-	#ifdef _CTRL_EXAMPLES_EXP_MODE_
+	/* PRINT RESULTS */
+	#ifdef _CTRL_EXAMPLES_TEST_MODE_
 		for (int i = 0; i < N_ITER; i++) {
 			printf("%lf, %lf, ", p_sum[i], p_res[i]);
 		}
 		fflush(stdout);
-	#else // _CTRL_EXAMPLES_EXP_MODE_
-		printf("\n ---------------------- RESULT ---------------------- \n");
+	#elif _CTRL_EXAMPLES_EXP_MODE_
+		printf("%lf, %lf, ", p_sum[N_ITER-1], p_res[N_ITER-1]);
+		fflush(stdout);
+	#else
+		printf("\n ----------------------- NORM ----------------------- \n\n"); fflush(stdout);
 		for (int i = 0; i < N_ITER; i++) {
-			printf("\n iter: %d, Sum: %lf, Res: %lf", i, p_sum[i], p_res[i]);
+			printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]); fflush(stdout);
 		}
-		printf("\n\n ---------------------------------------------------- \n");
-	#endif // _CTRL_EXAMPLES_EXP_MODE_
+		printf("\n ---------------------------------------------------- \n"); fflush(stdout);
+	#endif
 	
 	/* RELEASE ZONE */
 		

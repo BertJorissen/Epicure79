@@ -476,7 +476,7 @@ void run (int argc, char *argv[]) {
 		printf("\n ITERS_PER_COPY: %d", iters_per_copy);
 		printf("\n PLATFORM: %s", platform_name);
 		printf("\n DEVICE: %s", device_name);
-		printf("\n POLICY SYNC");
+		printf("\n POLICY ASYNC");
 		printf("\n\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 	free(platform_name);

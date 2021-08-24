@@ -157,6 +157,8 @@
 #define hitSig_3( a, b, c )	hit_sig( a, b, c )
 /** @endcond */
 
+
+
 /**
  * New Tile Type definition including specialized static inline constructors.
  * 

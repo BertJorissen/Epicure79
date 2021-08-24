@@ -47,17 +47,17 @@ Ctrl_OpenCLGpu_KernelParams OpenClGpu_initial_kp = CTRL_OPENCLGPU_KERNELPARAMS_N
 void Ctrl_OpenCLGpu_Sync(Ctrl_OpenCLGpu *p_ctrl);
 
 /**
- * Allocate memory for a new \e Ctrl_OpenCLGpu_Tile.
+ * Allocate memory for a new \e Ctrl_OpenCL_Tile.
  * 
  * @param p_ctrl Pointer to the ctrl to be attached to the tile.
  * @param p_task Pointer to the task containing the hitTile that will contain the new \e Ctrl_OpenCLGpu_Tile.
  * 
- * @see Ctrl_OpenCLGpu_EvalTaskAllocTile, Ctrl_OpenCLGpu_Tile
+ * @see Ctrl_OpenCLGpu_EvalTaskAllocTile, Ctrl_OpenCL_Tile
  */
 void Ctrl_OpenCLGpu_CreateTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
- * Initializate a \e Ctrl_OpenCLGpu_Tile.
+ * Initializate a \e Ctrl_OpenCL_Tile.
  *
  * @param p_ctrl Pointer to the ctrl attached to the tile and to be updated of the initialization.
  * @param p_task Pointer to the task containing the HitTile that contains the \e Ctrl_OpenCLGpu_Tile to be.
@@ -146,6 +146,16 @@ void Ctrl_OpenCLGpu_EvalTaskDomainTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task
 void Ctrl_OpenCLGpu_EvalTaskAllocTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
+ * Evaluation of subselecting tiles.
+ *
+ * @param p_ctrl: Ctrl in charge of task.
+ * @param p_task: task to be evaluated.
+ *
+ * @see Ctrl_OpenCLGpu_EvalTask, Ctrl_Select
+ */
+void Ctrl_OpenCLGpu_EvalTaskSelectTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task);
+
+/**
  * Evaluation of freeing of tiles.
  * 
  * @param p_ctrl Ctrl in charge of task.
@@ -201,10 +211,17 @@ void Ctrl_OpenCLGpu_EvalTaskSetDependanceMode(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task 
  ***** OpenCL GPU Controller functions ******
  ********************************************/
 
-void Ctrl_OpenCLGpu_Create(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Policy policy, int device, int platform) {
+void Ctrl_OpenCLGpu_Create(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Policy policy, int device, int platform, int streams) {
 	cl_int err;
 
 	p_ctrl->policy = policy;
+	p_ctrl->n_queues = streams <= 0 ? 1 : streams;
+	if (streams <= 0) {
+    fprintf(stderr, "[Ctrl_OpenCL_Gpu] Warning: Tried to create OpenCL_Gpu Ctrl with less than one queue; defaulting to 1.");
+    fflush(stderr);
+  }
+	// TODO: something with the streams, I guess. - Manu 08/2021
+	p_ctrl->queues = (cl_command_queue *)malloc(p_ctrl->n_queues * sizeof(cl_command_queue));
 	p_ctrl->dependance_mode = CTRL_MODE_IMPLICIT;
 
 	// get OpenCL platform id from platform index
@@ -245,9 +262,11 @@ void Ctrl_OpenCLGpu_Create(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Policy policy, int devic
 	p_ctrl->p_tile_list_head = NULL;
 	p_ctrl->p_tile_list_tail = NULL;
 
-	// Create OpenCL queue for kernel execution
-	p_ctrl->queue = clCreateCommandQueue(p_ctrl->context, p_ctrl->device_id, p_ctrl->queue_properties, &err);
-	OPENCL_ASSERT_ERROR( err );
+	// Create OpenCL queues for kernel execution
+	for (int i = 0; i < p_ctrl->n_queues; i++) {
+		p_ctrl->queues[i] = clCreateCommandQueue(p_ctrl->context, p_ctrl->device_id, p_ctrl->queue_properties, &err);
+		OPENCL_ASSERT_ERROR( err );
+	}
 
 	// Create default event and set it as completed as there is nothing to wait for in the begining
 	p_ctrl->default_event = clCreateUserEvent(p_ctrl->context, &err);
@@ -338,6 +357,9 @@ void Ctrl_OpenCLGpu_EvalTask(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
 		case CTRL_TASK_TYPE_DOMAINTILE:
 			Ctrl_OpenCLGpu_EvalTaskDomainTile(p_ctrl, p_task);
 			break;
+		case CTRL_TASK_TYPE_SELECTTILE:
+			Ctrl_OpenCLGpu_EvalTaskSelectTile(p_ctrl, p_task);
+			break;
 		case CTRL_TASK_TYPE_FREETILE:
 			Ctrl_OpenCLGpu_EvalTaskFreeTile(p_ctrl, p_task);
 			break;
@@ -356,9 +378,9 @@ void Ctrl_OpenCLGpu_EvalTask(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
 		case CTRL_TASK_TYPE_SETDEPENDANCEMODE:
 			Ctrl_OpenCLGpu_EvalTaskSetDependanceMode(p_ctrl, p_task);
 			break;
-		default:
-			fprintf(stderr, "[Ctrl_OpenCLGpu] Unsupported task type:%d.\n", p_task->task_type);
-			exit(EXIT_FAILURE);
+    default:
+      fprintf(stderr, "[Ctrl_OpenCL_Gpu] Unsupported task type: %d.\n", p_task->task_type);
+      exit(EXIT_FAILURE);
 	}
 }
 
@@ -387,13 +409,16 @@ void Ctrl_OpenCLGpu_CreateTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
 	p_tile_data->p_ctrl = p_ctrl;
 
 	p_tile_data->last_update = CTRL_TILE_LAST_UPDATE_HOST_DEV;
+	if (p_tile->ref != NULL) ((Ctrl_OpenCL_Tile *)(p_tile->ref->ext))->last_update = CTRL_TILE_LAST_UPDATE_DEV;
 
 	p_tile->ext = (void *)p_tile_data;
+
+	p_tile_data->p_parent_ext = NULL;
 
 	p_tile_data->is_initialized = false;
 }
 
-void Ctrl_OpenCLGpu_InitTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task){
+void Ctrl_OpenCLGpu_InitTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
 	cl_int err;
 
 	HitTile *p_tile = (HitTile *)(p_task->p_tile);
@@ -407,7 +432,7 @@ void Ctrl_OpenCLGpu_InitTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task){
 	p_tile_data->p_tile_elem = p_list_node;
 
 	//insert node into the linked list of tiles
-	if (p_ctrl->p_tile_list_tail != NULL){
+	if (p_ctrl->p_tile_list_tail != NULL) {
 		p_ctrl->p_tile_list_tail->p_next = p_list_node;
 		p_list_node->p_prev = p_ctrl->p_tile_list_tail;
 		p_ctrl->p_tile_list_tail = p_list_node;
@@ -441,6 +466,76 @@ void Ctrl_OpenCLGpu_InitTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task){
 	p_tile_data->is_initialized = true;
 }
 
+/* Macro to define MoveTo and MoveFrom logic */
+/* TODO: STRIDED TILES */
+#define OpenCL_Move(type) \
+/* TILES WITH THEIR OWN MEMORY ALLOCATION, OR CONTIGUOUS 1D TILES NEED ONLY ONE CONTIGUOUS COPY */ \
+if ((p_tile->memStatus == HIT_MS_OWNER) || (p_tile->shape.info.sig.numDims == 1)) { \
+	OPENCL_ASSERT_OP( \
+		clEnqueue##type##Buffer( \
+			p_tile_data->queue, \
+			p_tile_data->device_data, \
+			CL_FALSE, \
+			0, \
+			((size_t)(p_tile->acumCard)) * (p_tile->baseExtent), \
+			p_tile->data, \
+			4, \
+			wait_list, \
+			&(p_tile_data->offloading_last_write_event) \
+		) \
+	); \
+} \
+/* CONTIGUOUS 2D TILES */ \
+else if (p_tile->shape.info.sig.numDims == 2) { \
+	size_t offset[3] = { 0, 0, 0 }; \
+	size_t size[3] = { p_tile->card[1] * p_tile->baseExtent, p_tile->card[0], 1 }; \
+	OPENCL_ASSERT_OP( \
+		clEnqueue##type##BufferRect( \
+			p_tile_data->queue, \
+			p_tile_data->device_data, \
+			CL_FALSE, \
+			offset, \
+			offset, \
+			size, \
+			(p_tile->baseExtent) * p_tile->origAcumCard[1], \
+			0, \
+			(p_tile->baseExtent) * p_tile->origAcumCard[1], \
+			0, \
+			p_tile->data, \
+			4, \
+			wait_list, \
+			&(p_tile_data->offloading_last_write_event) \
+		) \
+	); \
+} \
+/* CONTIGUOUS 3D TILES */ \
+else if (p_tile->shape.info.sig.numDims == 3) { \
+	size_t offset[3] = { 0, 0, 0 }; \
+	size_t size[3] = { p_tile->card[2] * p_tile->baseExtent, p_tile->card[1], p_tile->card[0] }; \
+	OPENCL_ASSERT_OP( \
+		clEnqueue##type##BufferRect( \
+			p_tile_data->queue, \
+			p_tile_data->device_data, \
+			CL_FALSE, \
+			offset, \
+			offset, \
+			size, \
+			(p_tile->baseExtent) * p_tile->origAcumCard[2], \
+			(p_tile->baseExtent) * p_tile->origAcumCard[1], \
+			(p_tile->baseExtent) * p_tile->origAcumCard[2], \
+			(p_tile->baseExtent) * p_tile->origAcumCard[1], \
+			p_tile->data, \
+			4, \
+			wait_list, \
+			&(p_tile_data->offloading_last_write_event) \
+		) \
+	); \
+} \
+else { \
+	fprintf(stderr, "Internal Error: Number of dimensions not supported for non-owner tile in MoveTo/MoveFrom: %d\n", \
+		p_tile->shape.info.sig.numDims); \
+}
+
 void Ctrl_OpenCLGpu_EvalTaskMoveToInner(Ctrl_OpenCLGpu *p_ctrl, HitTile *p_tile) {
 	Ctrl_OpenCL_Tile *p_tile_data = (Ctrl_OpenCL_Tile *)(p_tile->ext);
 	
@@ -454,19 +549,7 @@ void Ctrl_OpenCLGpu_EvalTaskMoveToInner(Ctrl_OpenCLGpu *p_ctrl, HitTile *p_tile)
 	wait_list[3] = p_tile_data->host_last_write_event;
 
 	// Enqueue the transfer operation
-	OPENCL_ASSERT_OP( 
-		clEnqueueWriteBuffer(
-			p_tile_data->queue, 
-			p_tile_data->device_data, 
-			CL_FALSE, 
-			0, 
-			((size_t)(p_tile->acumCard)) * (p_tile->baseExtent), 
-			p_tile->data,
-			4,
-			wait_list, 
-			&(p_tile_data->offloading_last_write_event) 
-		)
-	);
+	OpenCL_Move(Write);
 
 	OPENCL_ASSERT_OP( clFlush(p_tile_data->queue) );
 	OPENCL_ASSERT_OP( clReleaseEvent(aux) );
@@ -495,19 +578,7 @@ void Ctrl_OpenCLGpu_EvalTaskMoveFromInner(Ctrl_OpenCLGpu *p_ctrl, HitTile *p_til
 	wait_list[3] = p_tile_data->host_last_write_event;
 
 	// Enqueue the transfer operation
-	OPENCL_ASSERT_OP( 
-		clEnqueueReadBuffer(
-			p_tile_data->queue, 
-			p_tile_data->device_data, 
-			CL_FALSE, 
-			0, 
-			((size_t)(p_tile->acumCard)) * (p_tile->baseExtent), 
-			p_tile->data,
-			4,
-			wait_list,
-			&(p_tile_data->offloading_last_read_event) 
-		)
-	);
+	OpenCL_Move(Read);
 
 	OPENCL_ASSERT_OP( clFlush(p_tile_data->queue) );
 	OPENCL_ASSERT_OP( clReleaseEvent(aux) );
@@ -522,6 +593,8 @@ void Ctrl_OpenCLGpu_EvalTaskMoveFromInner(Ctrl_OpenCLGpu *p_ctrl, HitTile *p_til
 	// Update the state of the tile
 	p_tile_data->last_update = CTRL_TILE_LAST_UPDATE_HOST_DEV;
 }
+
+#undef OpenCL_Move
 
 /**********************************
  ** TASKS'S EVALUATION FUNCTIONS **
@@ -644,7 +717,9 @@ void Ctrl_OpenCLGpu_Destroy(Ctrl_OpenCLGpu *p_ctrl) {
 	p_ctrl->p_tile_list_head = NULL;
 	p_ctrl->p_tile_list_tail = NULL;
 
-	OPENCL_ASSERT_OP( clReleaseCommandQueue(p_ctrl->queue) );
+	for (int i = 0; i < p_ctrl->n_queues; i++) {
+		OPENCL_ASSERT_OP( clReleaseCommandQueue(p_ctrl->queues[i]) );
+	}
 	OPENCL_ASSERT_OP( clReleaseContext(p_ctrl->context) );
 
 	// Send destroy task to host task stream
@@ -654,8 +729,10 @@ void Ctrl_OpenCLGpu_Destroy(Ctrl_OpenCLGpu *p_ctrl) {
 }
 
 void Ctrl_OpenCLGpu_EvalTaskGlobalSync(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
-	// Wait for kernel queue to empty
-	OPENCL_ASSERT_OP( clFinish(p_ctrl->queue) );
+	// Wait for kernel queues to empty
+	for (int i = 0; i < p_ctrl->n_queues; i++) {
+		OPENCL_ASSERT_OP( clFinish(p_ctrl->queues[i]) );
+	}
 
 	// Wait for all tile's queues to empty
 	for (Ctrl_OpenCL_Tile_List *p_aux = p_ctrl->p_tile_list_head; p_aux != NULL; p_aux = p_aux->p_next) {
@@ -669,6 +746,14 @@ void Ctrl_OpenCLGpu_EvalTaskGlobalSync(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task
 }
 
 void Ctrl_OpenCLGpu_EvalTaskKernelLaunch(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
+	// Check if the specified queue exists:
+	if (p_task->stream < 0 || p_task->stream >= p_ctrl->n_queues) {
+		fprintf(stderr, "[Ctrl_OpenCL_Gpu] Internal Error: Tried to execute a task on a nonexistent queue: %d", p_task->stream); fflush(stderr);
+    exit(EXIT_FAILURE);
+	}
+
+	cl_command_queue queue = p_ctrl->queues[p_task->stream];
+
 	int n_event_wait = 0;
 	cl_event p_event_wait_list[60];
 
@@ -713,7 +798,7 @@ void Ctrl_OpenCLGpu_EvalTaskKernelLaunch(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_ta
 	//create request with info for kernel execution
 	Ctrl_Request request;
 	request.opencl.context = &(p_ctrl->context);
-	request.opencl.queue = &(p_ctrl->queue);
+	request.opencl.queue = &(queue);
 	request.opencl.device_id = &(p_ctrl->device_id);
 	request.opencl.p_last_kernel_event = &(p_ctrl->last_kernel_event);
 	request.opencl.p_event_wait_list = p_event_wait_list;
@@ -723,7 +808,7 @@ void Ctrl_OpenCLGpu_EvalTaskKernelLaunch(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_ta
 	request.opencl.p_displacements = p_task->p_displacements;
 	
 	//Launch kernel to OpenCL kernel queue
-	p_task->pfn_kernel_wrapper(request, p_task->device_id, p_task->threads, p_task->blocksize, p_task->p_arguments);
+	p_task->pfn_kernel_wrapper(request, p_task->device_id, CTRL_TYPE_OPENCL_GPU, p_task->threads, p_task->blocksize, p_task->p_arguments);
 
 	OPENCL_ASSERT_OP( clReleaseEvent(event_aux) );
 
@@ -805,7 +890,9 @@ void Ctrl_OpenCLGpu_EvalTaskHostTaskLaunch(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_
 
 	cl_event event_seq;
 	if (p_ctrl->policy != CTRL_POLICY_ASYNC) {
-		OPENCL_ASSERT_OP( clEnqueueMarkerWithWaitList(p_ctrl->queue, 0, NULL, &event_seq) );
+		for (int i = 0; i < p_ctrl->n_queues; i++) {
+			OPENCL_ASSERT_OP( clEnqueueMarkerWithWaitList(p_ctrl->queues[i], 0, NULL, &event_seq) );
+		}
 		host_task_event.event.event_cl=event_seq;
 		OPENCL_ASSERT_OP( clRetainEvent(host_task_event.event.event_cl) );
 		Ctrl_GenericEvent_StreamWait(host_task_event, p_ctrl_host_stream);
@@ -903,11 +990,57 @@ void Ctrl_OpenCLGpu_EvalTaskAllocTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task)
 	Ctrl_OpenCLGpu_Sync(p_ctrl);
 }
 
+void Ctrl_OpenCLGpu_EvalTaskSelectTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
+	Ctrl_OpenCLGpu_CreateTile(p_ctrl, p_task);
+
+	HitTile *p_tile = (HitTile *)(p_task->p_tile);
+
+	if ( hit_tileIsNull( *p_tile ) ) {
+		Ctrl_OpenCLGpu_Sync(p_ctrl);
+		return;
+	}
+
+	HitTile *p_parent = p_tile->ref;
+
+	Ctrl_OpenCL_Tile *p_tile_data = (Ctrl_OpenCL_Tile *)(p_tile->ext);
+
+	p_tile_data->p_parent_ext = ((Ctrl_OpenCL_Tile *)(p_tile->ref->ext));
+
+	if ((p_task->flags & CTRL_SELECT_INIT) == CTRL_SELECT_INIT) {
+		Ctrl_OpenCLGpu_InitTile(p_ctrl, p_task);
+	}
+
+	if (p_tile->memStatus == HIT_MS_NOT_OWNER) {
+		while (p_parent->memStatus == HIT_MS_NOT_OWNER) p_parent = p_parent->ref;
+		cl_int err;
+		size_t size = ((size_t)p_tile->origAcumCard) * ((size_t)p_tile->baseExtent) - (((size_t)p_tile->data) - ((size_t)p_parent->data));
+			// This is the only way I can think of where, in 2D a 3D tiles, all the necessary memory addresses
+			// are allocated in this subbuffer, minimizing the amount of addresses allocated in the process.
+			// Basically, all addresses from this subselection's origin, up to its parent's ending is allocated 
+			// in the subbuffer. Blame OpenCL for needing a size field. - Manu 04/2021
+		cl_buffer_region offset = {
+			.origin = ((size_t)p_tile->data) - ((size_t)p_parent->data),
+			.size = size
+		};
+		p_tile_data->device_data = clCreateSubBuffer(((Ctrl_OpenCL_Tile *)p_parent->ext)->device_data, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, (void *)&offset, &err);
+		OPENCL_ASSERT_ERROR( err );
+
+		p_tile_data->pinned_data = clCreateSubBuffer(((Ctrl_OpenCL_Tile *)p_parent->ext)->pinned_data, CL_MEM_ALLOC_HOST_PTR, CL_BUFFER_CREATE_TYPE_REGION, (void *)&offset, &err);
+		OPENCL_ASSERT_ERROR( err );
+
+		// The enqueue of pinned memory to substitute p_tile->data not only is not needed,
+		// but would make the subselection not work.
+		// TODO: check if there's no problems with this (it shouldn't).
+	}
+
+	Ctrl_OpenCLGpu_Sync(p_ctrl);
+}
+
 void Ctrl_OpenCLGpu_EvalTaskFreeTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) {
 	HitTile *p_tile = (HitTile *)(p_task->p_tile);
 	Ctrl_OpenCL_Tile *p_tile_data = (Ctrl_OpenCL_Tile *)(p_tile->ext);
 
-	if(p_tile_data->is_initialized){
+	if (p_tile_data->is_initialized) {
 		cl_event wait_list[6]; 
 		wait_list[0] = p_tile_data->kernel_last_read_event;
 		wait_list[1] = p_tile_data->kernel_last_write_event;
@@ -931,8 +1064,6 @@ void Ctrl_OpenCLGpu_EvalTaskFreeTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task) 
 			p_tile->data = NULL;
 			p_tile->memStatus = HIT_MS_NOMEM;
 		}
-	
-		OPENCL_ASSERT_OP( clReleaseMemObject(p_tile_data->device_data) );
 		
 		OPENCL_ASSERT_OP( clReleaseEvent(p_tile_data->kernel_last_read_event) );
 		OPENCL_ASSERT_OP( clReleaseEvent(p_tile_data->kernel_last_write_event) );

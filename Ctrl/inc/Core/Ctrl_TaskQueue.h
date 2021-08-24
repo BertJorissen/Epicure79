@@ -43,7 +43,7 @@
 
 #include "Core/Ctrl_Request.h"
 
-#include "Kernel/Ctrl_ImplType.h"
+#include "Ctrl_Type.h"
 #include "Kernel/Ctrl_Thread.h"
 
 #ifdef _CTRL_ARCH_CUDA_
@@ -58,8 +58,8 @@
  * @see Ctrl_GenericEvent, Ctrl_CpuEvent_Create, Ctrl_CpuEvent_Destroy, Ctrl_CpuEvent_Wait, Ctrl_CpuEvent_Record
  */
 typedef struct Ctrl_CpuEvent{
-    struct Ctrl_TaskQueue *stream;
-    int task;
+	struct Ctrl_TaskQueue *stream;
+	int task;
 }Ctrl_CpuEvent;
 
 /**
@@ -67,18 +67,18 @@ typedef struct Ctrl_CpuEvent{
  * @see Ctrl_GenericEvent, Ctrl_CpuUserEvent_Create, Ctrl_CpuUserEvent_Destroy, Ctrl_CpuUserEvent_Wait, Ctrl_CpuUserEvent_Signal
  */
 typedef struct Ctrl_CpuUserEvent{
-    bool *state;
+	bool *state;
 }Ctrl_CpuUserEvent;
 
 /**
  * Types of events ef a generic event
  */
 typedef enum Ctrl_EventType{
-    CTRL_EVENT_TYPE_NULL,
-    CTRL_EVENT_TYPE_CUDA,
-    CTRL_EVENT_TYPE_OPENCL,
-    CTRL_EVENT_TYPE_CPU,
-    CTRL_EVENT_TYPE_USERCPU,
+	CTRL_EVENT_TYPE_NULL,
+	CTRL_EVENT_TYPE_CUDA,
+	CTRL_EVENT_TYPE_OPENCL,
+	CTRL_EVENT_TYPE_CPU,
+	CTRL_EVENT_TYPE_USERCPU,
 } Ctrl_EventType;
 
 /**
@@ -105,21 +105,22 @@ typedef struct Ctrl_GenericEvent{
  * Types of tasks
  */
 typedef enum Ctrl_TaskType{
-    CTRL_TASK_TYPE_NULL,
-    CTRL_TASK_TYPE_KERNEL,
-    CTRL_TASK_TYPE_HOST,
-    CTRL_TASK_TYPE_DESTROYCNTRL,
-    CTRL_TASK_TYPE_GLOBALSYNC,
-    CTRL_TASK_TYPE_ALLOCTILE,
+	CTRL_TASK_TYPE_NULL,
+	CTRL_TASK_TYPE_KERNEL,
+	CTRL_TASK_TYPE_HOST,
+	CTRL_TASK_TYPE_DESTROYCNTRL,
+	CTRL_TASK_TYPE_GLOBALSYNC,
+	CTRL_TASK_TYPE_ALLOCTILE,
+	CTRL_TASK_TYPE_SELECTTILE,
 	CTRL_TASK_TYPE_DOMAINTILE,
-    CTRL_TASK_TYPE_FREETILE,
-    CTRL_TASK_TYPE_MOVETO,
-    CTRL_TASK_TYPE_MOVEFROM,
-    CTRL_TASK_TYPE_WAITTILE,
-    CTRL_TASK_TYPE_WAITEVENT,
-    CTRL_TASK_TYPE_SIGNALEVENT,
-    CTRL_TASK_TYPE_RELEASEEVENT,
-    CTRL_TASK_TYPE_SETDEPENDANCEMODE,
+	CTRL_TASK_TYPE_FREETILE,
+	CTRL_TASK_TYPE_MOVETO,
+	CTRL_TASK_TYPE_MOVEFROM,
+	CTRL_TASK_TYPE_WAITTILE,
+	CTRL_TASK_TYPE_WAITEVENT,
+	CTRL_TASK_TYPE_SIGNALEVENT,
+	CTRL_TASK_TYPE_RELEASEEVENT,
+	CTRL_TASK_TYPE_SETDEPENDANCEMODE,
 } Ctrl_TaskType;
 
 #define CTRL_MEM_ALLOC_BOTH 1
@@ -132,40 +133,52 @@ typedef enum Ctrl_TaskType{
 #define CTRL_MODE_IMPLICIT 0
 #define CTRL_MODE_EXPLICIT 1
 
+#define CTRL_SELECT_DEFAULT 0 
+#define CTRL_SELECT_TILE_COORD 0
+#define CTRL_SELECT_ARR_COORD 1
+#define CTRL_SELECT_BOUND 0
+#define CTRL_SELECT_NO_BOUND 2
+#define CTRL_SELECT_INIT 0
+#define CTRL_SELECT_NO_INIT 4
+
+#define CTRL_TASK_NAME_MAX_LEN 29
+
 /**
  * Tasks to send to \e Ctrl_TaskQueue
  */
 typedef struct Ctrl_Task {
-    int device_id;                                      /**< The device id inside the Ctrl */
-    Ctrl_TaskType task_type;                            /**< A task label (Future optimization: Reuse predefined tasks) */
+    int device_id;										/**< The device id inside the Ctrl */
+    Ctrl_TaskType task_type;							/**< A task label (Future optimization: Reuse predefined tasks) */
     void (*pfn_kernel_wrapper)
 			(
-				Ctrl_Request request, int impl,
+				Ctrl_Request request, int impl, Ctrl_Type ctrl_type,
 				Ctrl_Thread threads, Ctrl_Thread blocksize,
 				void *p_arguments
 			);                                          /**< Kernel launching wrapper pointer */
-    void (*pfn_hostTask_wrapper)(void *p_arguments);    /**< Host Task launching wrapper pointer */
-    int n_arguments;                                    /**< Number of arguments/roles/pointers */
-    void *p_arguments;                                  /**< Packed list of arguments */
-    char *p_roles;                                      /**< Input/Output roles, for memory optimizations */
-    void **pp_pointers;                                 /**< Pointers to the original variables, for memory basic operations */
-    uint16_t *p_displacements;                          /**< Displacement of parameter over arguments array, for memory basic operations */
-    struct Ctrl_Task *p_next;                           /**< Next task in the queue */
-    Ctrl_Thread threads;                                /**< Index domain where the task is executed */
-    Ctrl_Thread blocksize;                              /**< Block size for this task */
-    HitTile *p_tile;                                    /**< For 1 tile tasks */
-    Ctrl_GenericEvent event;                            /**< For event related tasks */
-    Ctrl_Request request;                               /**< For kernel execution tasks */
-	int flags;									    	/**< For tile allocation and dependance mode */
+	void (*pfn_hostTask_wrapper)(void *p_arguments);    /**< Host Task launching wrapper pointer */
+	int n_arguments;                                    /**< Number of arguments/roles/pointers */
+	void *p_arguments;                                  /**< Packed list of arguments */
+	char *p_roles;                                      /**< Input/Output roles, for memory optimizations */
+	void **pp_pointers;                                 /**< Pointers to the original variables, for memory basic operations */
+	uint16_t *p_displacements;                          /**< Displacement of parameter over arguments array, for memory basic operations */
+	struct Ctrl_Task *p_next;                           /**< Next task in the queue */
+	Ctrl_Thread threads;                                /**< Index domain where the task is executed */
+	Ctrl_Thread blocksize;                              /**< Block size for this task */
+	HitTile *p_tile;                                    /**< For 1 tile tasks */
+	Ctrl_GenericEvent event;                            /**< For event related tasks */
+	int flags;                                          /**< For tile allocation and dependance mode */
+	int stream;                                         /**< Stream to execute the task in (in kernel execution tasks) */
+	Ctrl_Request request;                               /**< For kernel execution tasks */
+	Ctrl_Type ctrl_type;                                /**< For kernel execution tasks, the type of the ctrl launching the kernel */
 } Ctrl_Task;
 
 /**
  * Queue for \e Ctrl_Task
  */
-typedef struct Ctrl_TaskQueue{
-    int read;                   /**< Index of next task to execute */
-    int write;                  /**< Index of next free spot */
-    int last_finished;          /**< Index of last finished task */
+typedef struct Ctrl_TaskQueue {
+	int read;				/**< Index of next task to execute */
+	int write;				/**< Index of next free spot */
+	int last_finished;		/**< Index of last finished task */
 	Ctrl_Task buffer[CTRL_TASKQUEUE_SIZE];	/**< Buffer of tasks */
 } Ctrl_TaskQueue;
 
@@ -182,14 +195,15 @@ typedef struct Ctrl_TaskQueue{
  * @hideinitializer
  */
 #define CTRL_TASK_NULL                                                  \
-    {                                                                   \
-        .device_id = 0, .task_type = CTRL_TASK_TYPE_NULL,               \
-        .pfn_kernel_wrapper = NULL, .pfn_hostTask_wrapper = NULL,       \
-        .n_arguments = 0, .p_arguments = NULL, .p_roles = NULL,         \
-        .pp_pointers = NULL, .p_displacements = NULL, .p_next = NULL,   \
-        .threads = CTRL_THREAD_NULL, .blocksize=CTRL_THREAD_NULL,       \
-        .p_tile = NULL, .event=CTRL_GENERIC_EVENT_NULL                  \
-    }
+	{                                                                   \
+		.device_id = 0, .task_type = CTRL_TASK_TYPE_NULL,               \
+		.pfn_kernel_wrapper = NULL, .pfn_hostTask_wrapper = NULL,       \
+		.n_arguments = 0, .p_arguments = NULL, .p_roles = NULL,         \
+		.pp_pointers = NULL, .p_displacements = NULL, .p_next = NULL,   \
+		.threads = CTRL_THREAD_NULL, .blocksize = CTRL_THREAD_NULL,     \
+		.p_tile = NULL, .event=CTRL_GENERIC_EVENT_NULL, .flags = 0,     \
+		.stream = 0                                                     \
+	}
 
 /**
  * Free \p p_task.
@@ -209,6 +223,8 @@ static inline void Ctrl_TaskQueue_FreeTask(Ctrl_Task *p_task) {
     p_task->p_next = NULL;
     p_task->p_tile = NULL;
     p_task->event = CTRL_GENERIC_EVENT_NULL;
+    p_task->flags = 0;
+    p_task->stream = 0;
 }
 
 /**
@@ -217,8 +233,8 @@ static inline void Ctrl_TaskQueue_FreeTask(Ctrl_Task *p_task) {
  * @param p_queue pointer to queue to initialize.
  */
 static inline void Ctrl_TaskQueue_Init(Ctrl_TaskQueue *p_queue) {
-    p_queue->read = p_queue->write = 0;
-    p_queue->last_finished=-1;
+	p_queue->read = p_queue->write = 0;
+	p_queue->last_finished=-1;
 }
 
 /**
@@ -236,10 +252,10 @@ static inline void Ctrl_TaskQueue_Push(Ctrl_TaskQueue *p_queue, Ctrl_Task task) 
 		fprintf(stderr, "CTRL Internal error: Task queue exhausted (see CTRL_TASKQUEUE_SIZE compilation parameter)\n"); fflush(stderr);
 		exit( EXIT_FAILURE );
 	}
-    p_queue->buffer[p_queue->write] = task;
+	p_queue->buffer[p_queue->write] = task;
 
-    #pragma omp atomic update
-    p_queue->write++;
+	#pragma omp atomic update
+	p_queue->write++;
 }
 
 /**
@@ -251,18 +267,18 @@ static inline void Ctrl_TaskQueue_Push(Ctrl_TaskQueue *p_queue, Ctrl_Task task) 
  * @returns a pointer to the task
  */
 static inline Ctrl_Task *Ctrl_TaskQueue_Pop(Ctrl_TaskQueue *p_queue) {
-    int write = 0;
+	int write = 0;
 
-    #pragma omp atomic read
-    write = p_queue->write;
+	#pragma omp atomic read
+	write = p_queue->write;
 
-    while(write == p_queue->read) {
-        #pragma omp atomic read
-        write = p_queue->write;
-    }
+	while(write == p_queue->read) {
+		#pragma omp atomic read
+		write = p_queue->write;
+	}
 
-    p_queue->read++;
-    return &(p_queue->buffer[(p_queue->read) - 1]);
+	p_queue->read++;
+	return &(p_queue->buffer[(p_queue->read) - 1]);
 }
 
 /**
@@ -271,28 +287,28 @@ static inline Ctrl_Task *Ctrl_TaskQueue_Pop(Ctrl_TaskQueue *p_queue) {
  * @param p_queue Queue to be destroyed.
  */
 static inline void Ctrl_TaskQueue_Destroy(Ctrl_TaskQueue *p_queue) {
-    for (int i = 0; i < p_queue->read; i++){    
-        if ((p_queue->buffer[i]).task_type == CTRL_TASK_TYPE_HOST || (p_queue->buffer[i]).task_type == CTRL_TASK_TYPE_KERNEL) {
-            Ctrl_TaskQueue_FreeTask(&(p_queue->buffer[i]));
-        }
-    }
-    p_queue->read = p_queue->write = p_queue->last_finished=0;
+	for (int i = 0; i < p_queue->read; i++){	
+		if ((p_queue->buffer[i]).task_type == CTRL_TASK_TYPE_HOST || (p_queue->buffer[i]).task_type == CTRL_TASK_TYPE_KERNEL) {
+			Ctrl_TaskQueue_FreeTask(&(p_queue->buffer[i]));
+		}
+	}
+	p_queue->read = p_queue->write = p_queue->last_finished=0;
 }
 
 /**
  * @returns a new cpu event
  */
 static inline Ctrl_CpuEvent Ctrl_CpuEvent_Create(){
-    return (Ctrl_CpuEvent) {.stream=NULL, .task=0};
+	return (Ctrl_CpuEvent) {.stream=NULL, .task=0};
 }
 
 /**
  * @returns a new cpu user event
  */
 static inline Ctrl_CpuUserEvent Ctrl_CpuUserEvent_Create(){
-    bool *state=(bool*)malloc(sizeof(bool));
-    *state=0;
-    return (Ctrl_CpuUserEvent) {.state=state};
+	bool *state=(bool*)malloc(sizeof(bool));
+	*state=0;
+	return (Ctrl_CpuUserEvent) {.state=state};
 }
 
 /**
@@ -301,8 +317,8 @@ static inline Ctrl_CpuUserEvent Ctrl_CpuUserEvent_Create(){
  * @param p_event Event to be destroyed.
  */
 static inline void Ctrl_CpuEvent_Destroy(Ctrl_CpuEvent *p_event){
-    p_event->stream=NULL;
-    p_event->task=0;
+	p_event->stream=NULL;
+	p_event->task=0;
 }
 
 /**
@@ -311,7 +327,7 @@ static inline void Ctrl_CpuEvent_Destroy(Ctrl_CpuEvent *p_event){
  * @param p_event User event to be destroyed.
  */
 static inline void Ctrl_CpuUserEvent_Destroy(Ctrl_CpuUserEvent *p_event){
-    free(p_event->state);
+	free(p_event->state);
 }
 
 /**
@@ -321,11 +337,11 @@ static inline void Ctrl_CpuUserEvent_Destroy(Ctrl_CpuUserEvent *p_event){
  * @param p_stream Stream in which to record event.
  */
 static inline void Ctrl_CpuEvent_Record(Ctrl_CpuEvent *p_event,Ctrl_TaskQueue *p_stream ){
-    p_event->stream=p_stream;
-    int write=0;
-    #pragma omp atomic read
-        write=p_stream->write;
-    p_event->task=write-1;
+	p_event->stream=p_stream;
+	int write=0;
+	#pragma omp atomic read
+		write=p_stream->write;
+	p_event->task=write-1;
 }
 
 /**
@@ -334,11 +350,11 @@ static inline void Ctrl_CpuEvent_Record(Ctrl_CpuEvent *p_event,Ctrl_TaskQueue *p
  * @param event Event to wait to.
  */
 static inline void Ctrl_CpuUserEvent_Wait(Ctrl_CpuUserEvent event){
-    int state=0;
-    do{
-    #pragma omp atomic read
-        state=*event.state;
-    } while (!state);
+	int state=0;
+	do{
+	#pragma omp atomic read
+		state=*event.state;
+	} while (!state);
 }
 
 /**
@@ -349,13 +365,13 @@ static inline void Ctrl_CpuUserEvent_Wait(Ctrl_CpuUserEvent event){
  * @see Ctrl_CpuUserEvent_Signal
  */
 static inline void Ctrl_CpuEvent_Wait(Ctrl_CpuEvent event){
-    if(event.stream==NULL)
-        return;
-    int last_finished=-1;
-    do{
-        #pragma omp atomic read
-            last_finished=event.stream->last_finished;
-    } while (last_finished<event.task);
+	if(event.stream==NULL)
+		return;
+	int last_finished=-1;
+	do{
+		#pragma omp atomic read
+			last_finished=event.stream->last_finished;
+	} while (last_finished<event.task);
 }
 
 /**
@@ -364,8 +380,8 @@ static inline void Ctrl_CpuEvent_Wait(Ctrl_CpuEvent event){
  * @param p_event Event to signal.
  */
 static inline void Ctrl_CpuUserEvent_Signal(Ctrl_CpuUserEvent *p_event){
-    #pragma omp atomic write
-        *p_event->state=1;
+	#pragma omp atomic write
+		*p_event->state=1;
 }
 
 /**
@@ -373,10 +389,10 @@ static inline void Ctrl_CpuUserEvent_Signal(Ctrl_CpuUserEvent *p_event){
  * 
  * @param p_queue Queue to wait to.
  */
-static inline void Ctrl_TaskQueue_Syncronize(Ctrl_TaskQueue *p_queue){
-    Ctrl_CpuEvent event=Ctrl_CpuEvent_Create();
-    Ctrl_CpuEvent_Record(&event, p_queue);
-    Ctrl_CpuEvent_Wait(event);
+static inline void Ctrl_TaskQueue_Synchronize(Ctrl_TaskQueue *p_queue){
+	Ctrl_CpuEvent event=Ctrl_CpuEvent_Create();
+	Ctrl_CpuEvent_Record(&event, p_queue);
+	Ctrl_CpuEvent_Wait(event);
 }
 
 /**
@@ -388,11 +404,11 @@ static inline void Ctrl_TaskQueue_Syncronize(Ctrl_TaskQueue *p_queue){
  * @see Ctrl_GenericEvent_Wait
  */
 static inline void Ctrl_GenericEvent_StreamWait(Ctrl_GenericEvent event, Ctrl_TaskQueue *p_stream){
-    Ctrl_Task task=CTRL_TASK_NULL;
-    task.task_type=CTRL_TASK_TYPE_WAITEVENT;
-    task.event=event;
+	Ctrl_Task task=CTRL_TASK_NULL;
+	task.task_type=CTRL_TASK_TYPE_WAITEVENT;
+	task.event=event;
 
-    Ctrl_TaskQueue_Push(p_stream, task);
+	Ctrl_TaskQueue_Push(p_stream, task);
 }
 
 /**
@@ -405,11 +421,11 @@ static inline void Ctrl_GenericEvent_StreamWait(Ctrl_GenericEvent event, Ctrl_Ta
  * @see Ctrl_GenericEvent_Signal
  */
 static inline void Ctrl_GenericEvent_StreamSignal(Ctrl_GenericEvent event, Ctrl_TaskQueue *p_stream){
-    Ctrl_Task task=CTRL_TASK_NULL;
-    task.task_type=CTRL_TASK_TYPE_SIGNALEVENT;
-    task.event=event;
+	Ctrl_Task task=CTRL_TASK_NULL;
+	task.task_type=CTRL_TASK_TYPE_SIGNALEVENT;
+	task.event=event;
 
-    Ctrl_TaskQueue_Push(p_stream, task);
+	Ctrl_TaskQueue_Push(p_stream, task);
 }
 
 /**
@@ -422,11 +438,11 @@ static inline void Ctrl_GenericEvent_StreamSignal(Ctrl_GenericEvent event, Ctrl_
  * @see Ctrl_GenericEvent_Release
  */
 static inline void Ctrl_GenericEvent_StreamRelease(Ctrl_GenericEvent event, Ctrl_TaskQueue *p_stream){
-    Ctrl_Task task=CTRL_TASK_NULL;
-    task.task_type=CTRL_TASK_TYPE_RELEASEEVENT;
-    task.event=event;
+	Ctrl_Task task=CTRL_TASK_NULL;
+	task.task_type=CTRL_TASK_TYPE_RELEASEEVENT;
+	task.event=event;
 
-    Ctrl_TaskQueue_Push(p_stream, task);
+	Ctrl_TaskQueue_Push(p_stream, task);
 }
 
 /**
@@ -472,21 +488,21 @@ static inline void Ctrl_GenericEvent_Wait(Ctrl_GenericEvent event){
  * @see Ctrl_GenericEvent_StreamSignal, Ctrl_CpuUserEvent_Signal
  */
 static inline void Ctrl_GenericEvent_Signal(Ctrl_GenericEvent event){
-    switch (event.event_type){
-        #if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
-        case CTRL_EVENT_TYPE_OPENCL:
-            clSetUserEventStatus(event.event.event_cl,CL_COMPLETE);
-            break;
-        #endif //_CTRL_ARCH_OPENCL_GPU_ || _CTRL_ARCH_FPGA_
+	switch (event.event_type){
+		#ifdef _CTRL_ARCH_OPENCL_GPU_
+		case CTRL_EVENT_TYPE_OPENCL:
+			clSetUserEventStatus(event.event.event_cl,CL_COMPLETE);
+			break;
+		#endif //_CTRL_ARCH_OPENCL_GPU_
 
-        case CTRL_EVENT_TYPE_USERCPU:
-            Ctrl_CpuUserEvent_Signal(&event.event.user_event_cpu);
-            break;
-        default:
-            printf("unknown event type\n");
-            exit(EXIT_FAILURE);
-            break;
-    }
+		case CTRL_EVENT_TYPE_USERCPU:
+			Ctrl_CpuUserEvent_Signal(&event.event.user_event_cpu);
+			break;
+		default:
+			printf("unknown event type\n");
+			exit(EXIT_FAILURE);
+			break;
+	}
 }
 
 /**
@@ -518,55 +534,58 @@ static inline void Ctrl_GenericEvent_Release(Ctrl_GenericEvent event){
 extern Ctrl_TaskQueue *p_ctrl_host_stream;
 
 #ifdef _CTRL_DEBUG_
-    static inline void Ctrl_TaskQueue_GetTypeName(Ctrl_Task *p_task, char *name) {
-        switch(p_task->task_type){
-            case CTRL_TASK_TYPE_NULL:
-                strcpy(name, "CTRL_TASK_TYPE_NULL");
-                break;
-            case CTRL_TASK_TYPE_KERNEL:
-                strcpy(name, "CTRL_TASK_TYPE_KERNEL");
-                break;
-            case CTRL_TASK_TYPE_HOST:
-                strcpy(name, "CTRL_TASK_TYPE_HOST");
-                break;
-            case CTRL_TASK_TYPE_DESTROYCNTRL:
-                strcpy(name, "CTRL_TASK_TYPE_DESTROYCNTRL");
-                break;
-            case CTRL_TASK_TYPE_GLOBALSYNC:
-                strcpy(name, "CTRL_TASK_TYPE_GLOBALSYNC");
-                break;
-            case CTRL_TASK_TYPE_ALLOCTILE:
-                strcpy(name, "CTRL_TASK_TYPE_ALLOCTILE");
-                break;
+	static inline void Ctrl_TaskQueue_GetTypeName(Ctrl_Task *p_task, char *name) {
+		switch(p_task->task_type){
+			case CTRL_TASK_TYPE_NULL:
+				strcpy(name, "CTRL_TASK_TYPE_NULL");
+				break;
+			case CTRL_TASK_TYPE_KERNEL:
+				strcpy(name, "CTRL_TASK_TYPE_KERNEL");
+				break;
+			case CTRL_TASK_TYPE_HOST:
+				strcpy(name, "CTRL_TASK_TYPE_HOST");
+				break;
+			case CTRL_TASK_TYPE_DESTROYCNTRL:
+				strcpy(name, "CTRL_TASK_TYPE_DESTROYCNTRL");
+				break;
+			case CTRL_TASK_TYPE_GLOBALSYNC:
+				strcpy(name, "CTRL_TASK_TYPE_GLOBALSYNC");
+				break;
+			case CTRL_TASK_TYPE_ALLOCTILE:
+				strcpy(name, "CTRL_TASK_TYPE_ALLOCTILE");
+				break;
+			case CTRL_TASK_TYPE_SELECTTILE:
+				strcpy(name, "CTRL_TASK_TYPE_SELECTTILE");
+				break;
 			case CTRL_TASK_TYPE_DOMAINTILE:
 				strcpy(name, "CTRL_TASK_TYPE_DOMAINTILE");
 				break;
-            case CTRL_TASK_TYPE_FREETILE:
-                strcpy(name, "CTRL_TASK_TYPE_FREETILE");
-                break;
-            case CTRL_TASK_TYPE_MOVETO:
-                strcpy(name, "CTRL_TASK_TYPE_MOVETO");
-                break;
-            case CTRL_TASK_TYPE_MOVEFROM:
-                strcpy(name, "CTRL_TASK_TYPE_MOVEFROM");
-                break;
-            case CTRL_TASK_TYPE_WAITTILE:
-                strcpy(name, "CTRL_TASK_TYPE_WAITTILE");
-                break;
-            case CTRL_TASK_TYPE_WAITEVENT:
-                strcpy(name, "CTRL_TASK_TYPE_WAITEVENT");
-                break;
-            case CTRL_TASK_TYPE_SIGNALEVENT:
-                strcpy(name, "CTRL_TASK_TYPE_SIGNALEVENT");
-                break;
-            case CTRL_TASK_TYPE_SETDEPENDANCEMODE:
-                strcpy(name, "CTRL_TASK_TYPE_SETDEPENDANCEMODE");
-                break;
-            default:
-                strcpy(name, "Unknown task type");
-                break;
-        }
-    }
+			case CTRL_TASK_TYPE_FREETILE:
+				strcpy(name, "CTRL_TASK_TYPE_FREETILE");
+				break;
+			case CTRL_TASK_TYPE_MOVETO:
+				strcpy(name, "CTRL_TASK_TYPE_MOVETO");
+				break;
+			case CTRL_TASK_TYPE_MOVEFROM:
+				strcpy(name, "CTRL_TASK_TYPE_MOVEFROM");
+				break;
+			case CTRL_TASK_TYPE_WAITTILE:
+				strcpy(name, "CTRL_TASK_TYPE_WAITTILE");
+				break;
+			case CTRL_TASK_TYPE_WAITEVENT:
+				strcpy(name, "CTRL_TASK_TYPE_WAITEVENT");
+				break;
+			case CTRL_TASK_TYPE_SIGNALEVENT:
+				strcpy(name, "CTRL_TASK_TYPE_SIGNALEVENT");
+				break;
+			case CTRL_TASK_TYPE_SETDEPENDANCEMODE:
+				strcpy(name, "CTRL_TASK_TYPE_SETDEPENDANCEMODE");
+				break;
+			default:
+				strcpy(name, "Unknown task type");
+				break;
+		}
+	}
 #endif // _CTRL_DEBUG_
 
 ///@endcond

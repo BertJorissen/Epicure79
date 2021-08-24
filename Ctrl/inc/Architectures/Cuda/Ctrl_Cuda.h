@@ -41,6 +41,15 @@
 
 #include <cuda_runtime.h>
 
+#ifdef _CTRL_CUBLAS
+#include <cublas_v2.h>
+#endif // _CTRL_CUBLAS
+
+#ifdef _CTRL_MAGMA_
+#include "magma_v2.h"
+#include "magma_lapack.h"
+#endif //_CTRL_MAGMA_
+
 #include "hitmap2.h"
 
 #include "Core/Ctrl_Policy.h"
@@ -73,37 +82,70 @@
 #define CTRL_CUDA_LAUNCH(p_ctrl, name, threads, group, ... ) \
     case CTRL_TYPE_CUDA: \
         if (group.dims == 0){\
-            Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CUDA, threads, CTRL_KERNEL_CUDA_CHAR_threads(name, CTRL_KERNEL_CUDA_ARCH_KEPLER), CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+            Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CUDA, threads, CTRL_KERNEL_CUDA_CHAR_threads(name, CTRL_KERNEL_CUDA_ARCH_KEPLER ), 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
         }else{\
-            Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CUDA, threads, group, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__) )); \
+            Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CUDA, threads, group, 0, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
         }\
         break;
+
+/**
+ * Launch a kernel to a specific stream of the ctrl queue
+ * @hideinitializer
+ * 
+ * @param p_ctrl: pointer to the ctrl to launch the kernel
+ * @param name: name of the kernel to be launched
+ * @param threads: thread block to launch the kernel with. (Ctrl_Thread)
+ * @param group block sizes for this kernel execution.
+ *      Optional, if a block with 0 dimensions is passed (such as CTRL_THREAD_NULL), default characterization is used instead.
+ * @param stream: stream to launch the kernel to.
+ * @param ...: arguments passed to the kernel.
+ * 
+ * @see Ctrl_LaunchToStream, Ctrl_Thread
+ */
+#define CTRL_CUDA_LAUNCH_STREAM(p_ctrl, name, threads, group, stream, ... ) \
+    case CTRL_TYPE_CUDA: \
+        if (group.dims == 0){\
+            Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CUDA, threads, CTRL_KERNEL_CUDA_CHAR_threads(name, CTRL_KERNEL_CUDA_ARCH_KEPLER ), stream, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
+        }else{\
+            Ctrl_LaunchKernel(p_ctrl, Ctrl_KernelTaskCreate_##name( CTRL_TYPE_CUDA, threads, group, stream, CTRL_KERNEL_ARGS_TO_POINTERS( __VA_ARGS__ ) )); \
+        }\
+        break;
+
 
 /**
  * CUDA implementation of abstract ctrl
  */
 typedef struct Ctrl_Cuda {
-    int 							device;             /**< Index of the CUDA gpu device used by tehe ctrl */
+	int                   device;             /**< Index of the CUDA gpu device used by tehe ctrl */
 
-    cudaStream_t 					stream_kernel;      /**< Stream to launch kernels */
-    cudaStream_t 					stream_host;        /**< Stream to launch host tasks (needed to sync host queue with other cuda streams) */
+	cudaStream_t 					stream_host;        /**< Stream to launch host tasks (needed to sync host queue with other cuda streams) */
 
 	cudaEvent_t						event_seq;          /**< Event used for sync policy */
 
-    struct Ctrl_Cuda_Tile_List		*p_tile_list_head;  /**< Head of the list of tiles associate to this ctrl */  
+	struct Ctrl_Cuda_Tile_List		*p_tile_list_head;  /**< Head of the list of tiles associate to this ctrl */  
 	struct Ctrl_Cuda_Tile_List		*p_tile_list_tail;  /**< Tail of the list of tiles associate to this ctrl */
 
-    #ifdef _CTRL_QUEUE_
+	#ifdef _CTRL_QUEUE_
 	omp_lock_t						*p_lock_first_host; /**< Lock used for sync between main thread and queue manager thread */
 	omp_lock_t						*p_lock_first_ctrl; /**< Lock used for sync between main thread and queue manager thread */    
 	omp_lock_t						*p_lock_host;       /**< Lock used for sync between main thread and queue manager thread */
 	omp_lock_t						*p_lock_ctrl;       /**< Lock used for sync between main thread and queue manager thread */
 	#endif //_CTRL_QUEUE_
 	
-    Ctrl_Policy						policy;             /**< Policy to be used by this ctrl (sync or async) */
-	int								dependance_mode;	/**< Dependance mode to be used by this ctrl */
-
+	Ctrl_Policy						policy;             /**< Policy to be used by this ctrl (sync or async) */
+	int										dependance_mode;    /**< Dependance mode to be used by this ctrl */
+	int										n_kernel_streams;   /**< Number of CUDA streams for kernel launching available to this ctrl */
 	int								default_alloc_mode;	/**< Default allocation mode. On CUDA it will be pinned */
+	cudaStream_t					*kernel_streams;    /**< Streams to launch kernels */
+
+	#ifdef _CTRL_CUBLAS_
+	cublasHandle_t					cublas_handle;		/**< Handle for cublas lib operations */
+	#endif // _CTRL_CUBLAS_
+	
+	#ifdef _CTRL_MAGMA_
+	magma_queue_t					magma_queue;		/**< Queue for magma lib operations */
+	#endif // _CTRL_MAGMA_
+	
 } Ctrl_Cuda;
 
 /**
@@ -113,7 +155,7 @@ typedef struct Ctrl_Cuda {
  * @param policy Policy to be used by the contrller.
  * @param device Index of the device to be used.
  */
-void Ctrl_Cuda_Create(Ctrl_Cuda *p_ctrl, Ctrl_Policy policy, int device);
+void Ctrl_Cuda_Create(Ctrl_Cuda *p_ctrl, Ctrl_Policy policy, int device, int streams);
 
 /**
  * Evaluate a task on a CPU ctrl.

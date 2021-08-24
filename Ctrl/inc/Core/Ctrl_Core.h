@@ -36,7 +36,7 @@
 #endif //CTRL_FPGA_KERNEL_FILE
 
 #ifdef _CTRL_DEBUG_
-    #include <stdio.h>
+	#include <stdio.h>
 #endif
 
 #ifndef CTRL_FPGA_KERNEL_FILE
@@ -57,6 +57,7 @@
 	#include "Architectures/Cpu/Ctrl_Cpu.h"
 #else
 	#define CTRL_CPU_LAUNCH( ... )
+	#define CTRL_CPU_LAUNCH_STREAM( ... )
 #endif // _CTRL_ARCH_CPU_
 
 
@@ -64,6 +65,7 @@
 	#include "Architectures/Cuda/Ctrl_Cuda.h"
 #else
 	#define CTRL_CUDA_LAUNCH( ... )
+	#define CTRL_CUDA_LAUNCH_STREAM( ... )
 #endif // _CTRL_ARCH_CUDA_
 
 
@@ -71,6 +73,7 @@
 	#include "Architectures/OpenCL/Ctrl_OpenCL_Gpu.h"
 #else
 	#define CTRL_OPENCL_GPU_LAUNCH( ... )
+	#define CTRL_OPENCL_GPU_LAUNCH_STREAM( ... )
 #endif // _CTRL_ARCH_OPENCL_GPU_
 
 
@@ -80,6 +83,7 @@
 	#endif
 #else
 	#define CTRL_FPGA_LAUNCH( ... )
+	#define CTRL_FPGA_LAUNCH_STREAM( ... )
 #endif // _CTRL_ARCH_FPGA_
 
 #ifdef __cplusplus
@@ -111,26 +115,25 @@ typedef union {
 
 } Ctrl_Impl;
 
-
 /**
  * @brief Abstract controller.
  */
 typedef struct {
-	int 				id;					/**< Id of the ctrl */
-	Ctrl_Type			type;				/**< Type of the ctrl */
-	Ctrl_Impl			*p_impl;			/**< Specific implementation for this type of ctrl  */
+  int         id;         /**< Id of the ctrl */
+  Ctrl_Type     type;       /**< Type of the ctrl */
+  Ctrl_Impl     *p_impl;      /**< Specific implementation for this type of ctrl  */
 #ifdef _CTRL_QUEUE_
-	omp_lock_t			*p_lock_first_host;	/**< Lock to sync with queue manager thread */
-	omp_lock_t			*p_lock_first_ctrl;	/**< Lock to sync with queue manager thread */	
-	omp_lock_t			*p_lock_host;		/**< Lock to sync with queue manager thread */
-	omp_lock_t			*p_lock_ctrl;		/**< Lock to sync with queue manager thread */
+  omp_lock_t      *p_lock_first_host; /**< Lock to sync with queue manager thread */
+  omp_lock_t      *p_lock_first_ctrl; /**< Lock to sync with queue manager thread */
+  omp_lock_t      *p_lock_host;   /**< Lock to sync with queue manager thread */
+  omp_lock_t      *p_lock_ctrl;   /**< Lock to sync with queue manager thread */
 
-	Ctrl_TaskQueue		*p_task_queue;		/**< Task queue for this ctrl */
+  Ctrl_TaskQueue    *p_task_queue;    /**< Task queue for this ctrl */
 #endif //_CTRL_QUEUE_
-	Ctrl_Policy			policy;				/**< Policy to be used by this ctrl */
-	int					device;				/**< Used to decide which kernel implementation is prefered */
-	void				*p_ext;				/**< IDK what this is for */
-	
+  Ctrl_Policy     policy;       /**< Policy to be used by this ctrl */
+  int         device;       /**< Used to decide which kernel implementation is prefered */
+  void        *p_ext;       /**< IDK what this is for */
+
 } Ctrl;
 
 typedef Ctrl * PCtrl;
@@ -148,7 +151,7 @@ typedef Ctrl * PCtrl;
  * 		Optional, if a block with 0 dimensions is passed (such as CTRL_THREAD_NULL), default characterization is used instead.
  * @param ... arguments for the kernel.
  * 
- * @see CTRL_KERNEL, CTRL_KERNEL_PROTO
+ * @see CTRL_KERNEL, CTRL_KERNEL_PROTO, Ctrl_LaunchToStream
  */
 #define Ctrl_Launch( p_ctrl, name, threads, group, ... ) \
 	switch ((p_ctrl)->type) \
@@ -158,9 +161,38 @@ typedef Ctrl * PCtrl;
 		CTRL_OPENCL_GPU_LAUNCH( p_ctrl, name, threads, group, __VA_ARGS__ ) \
 		CTRL_FPGA_LAUNCH( p_ctrl, name, threads, group, __VA_ARGS__ ) \
 		default: \
-			fprintf(stderr, "[Ctrl_Core] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", p_ctrl->type); \
+			fprintf(stderr, "[Ctrl_Launch] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", p_ctrl->type); \
 			exit(EXIT_FAILURE); \
 	}
+
+/**
+ * Launch a kernel to the ctrl queue, and to a given stream.
+ * This call is always asynchronous.
+ * 
+ * @hideinitializer
+ * 
+ * @param p_ctrl: ctrl to launch kernel
+ * @param name: kernel to launch
+ * @param threads: block of threads to execute the kernel with
+ * @param group: block sizes for this kernel execution. 
+ * 		Optional, if a block with 0 dimensions is passed (such as CTRL_THREAD_NULL), default characterization is used instead.
+ * @param stream: stream to launch the kernel to.
+ * @param ...: arguments for the kernel
+ * 
+ * @see CTRL_KERNEL, CTRL_KERNEL_PROTO, Ctrl_Launch
+ */
+#define Ctrl_LaunchToStream( p_ctrl, name, threads, group, stream, ... ) \
+	switch ((p_ctrl)->type) \
+	{ \
+		CTRL_CPU_LAUNCH_STREAM( p_ctrl, name, threads, group, stream,  __VA_ARGS__ ) \
+		CTRL_CUDA_LAUNCH_STREAM( p_ctrl, name, threads, group, stream, __VA_ARGS__ ) \
+		CTRL_OPENCL_GPU_LAUNCH_STREAM( p_ctrl, name, threads, group, stream, __VA_ARGS__ ) \
+		CTRL_FPGA_LAUNCH_STREAM( p_ctrl, name, threads, group, stream, __VA_ARGS__ ) \
+		default: \
+			fprintf(stderr, "[Ctrl_Launch] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", p_ctrl->type); \
+			exit(EXIT_FAILURE); \
+	}
+
 
 /**
  * Launch a host task to the ctrl queue.
@@ -203,7 +235,7 @@ typedef Ctrl * PCtrl;
  */
 #define __ctrl_block__(num_ctrl, num_ctrl_threads)		\
 	_CTRL_QUEUE_WARN_##num_ctrl_threads##_ \
-	omp_set_nested(1);					\
+	omp_set_max_active_levels(2);					\
 	omp_set_num_threads(2 + num_ctrl_threads);		\
 	_Pragma("omp parallel") if (Ctrl_Thread_Init() == 0)
 
@@ -229,6 +261,23 @@ typedef Ctrl * PCtrl;
 		static inline HitTile_##type Ctrl_DomainAlloc_##type(Ctrl *p_ctrl, HitShape shape, int flags) { \
 			HitTile_##type new_tile = Ctrl_Domain_##type(p_ctrl, shape); \
 			Ctrl_Alloc(p_ctrl, new_tile, flags); \
+			return new_tile; \
+		} \
+			static inline HitTile_##type Ctrl_Select_##type(Ctrl *p_ctrl, HitTile *p_parent, HitShape shape, int flags) { \
+			HitTile_##type new_tile = HIT_TILE_NULL_STATIC; \
+			if ( hit_shapeDims(shape) == -1 ) return *(HitTile_##type*) &HIT_TILE_NULL; \
+			if ( ! (flags & CTRL_SELECT_ARR_COORD) && ! (flags & CTRL_SELECT_NO_BOUND) ) { \
+				hit_tileSelect( &new_tile, p_parent, shape ); \
+			} else if ( (flags & CTRL_SELECT_ARR_COORD) && ! (flags & CTRL_SELECT_NO_BOUND) ) { \
+				hit_tileSelectArrayCoords( &new_tile, p_parent, shape ); \
+			} else if ( ! (flags & CTRL_SELECT_ARR_COORD) && (flags & CTRL_SELECT_NO_BOUND) ) { \
+				hit_tileSelectNoBoundary( &new_tile, p_parent, shape ); \
+			} else if ( (flags & CTRL_SELECT_ARR_COORD) && (flags & CTRL_SELECT_NO_BOUND)  ) { \
+				hit_tileSelectArrayCoordsNoBoundary( &new_tile, p_parent, shape ); \
+			} else { \
+				fprintf(stderr, "Internal Error: Unknow flags in select\n"); fflush(stderr); exit(EXIT_FAILURE); \
+			} \
+			Ctrl_SelectInner( p_ctrl, ((HitTile *)(&new_tile)), flags ); \
 			return new_tile; \
 		}
 #else
@@ -259,21 +308,34 @@ typedef Ctrl * PCtrl;
  * 
  * @see Ctrl_CreateWrapper
  */
-#define Ctrl_Create( type, policy, ... ) Ctrl_CreateWrapper_##type(policy, __VA_ARGS__ );
+#define Ctrl_Create( type, policy, ... ) Ctrl_CreateWrapperMacro_##type(policy, __VA_ARGS__ );
 
 #ifdef _CTRL_ARCH_FPGA_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_FPGA(Ctrl_Policy policy, int device, int platform, int exec_mode);
+	#define Ctrl_CreateWrapperMacro_CTRL_TYPE_FPGA(...) Ctrl_CreateWrapperFPGA(__VA_ARGS__, streams, noStreams)(__VA_ARGS__)
+	#define Ctrl_CreateWrapperFPGA(_1, _2, _3, _4, _5, type, ...) Ctrl_CreateWrapperFPGA_##type
+	#define Ctrl_CreateWrapperFPGA_streams(policy, device, platform, exec_mode, streams) Ctrl_CreateWrapper_CTRL_TYPE_FPGA(policy, device, platform, exec_mode, streams)
+	#define Ctrl_CreateWrapperFPGA_noStreams(policy, device, platform, exec_mode) Ctrl_CreateWrapper_CTRL_TYPE_FPGA(policy, device, platform, exec_mode, 1)
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_FPGA(Ctrl_Policy policy, int device, int platform, int exec_mode, int streams);
 #endif
 
 #ifdef _CTRL_ARCH_OPENCL_GPU_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(Ctrl_Policy policy, int device, int platform);
+	#define Ctrl_CreateWrapperMacro_CTRL_TYPE_OPENCL_GPU(...) Ctrl_CreateWrapperCL_GPU(__VA_ARGS__, streams, noStreams)(__VA_ARGS__)
+	#define Ctrl_CreateWrapperCL_GPU(_1, _2, _3, _4, type, ...) Ctrl_CreateWrapperCL_GPU_##type
+	#define Ctrl_CreateWrapperCL_GPU_streams(policy, device, platform, streams) Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(policy, device, platform, streams)
+	#define Ctrl_CreateWrapperCL_GPU_noStreams(policy, device, platform) Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(policy, device, platform, 1)
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(Ctrl_Policy policy, int device, int platform, int streams);
 #endif
 
 #ifdef _CTRL_ARCH_CUDA_
-	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CUDA(Ctrl_Policy policy, int device);
+	#define Ctrl_CreateWrapperMacro_CTRL_TYPE_CUDA(...) Ctrl_CreateWrapperCUDA(__VA_ARGS__, streams, noStreams)(__VA_ARGS__)
+	#define Ctrl_CreateWrapperCUDA(_1, _2, _3, type, ...) Ctrl_CreateWrapperCUDA_##type
+	#define Ctrl_CreateWrapperCUDA_streams(policy, device, streams) Ctrl_CreateWrapper_CTRL_TYPE_CUDA(policy, device, streams)
+	#define Ctrl_CreateWrapperCUDA_noStreams(policy, device) Ctrl_CreateWrapper_CTRL_TYPE_CUDA(policy, device, 1)
+	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CUDA(Ctrl_Policy policy, int device, int streams);
 #endif
 
 #ifdef _CTRL_ARCH_CPU_
+	#define Ctrl_CreateWrapperMacro_CTRL_TYPE_CPU(...) Ctrl_CreateWrapper_CTRL_TYPE_CPU(__VA_ARGS__)
 	PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CPU(Ctrl_Policy policy, int n_threads, int *p_numa_nodes, int n_numanodes, bool mem_moves);
 #endif
 
@@ -371,6 +433,26 @@ void Ctrl_DomainInner(Ctrl *p_ctrl, HitTile *p_tile);
 #define Ctrl_DomainAllocNoFlags(ctrl, type, shape) Ctrl_DomainAlloc_##type( ctrl, shape, CTRL_MEM_ALLOC_BOTH )
 
 /**
+ * Create a tile subselection.
+ *
+ * Initialize a hierarchical subselection using tile coordinates.
+ * This is always a synchronous call.
+ *
+ * @hideinitializer
+ *
+ * @param ctrl: pointer to ctrl that the parent tile is attached to.
+ * @param type: type of data inside the tiles.
+ * @param p_parent: parent tile to make a subselection from.
+ * @param flags: subselection flags.
+ *
+ * @returns HitTile_type, the subselection from p_tile.
+ *
+ * @pre \p type must have been declared as a type with @see Ctrl_NewType
+ */
+#define Ctrl_Select(ctrl, type, p_parent, shape, flags) Ctrl_Select_##type( ctrl, ((HitTile *)(&p_parent)), shape, flags );
+void Ctrl_SelectInner(Ctrl *p_ctrl, HitTile *p_tile, int flags);
+
+/**
  * Free multiple tiles.
  * This is always a synchronous call.
  * 
@@ -454,7 +536,7 @@ void Ctrl_Hosttask_Sync();
 /**
  * Wait for all operations to finish
  */
-void Ctrl_Sycnhronize();
+void Ctrl_Synchronize();
 
 /**
  * Set the host affinity to \p node numa node.

@@ -16,29 +16,25 @@ CTRL_KERNEL_CHAR(Add, MANUAL, 16, 16);
 CTRL_KERNEL(Add, GENERIC, DEFAULT, int n_iter, KHitTile_float A, KHitTile_float B, KHitTile_float C,
 {
 	for (int k = 0; k < n_iter; k++) {
-		hit(C, thread_id.x, thread_id.y) =
-			hit(C, thread_id.x, thread_id.y) +
-			hit(A, thread_id.x, thread_id.y) +
-			hit(B, thread_id.x, thread_id.y);
+		hit(C, thread_id_x, thread_id_y) =
+			hit(C, thread_id_x, thread_id_y) +
+			hit(A, thread_id_x, thread_id_y) +
+			hit(B, thread_id_x, thread_id_y);
 	}
 });
 
-/* A. GENERIC Kernel implementation */
-CTRL_KERNEL_FUNCTION(Add, CPU, DEFAULT, int n_iter, KHitTile_float A, KHitTile_float B, KHitTile_float C)
+CTRL_KERNEL(Add, CPULIB, MKL, int n_iter, KHitTile_float A, KHitTile_float B, KHitTile_float C,
 {
 	for (int k = 0; k < n_iter; k++) {
-		hit(C, thread_id.x, thread_id.y) =
-			hit(C, thread_id.x, thread_id.y) +
-			hit(A, thread_id.x, thread_id.y) +
-			hit(B, thread_id.x, thread_id.y);
+		cblas_saxpy(hit_tileDimCard(A, 0)*hit_tileDimCard(A, 1), 1, A.data, 1, C.data, 1);
+		cblas_saxpy(hit_tileDimCard(A, 0)*hit_tileDimCard(A, 1), 1, B.data, 1, C.data, 1);
 	}
-
-	CTRL_KERNEL_END(CPU);
-}
+});
 
 /* B. Defining kernel prototypes */ 
 CTRL_KERNEL_PROTO( Add, 
-		2, GENERIC, DEFAULT, CPU, DEFAULT, 
+		2, GENERIC, DEFAULT,
+		CPULIB, MKL, 
 		4, 
 		INVAL, int, n_iter,
 		IN, HitTile_float, A, 
@@ -88,7 +84,6 @@ CTRL_HOST_TASK_PROTO(Norm_calc, 1, IN, HitTile_float, matrix);
  * Main program to perform matrix addition
  */
 int main(int argc, char *argv[]) {
-	// printf("", blocksize_CPU_Add);
 	main_clock = omp_get_wtime();
 
 	// 1. Taking arguments

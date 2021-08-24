@@ -36,13 +36,13 @@ CTRL_KERNEL(Mult, OPENCLGPU, DEFAULT, KHitTile_float matrix_result, KHitTile_flo
 	int idx;
 	
 	for (int sub = 0; sub < n_groups_x; ++sub) {
-		idx = thread_id.x * hit_tileDimCard(matrix_a, 0) + sub * local_size + local_x;
+		idx = thread_id_x * hit_tileDimCard(matrix_a, 0) + sub * local_size + local_x;
 		if (idx >= hit_tileDimCard(matrix_a, 0) * hit_tileDimCard(matrix_a, 1)) {
 			tile_a[local_y][local_x] = 0;
 		} else {
 			tile_a[local_y][local_x] = hit(matrix_a, idx);
 		}
-		idx = (sub * local_size + local_y) * hit_tileDimCard(matrix_a, 0) + thread_id.y;
+		idx = (sub * local_size + local_y) * hit_tileDimCard(matrix_a, 0) + thread_id_y;
 		if (idx >= hit_tileDimCard(matrix_a, 0) * hit_tileDimCard(matrix_a, 1)) {
 			tile_b[local_y][local_x] = 0;
 		} else {
@@ -55,8 +55,8 @@ CTRL_KERNEL(Mult, OPENCLGPU, DEFAULT, KHitTile_float matrix_result, KHitTile_flo
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
-	if (thread_id.x < hit_tileDimCard(matrix_a, 0) && thread_id.y < hit_tileDimCard(matrix_a, 1)) {
-		hit(matrix_result, thread_id.x, thread_id.y) = tmp;
+	if (thread_id_x < hit_tileDimCard(matrix_a, 0) && thread_id_y < hit_tileDimCard(matrix_a, 1)) {
+		hit(matrix_result, thread_id_x, thread_id_y) = tmp;
 	}
 });
 
@@ -245,12 +245,16 @@ int main(int argc, char *argv[]) {
 		Ctrl_GlobalSync(ctrl);
 		exec_clock = omp_get_wtime() - exec_clock;
 
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
+		/* PRINT RESULTS */
+		#ifdef _CTRL_EXAMPLES_TEST_MODE_
 			for (int i = 0; i < N_ITER; i++) {
 				printf("%lf, %lf, ", p_sum[i], p_res[i]);
 			}
 			fflush(stdout);
-		#else	
+		#elif _CTRL_EXAMPLES_EXP_MODE_
+			printf("%lf, %lf, ", p_sum[N_ITER-1], p_res[N_ITER-1]);
+			fflush(stdout);
+		#else
 			printf("\n ----------------------- NORM ----------------------- \n\n"); fflush(stdout);
 			for (int i = 0; i < N_ITER; i++) {
 				printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]); fflush(stdout);
