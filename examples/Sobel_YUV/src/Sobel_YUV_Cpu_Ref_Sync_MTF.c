@@ -1,5 +1,5 @@
-#include <omp.h>
 #include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,14 +11,13 @@ typedef unsigned char BYTE;
 #define IMG_U 1
 #define IMG_V 2
 
-
 double main_clock;
 double exec_clock;
 
 void Sobel_Host_Init(BYTE *Input_Img[N_IMG], BYTE *Output_Img[N_IMG], size_t sizes[N_IMG]) {
 	for (int i = 0; i < N_IMG; i++) {
-		Input_Img[i] = (BYTE*) malloc((size_t)(sizes[i] * sizeof(BYTE)));
-		Output_Img[i] = (BYTE*) calloc((size_t)sizes[i], sizeof(BYTE));
+		Input_Img[i]  = (BYTE *)malloc((size_t)(sizes[i] * sizeof(BYTE)));
+		Output_Img[i] = (BYTE *)calloc((size_t)sizes[i], sizeof(BYTE));
 	}
 }
 
@@ -35,7 +34,7 @@ void Get_Frame(BYTE *buffer_read[N_IMG], BYTE *Input_Img[N_IMG], size_t *sizes) 
 
 void Sobel_Operation(BYTE *Input, BYTE *Output, int Width, int Height, int *n_blocks, int threads) {
 	#pragma omp parallel for num_threads(threads)
-	for (int ti=0; ti < n_blocks[0]; ti++) {
+	for (int ti = 0; ti < n_blocks[0]; ti++) {
 		for (int tj = 0; tj < n_blocks[1]; tj++) {
 			for (int i = 0; i < BLOCKSIZE_0; i++) {
 				for (int j = 0; j < BLOCKSIZE_1; j++) {
@@ -43,26 +42,27 @@ void Sobel_Operation(BYTE *Input, BYTE *Output, int Width, int Height, int *n_bl
 					float Gradient_h, Gradient_v, Gradient_mod;
 
 					// Calculating index id
-					const unsigned int Col_Index = tj*BLOCKSIZE_1+j;
-					const unsigned int Row_Index = ti*BLOCKSIZE_0+i;
+					const unsigned int Col_Index = tj * BLOCKSIZE_1 + j;
+					const unsigned int Row_Index = ti * BLOCKSIZE_0 + i;
 
 					if ((Row_Index != 0) && (Col_Index != 0) && (Row_Index < Height - 1) && (Col_Index < Width - 1)) {
 						Gradient_v = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] +
-									Input[(Row_Index - 1) * Width + (Col_Index + 1)] -
-									2 * Input[Row_Index * Width + (Col_Index - 1)] +
-									2 * Input[Row_Index * Width + (Col_Index + 1)] -
-									Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
-									Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
+									   Input[(Row_Index - 1) * Width + (Col_Index + 1)] -
+									   2 * Input[Row_Index * Width + (Col_Index - 1)] +
+									   2 * Input[Row_Index * Width + (Col_Index + 1)] -
+									   Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
+									   Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
 
 						Gradient_h = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] -
-									2 * Input[(Row_Index - 1) * Width + Col_Index] -
-									Input[(Row_Index - 1) * Width + (Col_Index + 1)] +
-									Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
-									2 * Input[(Row_Index + 1) * Width + Col_Index] +
-									Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
+									   2 * Input[(Row_Index - 1) * Width + Col_Index] -
+									   Input[(Row_Index - 1) * Width + (Col_Index + 1)] +
+									   Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
+									   2 * Input[(Row_Index + 1) * Width + Col_Index] +
+									   Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
 
 						Gradient_mod = sqrt(Gradient_h * Gradient_h + Gradient_v * Gradient_v);
-						Output[Row_Index * Width + Col_Index] = ((int) Gradient_mod < 256) ? (BYTE) Gradient_mod : 255;
+
+						Output[Row_Index * Width + Col_Index] = ((int)Gradient_mod < 256) ? (BYTE)Gradient_mod : 255;
 					}
 				}
 			}
@@ -88,33 +88,32 @@ int main(int argc, char **argv) {
 	int Width[N_IMG];
 	Width[IMG_Y] = atoi(argv[1]);
 	Width[IMG_U] = Width[IMG_V] = Width[IMG_Y] / 2;
-	
+
 	int Height[N_IMG];
 	Height[IMG_Y] = atoi(argv[2]);
 	Height[IMG_U] = Height[IMG_V] = Height[IMG_Y] / 2;
-	
+
 	int Num_Frames = atoi(argv[3]);
 
 	size_t sizes[N_IMG] = {
-			(size_t)(Width[IMG_Y] * Height[IMG_Y]),
-			(size_t)(Width[IMG_U] * Height[IMG_U]),
-			(size_t)(Width[IMG_V] * Height[IMG_V])
-	};
+		(size_t)(Width[IMG_Y] * Height[IMG_Y]),
+		(size_t)(Width[IMG_U] * Height[IMG_U]),
+		(size_t)(Width[IMG_V] * Height[IMG_V])};
 
-	char *Input_Filename = argv[4];
+	char *Input_Filename  = argv[4];
 	char *Output_Filename = argv[5];
 
 	int THREADS = atoi(argv[6]);
 
 	#ifndef _CTRL_EXAMPLES_EXP_MODE_
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n WIDTH: %d", Width[0]);
-		printf("\n HEIGHT: %d", Height[0]);
-		printf("\n NUM_FRAMES: %d", Num_Frames);
-		printf("\n N_THREADS: %d", THREADS);
-		printf("\n POLICY: Sync");
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n WIDTH: %d", Width[0]);
+	printf("\n HEIGHT: %d", Height[0]);
+	printf("\n NUM_FRAMES: %d", Num_Frames);
+	printf("\n N_THREADS: %d", THREADS);
+	printf("\n POLICY: Sync");
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	int Frame_num = 0;
@@ -131,23 +130,25 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < Num_Frames; i++) {
 		buffer_read[i] = (BYTE **)malloc(sizeof(BYTE *) * N_IMG);
 		for (int j = 0; j < N_IMG; j++) {
-			buffer_read[i][j] = (BYTE*)malloc( sizes[j] * sizeof(BYTE));
+			buffer_read[i][j] = (BYTE *)malloc(sizes[j] * sizeof(BYTE));
 		}
 	}
 
 	int n_blocks[N_IMG][2];
-	
+
 	for (int i = 0; i < N_IMG; i++) {
 		n_blocks[i][0] = (Height[i] + BLOCKSIZE_0 - 1) / BLOCKSIZE_0;
 		n_blocks[i][1] = (Width[i] + BLOCKSIZE_1 - 1) / BLOCKSIZE_1;
 	}
 
 	if (!(File_reader = fopen(Input_Filename, "rb"))) {
-		printf("\nError in opening input file: %s\n", Input_Filename); fflush(stdout);
+		printf("\nError in opening input file: %s\n", Input_Filename);
+		fflush(stdout);
 		exit(EXIT_FAILURE);
 	}
 	if (!(File_writer = fopen(Output_Filename, "wb+"))) {
-		printf("\nError in opening output file: %s\n", Output_Filename); fflush(stdout);
+		printf("\nError in opening output file: %s\n", Output_Filename);
+		fflush(stdout);
 		exit(EXIT_FAILURE);
 	}
 
@@ -162,7 +163,7 @@ int main(int argc, char **argv) {
 	Get_Frame(buffer_read[0], Host_Input_Img, sizes);
 
 	for (Frame_num = 0; Frame_num < Num_Frames; Frame_num++) {
-	   for (int i = 0; i < N_IMG; i++) {
+		for (int i = 0; i < N_IMG; i++) {
 			Sobel_Operation(Host_Input_Img[i], Host_Output_Img[i], Width[i], Height[i], n_blocks[i], THREADS);
 		}
 
@@ -179,10 +180,10 @@ int main(int argc, char **argv) {
 		free(Host_Input_Img[i]);
 		free(Host_Output_Img[i]);
 	}
-	
+
 	fclose(File_reader);
 	fclose(File_writer);
-	
+
 	for (int i = 0; i < Num_Frames; i++) {
 		for (int j = 0; j < N_IMG; j++) {
 			free(buffer_read[i][j]);
@@ -194,13 +195,13 @@ int main(int argc, char **argv) {
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf\n", main_clock, exec_clock);
-		fflush(stdout);
+	printf("%lf, %lf\n", main_clock, exec_clock);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- TIME ----------------------- \n\n");
-		printf(" Clock main: %lf\n", main_clock);
-		printf(" Clock exec: %lf\n", exec_clock);
-		printf("\n ---------------------------------------------------- \n");
+	printf("\n ----------------------- TIME ----------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif
 
 	return EXIT_SUCCESS;

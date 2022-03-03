@@ -169,7 +169,7 @@ if(COMPILE_KERNEL_SOBEL)
 
 		#Ctrl kernel
 		if(COMPILE_INTEL)
-			add_custom_command(OUTPUT ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Sobel_Operation/${KNAME}
+			add_custom_command(OUTPUT ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Sobel_Operation/${KNAME}.aocx
 				COMMAND aoc ${COMPILE_OPTION} -D_CTRL_ARCH_FPGA_ -DCOLS=1920 -DROWS=1080 -I${CTRL_HEADER_PATH} -I${CTRL_KERNELS_PATH} -I${CTRL_KERNELS_PATH}/FPGA/Ctrl/Sobel_Operation	${CTRL_KERNELS_PATH}/FPGA/Ctrl/Sobel_Operation/Sobel_Operation_Ctrl.cl -o ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Sobel_Operation/${KNAME}
 				DEPENDS ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Sobel_Operation/Sobel_Operation_Ctrl.cl
 			)
@@ -198,50 +198,3 @@ if(COMPILE_KERNEL_SOBEL)
 	endif(COMPILE_REF)
 endif(COMPILE_KERNEL_SOBEL)
 
-if(COMPILE_KERNEL_SUBSELECT)
-	if(COMPILE_CTRL)
-		#Big Kernel
-		#Compile Ctrl kernel parser that extracts CTRL_KERNEL primitive and generates program to get kernel name
-		execute_process(COMMAND ${CMAKE_C_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel.c -o ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel)
-
-		#Generate program to get kernel name
-		execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel kernel ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel/Big_Kernel_Ctrl.cl ${CMAKE_CURRENT_SOURCE_DIR}/ctrl_kernel.c)
-
-		#Compile program to get kernel name
-		execute_process(COMMAND ${CMAKE_C_COMPILER} ${GEN_NAME_COMPMODE} -D_CTRL_ARCH_FPGA_ -I${CTRL_HEADER_PATH} -I${CTRL_KERNELS_PATH} -I${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel ${CMAKE_CURRENT_SOURCE_DIR}/ctrl_kernel.c -o ${CMAKE_CURRENT_SOURCE_DIR}/gen_name)
-
-		#Execute program that generates kernel name and store it into a variable for further use in build process
-		execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/gen_name
-				OUTPUT_VARIABLE KNAME)
-
-		execute_process(COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/gen_name ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel ${CMAKE_CURRENT_SOURCE_DIR}/ctrl_kernel.c)
-
-		#Ctrl kernel
-		add_custom_command(OUTPUT ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel/${KNAME}
-				COMMAND aoc ${COMPILE_OPTION} -D_CTRL_ARCH_FPGA_ -I${CTRL_EXPERIMENTATION_PATH}/SubselecTest/src -I${CTRL_HEADER_PATH} -I${CTRL_KERNELS_PATH} -I${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel	${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel/Big_Kernel_Ctrl.cl -o ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel/${KNAME}
-				DEPENDS ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Big_Kernel/Big_Kernel_Ctrl.cl
-		)
-
-		#Some Kernel
-		#Compile Ctrl kernel parser that extracts CTRL_KERNEL primitive and generates program to get kernel name
-		execute_process(COMMAND ${CMAKE_C_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel.c -o ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel)
-
-		#Generate program to get kernel name
-		execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel kernel ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel/Some_Kernel_Ctrl.cl ${CMAKE_CURRENT_SOURCE_DIR}/ctrl_kernel.c)
-
-		#Compile program to get kernel name
-		execute_process(COMMAND ${CMAKE_C_COMPILER} ${GEN_NAME_COMPMODE} -D_CTRL_ARCH_FPGA_ -I${CTRL_HEADER_PATH} -I${CTRL_KERNELS_PATH} -I${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel ${CMAKE_CURRENT_SOURCE_DIR}/ctrl_kernel.c -o ${CMAKE_CURRENT_SOURCE_DIR}/gen_name)
-
-		#Execute program that generates kernel name and store it into a variable for further use in build process
-		execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/gen_name
-				OUTPUT_VARIABLE KNAME)
-
-		execute_process(COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/gen_name ${CMAKE_CURRENT_SOURCE_DIR}/parser_ctrlkernel ${CMAKE_CURRENT_SOURCE_DIR}/ctrl_kernel.c)
-
-		#Ctrl kernel
-		add_custom_command(OUTPUT ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel/${KNAME}
-						COMMAND aoc ${COMPILE_OPTION} -D_CTRL_ARCH_FPGA_ -I${CTRL_EXPERIMENTATION_PATH}/SubselecTest/src -I${CTRL_HEADER_PATH} -I${CTRL_KERNELS_PATH} -I${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel	${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel/Some_Kernel_Ctrl.cl -o ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel/${KNAME}
-						DEPENDS ${CTRL_KERNELS_PATH}/FPGA/Ctrl/Some_Kernel/Some_Kernel_Ctrl.cl
-				)
-	endif(COMPILE_CTRL)
-endif(COMPILE_KERNEL_SUBSELECT)

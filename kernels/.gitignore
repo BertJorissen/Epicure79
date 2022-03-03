@@ -10,4 +10,9 @@ FPGA/*/matrix_trans_fpga/
 temp.cl
 .vscode
 *OLD*
+*.xclbin
+*.xo
+*.xclbin.*
+*.xo.*
+_x/
 

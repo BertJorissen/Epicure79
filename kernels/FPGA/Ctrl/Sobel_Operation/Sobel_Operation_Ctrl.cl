@@ -6,7 +6,7 @@
 // whom the Software is furnished to do so, subject to the following conditions:
 // The above copyright notice and this permission notice shall be included in all copies or
 // substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -15,7 +15,7 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
-// 
+//
 // This agreement shall be governed in all respects by the laws of the State of California and
 // by the laws of the United States of America.
 
@@ -30,50 +30,49 @@ typedef unsigned char BYTE;
 
 Ctrl_NewType(BYTE);
 
-CTRL_KERNEL_FUNCTION(Sobel, FPGA, DEFAULT, PIPELINE( TASK ), PARAMS( IN, OUT, INVAL, INVAL ), KHitTile_BYTE frame_in, KHitTile_BYTE frame_out,
-            const int iterations, const unsigned int threshold)
-{
-    KTILE(frame_in, BYTE);
-    KTILE(frame_out, BYTE);
-    // Filter coefficients
-    int Gx[3][3] = {{-1,-2,-1},{0,0,0},{1,2,1}};
-    int Gy[3][3] = {{-1,0,1},{-2,0,2},{-1,0,1}};
+CTRL_KERNEL_FUNCTION(Sobel, FPGA, DEFAULT, PIPELINE(TASK), PARAMS(IN, OUT, INVAL, INVAL), KHitTile_BYTE frame_in, KHitTile_BYTE frame_out,
+					 const int iterations, const unsigned int threshold) {
+	KTILE(frame_in, BYTE);
+	KTILE(frame_out, BYTE);
+	// Filter coefficients
+	int Gx[3][3] = {{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}};
+	int Gy[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
 
-    // Pixel buffer of 2 rows and 3 extra pixels
-    int rows[2 * COLS + 3];
+	// Pixel buffer of 2 rows and 3 extra pixels
+	int rows[2 * COLS + 3];
 
-    // The initial iterations are used to initialize the pixel buffer.
-    int count = -(2 * COLS + 3);
-    while (count != iterations) {
-        // Each cycle, shift a new pixel into the buffer.
-        // Unrolling this loop allows the compile to infer a shift register.
-        #pragma unroll
-        for (int i = COLS * 2 + 2; i > 0; --i) {
-            rows[i] = rows[i - 1];
-        }
-        rows[0] = count >= 0 ? hit(frame_in, count) : 0;
+	// The initial iterations are used to initialize the pixel buffer.
+	int count = -(2 * COLS + 3);
+	while (count != iterations) {
+		// Each cycle, shift a new pixel into the buffer.
+		// Unrolling this loop allows the compile to infer a shift register.
+		#pragma unroll
+		for (int i = COLS * 2 + 2; i > 0; --i) {
+			rows[i] = rows[i - 1];
+		}
+		rows[0] = count >= 0 ? hit(frame_in, count) : 0;
 
-        int x_dir = 0;
-        int y_dir = 0;
+		int x_dir = 0;
+		int y_dir = 0;
 
-        // With these loops unrolled, one convolution can be computed every
-        // cycle.
-        #pragma unroll
-        for (int i = 0; i < 3; ++i) {
-            #pragma unroll
-            for (int j = 0; j < 3; ++j) {
-                unsigned int pixel = rows[i * COLS + j];
+		// With these loops unrolled, one convolution can be computed every
+		// cycle.
+		#pragma unroll
+		for (int i = 0; i < 3; ++i) {
+			#pragma unroll
+			for (int j = 0; j < 3; ++j) {
+				unsigned int pixel = rows[i * COLS + j];
 
-                x_dir += pixel * Gx[i][j];
-                y_dir += pixel * Gy[i][j];
-            }
-        }
+				x_dir += pixel * Gx[i][j];
+				y_dir += pixel * Gy[i][j];
+			}
+		}
 
-        int Gradient_mod = abs(x_dir) + abs(y_dir);
+		int Gradient_mod = abs(x_dir) + abs(y_dir);
 
-        if (count >= 0) {
-            hit(frame_out, count) = ((int) Gradient_mod < 256) ? (BYTE) Gradient_mod : 255;
-        }
-        count++;
-    }
+		if (count >= 0) {
+			hit(frame_out, count) = ((int)Gradient_mod < 256) ? (BYTE)Gradient_mod : 255;
+		}
+		count++;
+	}
 }

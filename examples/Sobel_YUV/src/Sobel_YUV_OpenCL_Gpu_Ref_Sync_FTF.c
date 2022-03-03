@@ -9,23 +9,23 @@
 #include <string.h>
 
 #ifdef _PROFILING_ENABLED_
-	#include <roctx.h>
+#include <roctx.h>
 #endif //_PROFILING_ENABLED_
 
 #define SEED 6834723
 
 #ifdef _CTRL_EXAMPLES_OPENCL_GPU_DEBUG_
-	#define OPENCL_ASSERT_OP( operation ) \
-		err = operation; \
-		fprintf(stderr, "error: %d\n", err); \
-		exit(EXIT_FAILURE);
+#define OPENCL_ASSERT_OP(operation)      \
+	err = operation;                     \
+	fprintf(stderr, "error: %d\n", err); \
+	exit(EXIT_FAILURE);
 
-	#define OPENCL_ASSERT_ERROR( err ) \
-		fprintf(stderr, "error: %d\n", err); \
-		exit(EXIT_FAILURE);
+#define OPENCL_ASSERT_ERROR(err)         \
+	fprintf(stderr, "error: %d\n", err); \
+	exit(EXIT_FAILURE);
 #else
-	#define OPENCL_ASSERT_OP( operation ) operation
-	#define OPENCL_ASSERT_ERROR(err)
+#define OPENCL_ASSERT_OP(operation) operation
+#define OPENCL_ASSERT_ERROR(err)
 #endif
 
 typedef unsigned char BYTE;
@@ -68,7 +68,7 @@ double exec_clock;
 
 void Load_Frame(BYTE *Input_Img[N_IMG], FILE *File_reader, size_t sizes[N_IMG]) {
 	#ifdef _PROFILING_ENABLED_
-		roctxRangePush("Host load frame");
+	roctxRangePush("Host load frame");
 	#endif //_PROFILING_ENABLED_
 
 	for (int i = 0; i < N_IMG; i++) {
@@ -76,13 +76,13 @@ void Load_Frame(BYTE *Input_Img[N_IMG], FILE *File_reader, size_t sizes[N_IMG]) 
 	}
 
 	#ifdef _PROFILING_ENABLED_
-		roctxRangePop();
+	roctxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
 void Save_Frame(BYTE *Output_Img[N_IMG], FILE *File_writer, size_t sizes[N_IMG]) {
 	#ifdef _PROFILING_ENABLED_
-		roctxRangePush("Host save frame");
+	roctxRangePush("Host save frame");
 	#endif //_PROFILING_ENABLED_
 
 	for (int i = 0; i < N_IMG; i++) {
@@ -90,7 +90,7 @@ void Save_Frame(BYTE *Output_Img[N_IMG], FILE *File_writer, size_t sizes[N_IMG])
 	}
 
 	#ifdef _PROFILING_ENABLED_
-		roctxRangePop();
+	roctxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
@@ -109,29 +109,28 @@ int main(int argc, char **argv) {
 	int Width[N_IMG];
 	Width[IMG_Y] = atoi(argv[1]);
 	Width[IMG_U] = Width[IMG_V] = Width[IMG_Y] / 2;
-	
+
 	int Height[N_IMG];
 	Height[IMG_Y] = atoi(argv[2]);
 	Height[IMG_U] = Height[IMG_V] = Height[IMG_Y] / 2;
-	
+
 	int Num_Frames = atoi(argv[3]);
 
 	size_t sizes[N_IMG] = {
-			(size_t)(Width[IMG_Y] * Height[IMG_Y]),
-			(size_t)(Width[IMG_U] * Height[IMG_U]),
-			(size_t)(Width[IMG_V] * Height[IMG_V])
-	};
+		(size_t)(Width[IMG_Y] * Height[IMG_Y]),
+		(size_t)(Width[IMG_U] * Height[IMG_U]),
+		(size_t)(Width[IMG_V] * Height[IMG_V])};
 
-	char *Input_Filename = argv[4];
+	char *Input_Filename  = argv[4];
 	char *Output_Filename = argv[5];
-	
-	int DEVICE = atoi(argv[6]);
+
+	int DEVICE   = atoi(argv[6]);
 	int PLATFORM = atoi(argv[7]);
 
 	/* VARIABLES */
 
-	int Frame_num = 0;  // loop variable
-	
+	int Frame_num = 0; // loop variable
+
 	// File pointer for reading and writting
 	FILE *File_reader, *File_writer;
 
@@ -140,11 +139,11 @@ int main(int argc, char **argv) {
 	char *kernel_raw_sobel_operation = SOBEL_YUV_KERNEL_SOBEL_OPERATION;
 
 	char *kernel_raw = (char *)malloc((strlen(kernel_raw_sobel_operation) + 300) * sizeof(char));
-	
+
 	sprintf(&kernel_raw[0],
 			" #define LOCAL_SIZE_0  %d \n#define LOCAL_SIZE_1 %d \ntypedef unsigned char BYTE;\n",
 			LOCAL_SIZE_0, LOCAL_SIZE_1);
-	
+
 	strcat(kernel_raw, kernel_raw_sobel_operation);
 
 	size_t kernel_size = strlen(kernel_raw);
@@ -153,25 +152,25 @@ int main(int argc, char **argv) {
 	size_t global_sizes[N_IMG][2];
 
 	cl_platform_id platform_id;
-	cl_device_id device_id;
+	cl_device_id   device_id;
 
 	cl_context context;
 	cl_program program;
-	cl_kernel kernel_sobel_operation;
+	cl_kernel  kernel_sobel_operation;
 
 	cl_command_queue_properties properties;
-	cl_command_queue queue;
+	cl_command_queue            queue;
 
 	cl_mem mem_input_img[N_IMG];
 	cl_mem mem_pinned_input_img[N_IMG];
-	BYTE *p_pinned_input_img[N_IMG];
-	
+	BYTE  *p_pinned_input_img[N_IMG];
+
 	cl_mem mem_output_img[N_IMG];
 	cl_mem mem_pinned_output_img[N_IMG];
-	BYTE *p_pinned_output_img[N_IMG];
+	BYTE  *p_pinned_output_img[N_IMG];
 
 	/* OPEN AND CLOSE FILE OPERATION */
-	
+
 	if (!(File_reader = fopen(Input_Filename, "rb"))) {
 		printf("\nError in opening input file: %s\n", Input_Filename);
 		exit(EXIT_FAILURE);
@@ -184,69 +183,67 @@ int main(int argc, char **argv) {
 	/* PLATFORMS & DEVICES */
 
 	cl_platform_id *p_platforms = (cl_platform_id *)malloc((PLATFORM + 1) * sizeof(cl_platform_id));
-	OPENCL_ASSERT_OP( clGetPlatformIDs(PLATFORM + 1, p_platforms, NULL) );
+	OPENCL_ASSERT_OP(clGetPlatformIDs(PLATFORM + 1, p_platforms, NULL));
 	platform_id = p_platforms[PLATFORM];
 	free(p_platforms);
 
 	cl_device_id *p_devices = (cl_device_id *)malloc((DEVICE + 1) * sizeof(cl_device_id));
-	OPENCL_ASSERT_OP( clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, DEVICE + 1, p_devices, NULL) );
+	OPENCL_ASSERT_OP(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, DEVICE + 1, p_devices, NULL));
 	device_id = p_devices[DEVICE];
 	free(p_devices);
 
 	size_t platform_name_size;
-	OPENCL_ASSERT_OP( clGetPlatformInfo( platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size) );
-	char* platform_name = (char*)malloc( sizeof(char) * platform_name_size);
-	OPENCL_ASSERT_OP( clGetPlatformInfo( platform_id, CL_PLATFORM_NAME, platform_name_size, platform_name, NULL ) );
-	
+	OPENCL_ASSERT_OP(clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size));
+	char *platform_name = (char *)malloc(sizeof(char) * platform_name_size);
+	OPENCL_ASSERT_OP(clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, platform_name_size, platform_name, NULL));
+
 	size_t device_name_size;
-	OPENCL_ASSERT_OP( clGetDeviceInfo(device_id, CL_DEVICE_NAME, 0, NULL, &device_name_size) );
-	char* device_name = (char*) malloc( sizeof(char) * device_name_size );
-	OPENCL_ASSERT_OP( clGetDeviceInfo(device_id, CL_DEVICE_NAME, device_name_size, device_name, NULL) );
+	OPENCL_ASSERT_OP(clGetDeviceInfo(device_id, CL_DEVICE_NAME, 0, NULL, &device_name_size));
+	char *device_name = (char *)malloc(sizeof(char) * device_name_size);
+	OPENCL_ASSERT_OP(clGetDeviceInfo(device_id, CL_DEVICE_NAME, device_name_size, device_name, NULL));
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, %s, ", device_name, platform_name);
+	printf("%s, %s, ", device_name, platform_name);
 	#else
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n WIDTH: %d", Width[0]);
-		printf("\n HEIGHT: %d", Height[0]);
-		printf("\n NUM_FRAMES: %d", Num_Frames);
-		printf("\n DEVICE: %s", device_name);
-		printf("\n PLATFORM: %s", platform_name);
-		printf("\n POLICY SYNC");
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n WIDTH: %d", Width[0]);
+	printf("\n HEIGHT: %d", Height[0]);
+	printf("\n NUM_FRAMES: %d", Num_Frames);
+	printf("\n DEVICE: %s", device_name);
+	printf("\n PLATFORM: %s", platform_name);
+	printf("\n POLICY SYNC");
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 	free(platform_name);
 	free(device_name);
 
 	/* SET UP, CONTEXT, QUEUES, KERNELS, ETC */
-	
+
 	cl_context_properties context_properties[] = {
-			CL_CONTEXT_PLATFORM, 
-			(cl_context_properties)platform_id, 
-			0};
+		CL_CONTEXT_PLATFORM,
+		(cl_context_properties)platform_id,
+		0};
 	context = clCreateContext(context_properties, 1, &device_id, NULL, NULL, &err);
-	OPENCL_ASSERT_ERROR( err );
+	OPENCL_ASSERT_ERROR(err);
 
 	program = clCreateProgramWithSource(context, 1, (const char **)(&kernel_raw),
-								  (const size_t *)(&kernel_size), &err);
-	OPENCL_ASSERT_ERROR( err );
+										(const size_t *)(&kernel_size), &err);
+	OPENCL_ASSERT_ERROR(err);
 
 	err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
 	if (err == CL_BUILD_PROGRAM_FAILURE) {
 		size_t log_size;
-		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL,
-							  &log_size);
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
 		char *log = (char *)malloc(log_size);
-		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG,
-							  log_size, log, NULL);
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, log_size, log, NULL);
 		printf("%s\n", log);
 		free(log);
 	}
-	OPENCL_ASSERT_ERROR( err );
+	OPENCL_ASSERT_ERROR(err);
 
 	kernel_sobel_operation = clCreateKernel(program, SOBEL_YUV_KERNEL_NAME_SOBEL_OPERATION, &err);
-	OPENCL_ASSERT_ERROR( err );
+	OPENCL_ASSERT_ERROR(err);
 
 	local_size[0] = LOCAL_SIZE_0;
 	local_size[1] = LOCAL_SIZE_1;
@@ -265,61 +262,56 @@ int main(int argc, char **argv) {
 	}
 
 	properties = 0;
-	queue = clCreateCommandQueue(context, device_id, properties, &err);
-	OPENCL_ASSERT_ERROR( err );
-	
+	queue      = clCreateCommandQueue(context, device_id, properties, &err);
+	OPENCL_ASSERT_ERROR(err);
+
 	for (int i = 0; i < N_IMG; i++) {
 		mem_input_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizes[i] * sizeof(BYTE), NULL, &err);
-		OPENCL_ASSERT_ERROR( err );
+		OPENCL_ASSERT_ERROR(err);
 		mem_pinned_input_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizes[i] * sizeof(BYTE), NULL, &err);
-		OPENCL_ASSERT_ERROR( err );
-		p_pinned_input_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_input_img[i], CL_TRUE,
-				CL_MAP_READ | CL_MAP_WRITE, 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
-		OPENCL_ASSERT_ERROR( err );
+		OPENCL_ASSERT_ERROR(err);
+		p_pinned_input_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_input_img[i], CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+														   0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
+		OPENCL_ASSERT_ERROR(err);
 
 		mem_output_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizes[i] * sizeof(BYTE), NULL, &err);
-		OPENCL_ASSERT_ERROR( err );
+		OPENCL_ASSERT_ERROR(err);
 		cl_uint pattern = 0;
-		OPENCL_ASSERT_OP( clEnqueueFillBuffer(queue, mem_output_img[i], &pattern, sizeof(cl_uint), 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL) );
+		OPENCL_ASSERT_OP(clEnqueueFillBuffer(queue, mem_output_img[i], &pattern, sizeof(cl_uint), 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL));
 		mem_pinned_output_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizes[i] * sizeof(BYTE), NULL, &err);
-		OPENCL_ASSERT_ERROR( err );
-		p_pinned_output_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_output_img[i], CL_TRUE,
-				CL_MAP_READ | CL_MAP_WRITE, 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
-		OPENCL_ASSERT_ERROR( err );
+		OPENCL_ASSERT_ERROR(err);
+		p_pinned_output_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_output_img[i], CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+															0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
+		OPENCL_ASSERT_ERROR(err);
 	}
 
 	cl_event aux;
 
-	OPENCL_ASSERT_OP( clFinish(queue) );
+	OPENCL_ASSERT_OP(clFinish(queue));
 	exec_clock = omp_get_wtime();
 
 	Load_Frame(p_pinned_input_img, File_reader, sizes);
 
 	for (Frame_num = 0; Frame_num < Num_Frames; Frame_num++) {
 		for (int i = 0; i < N_IMG; i++) {
-			OPENCL_ASSERT_OP( clEnqueueWriteBuffer(queue, mem_input_img[i], CL_FALSE, 0,
-					sizes[i] * sizeof(BYTE), (void *)p_pinned_input_img[i], 0, NULL, &aux) 
-			);
-			OPENCL_ASSERT_OP( clFlush(queue) );
-			OPENCL_ASSERT_OP( clWaitForEvents(1, &aux) );
+			OPENCL_ASSERT_OP(clEnqueueWriteBuffer(queue, mem_input_img[i], CL_FALSE, 0, sizes[i] * sizeof(BYTE), (void *)p_pinned_input_img[i], 0, NULL, &aux));
+			OPENCL_ASSERT_OP(clFlush(queue));
+			OPENCL_ASSERT_OP(clWaitForEvents(1, &aux));
 
-		
 			err = clSetKernelArg(kernel_sobel_operation, 0, sizeof(cl_mem), &mem_input_img[i]);
 			err |= clSetKernelArg(kernel_sobel_operation, 1, sizeof(cl_mem), &mem_output_img[i]);
 			err |= clSetKernelArg(kernel_sobel_operation, 2, sizeof(cl_int), &Width[i]);
 			err |= clSetKernelArg(kernel_sobel_operation, 3, sizeof(cl_int), &Height[i]);
 			err |= clSetKernelArg(kernel_sobel_operation, 4, sizeof(cl_int), &Width[0]);
 			err |= clSetKernelArg(kernel_sobel_operation, 5, sizeof(cl_int), &Height[0]);
-			OPENCL_ASSERT_ERROR( err );
-			
-			OPENCL_ASSERT_OP( clEnqueueNDRangeKernel(queue, kernel_sobel_operation, 2, NULL,
-				global_sizes[i], local_size, 0, NULL, NULL) );
-			OPENCL_ASSERT_OP( clFlush(queue) );
-			
-			OPENCL_ASSERT_OP( clEnqueueReadBuffer(queue, mem_output_img[i], CL_FALSE, 0, sizes[i] * 
-					sizeof(BYTE), (void *)p_pinned_output_img[i], 0, NULL, &aux) );
-			OPENCL_ASSERT_OP( clFlush(queue) );
-			OPENCL_ASSERT_OP( clWaitForEvents(1, &aux) );
+			OPENCL_ASSERT_ERROR(err);
+
+			OPENCL_ASSERT_OP(clEnqueueNDRangeKernel(queue, kernel_sobel_operation, 2, NULL, global_sizes[i], local_size, 0, NULL, NULL));
+			OPENCL_ASSERT_OP(clFlush(queue));
+
+			OPENCL_ASSERT_OP(clEnqueueReadBuffer(queue, mem_output_img[i], CL_FALSE, 0, sizes[i] * sizeof(BYTE), (void *)p_pinned_output_img[i], 0, NULL, &aux));
+			OPENCL_ASSERT_OP(clFlush(queue));
+			OPENCL_ASSERT_OP(clWaitForEvents(1, &aux));
 		}
 
 		if (Frame_num + 1 < Num_Frames) {
@@ -329,25 +321,23 @@ int main(int argc, char **argv) {
 		Save_Frame(p_pinned_output_img, File_writer, sizes);
 	}
 
-	OPENCL_ASSERT_OP( clFinish(queue) );
+	OPENCL_ASSERT_OP(clFinish(queue));
 	exec_clock = omp_get_wtime() - exec_clock;
 
 	/* RELEASE ZONE */
 
 	for (int i = 0; i < N_IMG; i++) {
 
-		OPENCL_ASSERT_OP( clEnqueueUnmapMemObject(queue, mem_pinned_input_img[i],
-				p_pinned_input_img[i], 0, NULL, NULL) );
+		OPENCL_ASSERT_OP(clEnqueueUnmapMemObject(queue, mem_pinned_input_img[i], p_pinned_input_img[i], 0, NULL, NULL));
 
-		OPENCL_ASSERT_OP( clEnqueueUnmapMemObject(queue, mem_pinned_output_img[i],
-				p_pinned_output_img[i], 0, NULL, NULL) );
+		OPENCL_ASSERT_OP(clEnqueueUnmapMemObject(queue, mem_pinned_output_img[i], p_pinned_output_img[i], 0, NULL, NULL));
 
-		OPENCL_ASSERT_OP( clFinish(queue) );
+		OPENCL_ASSERT_OP(clFinish(queue));
 
-		OPENCL_ASSERT_OP( clReleaseMemObject(mem_pinned_input_img[i]) );
-		OPENCL_ASSERT_OP( clReleaseMemObject(mem_input_img[i]) );
-		OPENCL_ASSERT_OP( clReleaseMemObject(mem_pinned_output_img[i]) );
-		OPENCL_ASSERT_OP( clReleaseMemObject(mem_output_img[i]) );
+		OPENCL_ASSERT_OP(clReleaseMemObject(mem_pinned_input_img[i]));
+		OPENCL_ASSERT_OP(clReleaseMemObject(mem_input_img[i]));
+		OPENCL_ASSERT_OP(clReleaseMemObject(mem_pinned_output_img[i]));
+		OPENCL_ASSERT_OP(clReleaseMemObject(mem_output_img[i]));
 	}
 
 	OPENCL_ASSERT_OP(clReleaseKernel(kernel_sobel_operation));
@@ -362,13 +352,13 @@ int main(int argc, char **argv) {
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf\n", main_clock, exec_clock);
-		fflush(stdout);
+	printf("%lf, %lf\n", main_clock, exec_clock);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- TIME ----------------------- \n\n");
-		printf(" Clock main: %lf\n", main_clock);
-		printf(" Clock exec: %lf\n", exec_clock);
-		printf("\n ---------------------------------------------------- \n");
+	printf("\n ----------------------- TIME ----------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif
 	return 0;
 }

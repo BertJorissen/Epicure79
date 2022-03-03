@@ -22,14 +22,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "Hotspot_Constants.h"
 
 #ifdef _PROFILING_ENABLED_
-	#include "nvToolsExt.h"
+#include "nvToolsExt.h"
 #endif //_PROFILING_ENABLED_
 
 /* define timer macros */
 double main_clock;
 double exec_clock;
 
-void init_matrix(float *matrix_temp, float *matrix_power, int rows, int cols){
+void init_matrix(float *matrix_temp, float *matrix_power, int rows, int cols) {
 	srand(SEED);
 	for (int i = 0; i < rows; i++) {
 		for (int j = 0; j < cols; j++) {
@@ -45,7 +45,7 @@ void init_matrix(float *matrix_temp, float *matrix_power, int rows, int cols){
 
 void host_compute(float *dst, float *src, int rows, int cols) {
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePushA("Host task");
+	nvtxRangePushA("Host task");
 	#endif //_PROFILING_ENABLED_
 
 	for (int i = 0; i < rows; i++) {
@@ -55,13 +55,13 @@ void host_compute(float *dst, float *src, int rows, int cols) {
 	}
 
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePop();
+	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
 void calc_norm(float *matrix, int rows, int cols) {
 	double resultado = 0;
-	double suma = 0;
+	double suma      = 0;
 
 	for (int i = 0; i < rows; i++) {
 		for (int j = 0; j < cols; j++) {
@@ -71,27 +71,27 @@ void calc_norm(float *matrix, int rows, int cols) {
 
 	resultado = sqrt(suma);
 
-#ifdef _CTRL_EXAMPLES_EXP_MODE_
+	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf, ", suma, resultado);
 	fflush(stdout);
-#else
+	#else
 	printf("\n ----------------------- NORM ----------------------- \n\n");
 	printf(" Sum: %lf \n", suma);
 	printf(" Result: %lf \n", resultado);
 	printf("\n ---------------------------------------------------- \n");
 	fflush(stdout);
-#endif
+	#endif
 }
 
-__global__ void calculate_temp(int iteration,   // number of iteration
-							   float *power,	// power input
-							   float *temp_src, // temperature input/output
-							   float *temp_dst, // temperature input/output
-							   int grid_cols,   // Col of grid
-							   int grid_rows,   // Row of grid
-							   int border_cols, // border offset
-							   int border_rows, // border offset
-							   float Cap,		// Capacitance
+__global__ void calculate_temp(int    iteration,   // number of iteration
+							   float *power,       // power input
+							   float *temp_src,    // temperature input/output
+							   float *temp_dst,    // temperature input/output
+							   int    grid_cols,   // Col of grid
+							   int    grid_rows,   // Row of grid
+							   int    border_cols, // border offset
+							   int    border_rows, // border offset
+							   float  Cap,         // Capacitance
 							   float Rx, float Ry, float Rz, float step) {
 
 	__shared__ float temp_on_cuda[BLOCKSIZE_0][BLOCKSIZE_1];
@@ -125,8 +125,8 @@ __global__ void calculate_temp(int iteration,   // number of iteration
 
 	// calculate the boundary for the block according to
 	// the boundary of its small block
-	int blkY = small_block_rows * by - border_rows;
-	int blkX = small_block_cols * bx - border_cols;
+	int blkY    = small_block_rows * by - border_rows;
+	int blkX    = small_block_cols * bx - border_cols;
 	int blkYmax = blkY + BLOCKSIZE_0 - 1;
 	int blkXmax = blkX + BLOCKSIZE_1 - 1;
 
@@ -139,8 +139,8 @@ __global__ void calculate_temp(int iteration,   // number of iteration
 	int index = grid_cols * loadYidx + loadXidx;
 
 	if (IN_RANGE(loadYidx, 0, grid_rows - 1) && IN_RANGE(loadXidx, 0, grid_cols - 1)) {
-		temp_on_cuda[ty][tx] = temp_src[index]; // Load the temperature data from global memory to shared memory
-		power_on_cuda[ty][tx] = power[index]; // Load the power data from global memory to shared memory
+		temp_on_cuda[ty][tx]  = temp_src[index]; // Load the temperature data from global memory to shared memory
+		power_on_cuda[ty][tx] = power[index];    // Load the power data from global memory to shared memory
 	}
 	__syncthreads();
 
@@ -171,7 +171,7 @@ __global__ void calculate_temp(int iteration,   // number of iteration
 		computed = false;
 		if (IN_RANGE(tx, i + 1, BLOCKSIZE_1 - i - 2) && IN_RANGE(ty, i + 1, BLOCKSIZE_0 - i - 2) &&
 			IN_RANGE(tx, validXmin, validXmax) && IN_RANGE(ty, validYmin, validYmax)) {
-			computed = true;
+			computed       = true;
 			temp_t[ty][tx] = temp_on_cuda[ty][tx] + step_div_Cap * (power_on_cuda[ty][tx] +
 																	(temp_on_cuda[S][tx] + temp_on_cuda[N][tx] - 2.0 * temp_on_cuda[ty][tx]) * Ry_1 +
 																	(temp_on_cuda[ty][E] + temp_on_cuda[ty][W] - 2.0 * temp_on_cuda[ty][tx]) * Rx_1 +
@@ -208,24 +208,24 @@ int compute_tran_temp(float *MatrixPower, float *MatrixTemp[2], int col,
 	dim3 dimGrid(blockCols, blockRows);
 
 	float grid_height = chip_height / row;
-	float grid_width = chip_width / col;
+	float grid_width  = chip_width / col;
 
 	float Cap = FACTOR_CHIP * SPEC_HEAT_SI * t_chip * grid_width * grid_height;
-	float Rx = grid_width / (2.0 * K_SI * t_chip * grid_height);
-	float Ry = grid_height / (2.0 * K_SI * t_chip * grid_width);
-	float Rz = t_chip / (K_SI * grid_height * grid_width);
+	float Rx  = grid_width / (2.0 * K_SI * t_chip * grid_height);
+	float Ry  = grid_height / (2.0 * K_SI * t_chip * grid_width);
+	float Rz  = t_chip / (K_SI * grid_height * grid_width);
 
 	float max_slope = MAX_PD / (FACTOR_CHIP * t_chip * SPEC_HEAT_SI);
-	float step = PRECISION / max_slope;
+	float step      = PRECISION / max_slope;
 
 	int real_iter = 1;
-	int src = 1;
-	int dst = 0;
+	int src       = 1;
+	int dst       = 0;
 
 	for (int t = 0; t < total_iterations; t += num_iterations) {
 		int temp = src;
-		src = dst;
-		dst = temp;
+		src      = dst;
+		dst      = temp;
 		calculate_temp<<<dimGrid, dimBlock>>>(MIN(num_iterations, total_iterations - t),
 											  MatrixPower, MatrixTemp[src], MatrixTemp[dst], col, row,
 											  borderCols, borderRows, Cap, Rx, Ry, Rz,
@@ -255,21 +255,21 @@ void run(int argc, char **argv) {
 	if (argc != 6) {
 		usage(argc, argv);
 	}
-	int grid_rows = atoi(argv[1]);
-	int grid_cols = atoi(argv[1]);
-	int pyramid_height = atoi(argv[2]);
+	int grid_rows        = atoi(argv[1]);
+	int grid_cols        = atoi(argv[1]);
+	int pyramid_height   = atoi(argv[2]);
 	int total_iterations = atoi(argv[3]);
-	int iters_per_copy = atoi(argv[4]);
-	int DEVICE = atoi(argv[5]);
+	int iters_per_copy   = atoi(argv[4]);
+	int DEVICE           = atoi(argv[5]);
 
 	/* --------------- pyramid parameters --------------- */
 
-	int borderCols = (pyramid_height)*EXPAND_RATE / 2;
-	int borderRows = (pyramid_height)*EXPAND_RATE / 2;
+	int borderCols    = (pyramid_height)*EXPAND_RATE / 2;
+	int borderRows    = (pyramid_height)*EXPAND_RATE / 2;
 	int smallBlockCol = BLOCKSIZE_0 - (pyramid_height)*EXPAND_RATE;
 	int smallBlockRow = BLOCKSIZE_1 - (pyramid_height)*EXPAND_RATE;
-	int blockCols = grid_cols / smallBlockCol + ((grid_cols % smallBlockCol == 0) ? 0 : 1);
-	int blockRows = grid_rows / smallBlockRow + ((grid_rows % smallBlockRow == 0) ? 0 : 1);
+	int blockCols     = grid_cols / smallBlockCol + ((grid_cols % smallBlockCol == 0) ? 0 : 1);
+	int blockRows     = grid_rows / smallBlockRow + ((grid_rows % smallBlockRow == 0) ? 0 : 1);
 
 	int size = grid_rows * grid_cols;
 
@@ -288,19 +288,19 @@ void run(int argc, char **argv) {
 	}
 
 	cudaDeviceProp cu_dev_prop;
-	cudaGetDeviceProperties(&cu_dev_prop, DEVICE); 
+	cudaGetDeviceProperties(&cu_dev_prop, DEVICE);
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, ", cu_dev_prop.name);
+	printf("%s, ", cu_dev_prop.name);
 	#else
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n SIZE (SIZE x SIZE): %d, %d, %d", grid_rows * grid_cols, grid_rows, grid_cols);
-		printf("\n PYRAMID HEIGHT: %d", pyramid_height);
-		printf("\n N_ITER: %d", total_iterations);
-		printf("\n ITERS_PER_COPY: %d", iters_per_copy);
-		printf("\n DEVICE: %s", cu_dev_prop.name);
-		printf("\n POLICY SYNC");
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n SIZE (SIZE x SIZE): %d, %d, %d", grid_rows * grid_cols, grid_rows, grid_cols);
+	printf("\n PYRAMID HEIGHT: %d", pyramid_height);
+	printf("\n N_ITER: %d", total_iterations);
+	printf("\n ITERS_PER_COPY: %d", iters_per_copy);
+	printf("\n DEVICE: %s", cu_dev_prop.name);
+	printf("\n POLICY SYNC");
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif
 
 	init_matrix(FilesavingTemp[0], FilesavingPower, grid_rows, grid_cols);
@@ -345,15 +345,15 @@ int main(int argc, char **argv) {
 
 	main_clock = omp_get_wtime() - main_clock;
 
-#ifdef _CTRL_EXAMPLES_EXP_MODE_
+	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	fflush(stdout);
-#else
+	#else
 	printf("\n ----------------------- TIME ----------------------- \n\n");
 	printf(" Clock main: %lf\n", main_clock);
 	printf(" Clock exec: %lf\n", exec_clock);
 	printf("\n ---------------------------------------------------- \n");
-#endif
+	#endif
 
 	return EXIT_SUCCESS;
 }

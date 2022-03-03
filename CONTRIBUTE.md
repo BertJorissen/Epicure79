@@ -4,6 +4,9 @@ Contributing Guide
 Code formatting
 ----
 
+Formatting is done via clang-format with a wrapper script (`format.sh`) to be able to indent preprocessor directives in the middle of code.
+If the formatter is misbehaving for a specific file or section of code feel free to turn it off using `clang-format <on/off>` but address the reason for turning it off in a comment.
+
 Controllers uses the following naming convention:
 - Variables (`snake_case`): `variable_name`
 - C pointer (`snake_case`) with prefix `p_`: `p_pointer_name`

@@ -5,27 +5,27 @@
 #include <stdio.h>
 
 #ifdef _PROFILING_ENABLED_
-	#include "nvToolsExt.h"
+#include "nvToolsExt.h"
 #endif //_PROFILING_ENABLED_
 
-#define SEED 6834723
+#define SEED    6834723
 #define EPSILON 0.0001
 
 double main_clock;
 double exec_clock;
 
-int GPU = 0;
+int GPU   = 0;
 int POWER = 0;
 
 #ifdef DEBUG
-#define CUDA_CHECK()                                                           \
-	{                                                                          \
-		cudaError_t error;                                                     \
-		if ((error = cudaGetLastError()) != cudaSuccess) {                     \
-			fprintf(stdout, "%s::%d ERROR: %s: %s\n", __FILE__, __LINE__,      \
-					cudaGetErrorName(error), cudaGetErrorString(error));       \
-			exit(EXIT_FAILURE);                                                \
-		}                                                                      \
+#define CUDA_CHECK()                                                      \
+	{                                                                     \
+		cudaError_t error;                                                \
+		if ((error = cudaGetLastError()) != cudaSuccess) {                \
+			fprintf(stdout, "%s::%d ERROR: %s: %s\n", __FILE__, __LINE__, \
+					cudaGetErrorName(error), cudaGetErrorString(error));  \
+			exit(EXIT_FAILURE);                                           \
+		}                                                                 \
 	}
 #else
 #define CUDA_CHECK()
@@ -40,10 +40,10 @@ __global__ void matrixMulCUDA(float *d_c, float *d_a, float *d_b, int n) {
 	__shared__ float tile_a[BLOCKSIZE][BLOCKSIZE];
 	__shared__ float tile_b[BLOCKSIZE][BLOCKSIZE];
 
-	int row = blockIdx.y * BLOCKSIZE + threadIdx.y;
-	int col = blockIdx.x * BLOCKSIZE + threadIdx.x;
+	int   row = blockIdx.y * BLOCKSIZE + threadIdx.y;
+	int   col = blockIdx.x * BLOCKSIZE + threadIdx.x;
 	float tmp = 0.0;
-	int idx;
+	int   idx;
 
 	for (int sub = 0; sub < gridDim.x; ++sub) {
 		idx = row * n + sub * BLOCKSIZE + threadIdx.x;
@@ -74,64 +74,65 @@ __global__ void matrixMulCUDA(float *d_c, float *d_a, float *d_b, int n) {
 
 typedef struct Init_Tiles_Args {
 	float *matrix_a, *matrix_b, *matrix_c;
-	int rows, columns;
+	int    rows, columns;
 } Init_Tiles_Args_t;
 
 float RandomFloat(float min, float max) {
-    assert(max > min); 
-    float random = ((float) rand()) / (float) RAND_MAX;
-    float range = max - min;  
-    return (random*range) + min;
+	assert(max > min);
+	float random = ((float)rand()) / (float)RAND_MAX;
+	float range  = max - min;
+	return (random * range) + min;
 }
 
 void Init_Tiles(void *args) {
-	Init_Tiles_Args_t *tmp = (Init_Tiles_Args_t *)args;
-	float *matrix_a = tmp->matrix_a;
-	float *matrix_b = tmp->matrix_b;
-	float *matrix_c = tmp->matrix_c;
-	int rows = tmp->rows;
-	int columns = tmp->columns;
+	Init_Tiles_Args_t *tmp      = (Init_Tiles_Args_t *)args;
+	float             *matrix_a = tmp->matrix_a;
+	float             *matrix_b = tmp->matrix_b;
+	float             *matrix_c = tmp->matrix_c;
+	int                rows     = tmp->rows;
+	int                columns  = tmp->columns;
 
 	srand(SEED);
 	for (int j = 0; j < columns; j++) {
-		float col_sum_a=0;
-		float col_sum_b=0;
+		float col_sum_a = 0;
+		float col_sum_b = 0;
 		for (int i = 0; i < rows; i++) {
-			float a=RandomFloat(-(1-col_sum_a)+EPSILON, 1-col_sum_a-EPSILON);
-			float b=RandomFloat(-(1-col_sum_b)+EPSILON, 1-col_sum_b-EPSILON);
+			float a = RandomFloat(-(1 - col_sum_a) + EPSILON, 1 - col_sum_a - EPSILON);
+			float b = RandomFloat(-(1 - col_sum_b) + EPSILON, 1 - col_sum_b - EPSILON);
+
 			matrix_a[i * columns + j] = a;
 			matrix_b[i * columns + j] = b;
 			matrix_c[i * columns + j] = 0;
-			col_sum_a+=fabsf(a);
-			col_sum_b+=fabsf(b);
+			col_sum_a += fabsf(a);
+			col_sum_b += fabsf(b);
 		}
 	}
 }
 
 typedef struct Host_Compute_Args {
-	int ITER;
+	int     ITER;
 	double *p_sum;
 	double *p_res;
-	float *matrix;
-	float *matrix_res;
-	int rows;
-	int columns;
+	float  *matrix;
+	float  *matrix_res;
+	int     rows;
+	int     columns;
 } Host_Compute_Args_t;
 
 void Host_Compute(void *args) {
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePushA("Host task");
+	nvtxRangePushA("Host task");
 	#endif //_PROFILING_ENABLED_
 
 	Host_Compute_Args_t *tmp = (Host_Compute_Args_t *)args;
-	
-	static int ITER = 0;
-	double *p_sum = tmp->p_sum;
-	double *p_res = tmp->p_res;
-	float *matrix = tmp->matrix;
-	float *matrix_res = tmp->matrix_res;
-	int rows = tmp->rows;
-	int columns = tmp->columns;
+
+	static int ITER       = 0;
+	double    *p_sum      = tmp->p_sum;
+	double    *p_res      = tmp->p_res;
+	float     *matrix     = tmp->matrix;
+	float     *matrix_res = tmp->matrix_res;
+	int        rows       = tmp->rows;
+	int        columns    = tmp->columns;
 
 	double minimum = matrix[0 * columns + 0];
 	double maximum = matrix[0 * columns + 0];
@@ -171,7 +172,7 @@ void Host_Compute(void *args) {
 	ITER = (ITER + 1) % POWER;
 
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePop();
+	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
@@ -183,23 +184,23 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Usage: %s <matrix_size> <n_power> <device>\n\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	int SIZE = atoi(argv[1]);
-	POWER = atoi(argv[2]);
-	GPU = atoi(argv[3]);
+	int SIZE        = atoi(argv[1]);
+	POWER           = atoi(argv[2]);
+	GPU             = atoi(argv[3]);
 	int MATRIX_SIZE = sizeof(float) * SIZE * SIZE;
-	
+
 	cudaDeviceProp cu_dev_prop;
-	cudaGetDeviceProperties(&cu_dev_prop, GPU); 
+	cudaGetDeviceProperties(&cu_dev_prop, GPU);
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, ", cu_dev_prop.name);
+	printf("%s, ", cu_dev_prop.name);
 	#else
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n SIZE: %d", SIZE);
-		printf("\n N_ITER: %d", POWER);
-		printf("\n DEVICE: %s", cu_dev_prop.name);
-		printf("\n POLICY SYNC");
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n SIZE: %d", SIZE);
+	printf("\n N_ITER: %d", POWER);
+	printf("\n DEVICE: %s", cu_dev_prop.name);
+	printf("\n POLICY SYNC");
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	double *p_res = (double *)malloc(POWER * sizeof(double));
@@ -239,18 +240,18 @@ int main(int argc, char **argv) {
 	Init_Tiles_Args_t init_args = (Init_Tiles_Args_t){.matrix_a = A,
 													  .matrix_b = B,
 													  .matrix_c = C,
-													  .rows = SIZE,
-													  .columns = SIZE};
+													  .rows     = SIZE,
+													  .columns  = SIZE};
 	Init_Tiles(&init_args);
 
 	Host_Compute_Args_t host_args =
-		(Host_Compute_Args_t){.ITER = 0,
-							  .p_sum = p_sum,
-							  .p_res = p_res,
-							  .matrix = NULL,
+		(Host_Compute_Args_t){.ITER       = 0,
+							  .p_sum      = p_sum,
+							  .p_res      = p_res,
+							  .matrix     = NULL,
 							  .matrix_res = matrix_tmp,
-							  .rows = SIZE,
-							  .columns = SIZE};
+							  .rows       = SIZE,
+							  .columns    = SIZE};
 
 	/*Start timer*/
 	cudaDeviceSynchronize();
@@ -271,7 +272,7 @@ int main(int argc, char **argv) {
 
 			cudaMemcpy(C, d_C, MATRIX_SIZE, cudaMemcpyDeviceToHost);
 			CUDA_CHECK();
-			
+
 			host_args.matrix = C;
 			Host_Compute(&host_args);
 		} else {
@@ -297,19 +298,22 @@ int main(int argc, char **argv) {
 
 	/* PRINT RESULTS */
 	#ifdef _CTRL_EXAMPLES_TEST_MODE_
-		for (int i = 0; i < POWER; i++) {
-			printf("%lf, %lf, ", p_sum[i], p_res[i]);
-		}
-		fflush(stdout);
+	for (int i = 0; i < POWER; i++) {
+		printf("%lf, %lf, ", p_sum[i], p_res[i]);
+	}
+	fflush(stdout);
 	#elif _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf, ", p_sum[POWER-1], p_res[POWER-1]);
-		fflush(stdout);
+	printf("%lf, %lf, ", p_sum[POWER - 1], p_res[POWER - 1]);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- NORM ----------------------- \n\n"); fflush(stdout);
-		for (int i = 0; i < POWER; i++) {
-			printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]); fflush(stdout);
-		}
-		printf("\n ---------------------------------------------------- \n"); fflush(stdout);
+	printf("\n ----------------------- NORM ----------------------- \n\n");
+	fflush(stdout);
+	for (int i = 0; i < POWER; i++) {
+		printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]);
+		fflush(stdout);
+	}
+	printf("\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif
 
 	cudaFreeHost(A);
@@ -323,13 +327,13 @@ int main(int argc, char **argv) {
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf\n", main_clock, exec_clock);
-		fflush(stdout);
+	printf("%lf, %lf\n", main_clock, exec_clock);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- TIME ----------------------- \n\n");
-		printf(" Clock main: %lf\n", main_clock);
-		printf(" Clock exec: %lf\n", exec_clock);
-		printf("\n ---------------------------------------------------- \n");
+	printf("\n ----------------------- TIME ----------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif
 
 	return 0;

@@ -65,6 +65,7 @@ if (PROFILING_ENABLED)
 endif (PROFILING_ENABLED)
 
 # Add examples
+add_subdirectory(Mandelbrot_Animation)
 add_subdirectory(Matrix_Add)
 add_subdirectory(Matrix_Power_Of)
 add_subdirectory(hotspot)

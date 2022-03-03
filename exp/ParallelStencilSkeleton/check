@@ -7,12 +7,11 @@
 
 # 1. EXPERIMENT INFORMATION
 # 1.1. APP NAME AND DEFAULT EXECUTABLES LIST
-APP_NAME="ParallelStencilSkeleton"
-EXE_NAMES="ParallelStencilSkeleton"
+APP_NAME="GenericStencil"
+EXE_NAMES="../../build/ParallelStencilSkeleton/ParallelStencilSkeleton"
 
 # 1.2. APP/EXPERIMENT SPECIFIC PARAMETERS
-PROCS="1 4 5 9 10 13 16 25"
-PROCS="1 2 3 4"
+PROCS="1 2 3 4 5"
 SIZES="100"
 ITERATIONS="1 10 100"
 STENCILS="1dc2 1dnc4 2d4 2d9 2dnc9 2df5 3d27"
@@ -82,12 +81,15 @@ function doTest() {
 	if [ $dims == "1" ]
 	then
 		$MPI_RUN -n $2 ./$1 $5 $3 $4 >/dev/null 2>check.err
+		#echo ""; $MPI_RUN -n $2 ./$1 $5 $3 $4 2>check.err
 	elif [ $dims == "2" ]
 	then
 		$MPI_RUN -n $2 ./$1 $5 $3 $3 $4 >/dev/null 2>check.err
+		#echo ""; $MPI_RUN -n $2 ./$1 $5 $3 $3 $4 2>check.err
 	elif [ $dims == "3" ]
 	then
 		$MPI_RUN -n $2 ./$1 $5 $3 $3 $3 $4 >/dev/null 2>check.err
+		#echo ""; $MPI_RUN -n $2 ./$1 $5 $3 $3 $3 $4 2>check.err
 	fi
 
 	# EXECUTION ERRORS, SKIP TESTING RESULT FILE
@@ -116,6 +118,9 @@ function doTest() {
 	fi
 }
 
+# EXTRA. UNCOMPRESS TEST RESULTS
+tar Jxf CorrectResults.tgz
+
 # 5. LOOPS FOR TESTS
 for exe in $EXE_NAMES
 do
@@ -140,4 +145,5 @@ done
 # 6. CLEAN
 rm -f $RESULT_FILE
 rm -f check.err
+rm -rf CorrectResults
 

@@ -1,3 +1,5 @@
+// @sergioalo off cause ifdef indentation
+// clang-format off
 #define AMB_TEMP (80.0f)
 
 // Block size
@@ -30,7 +32,7 @@
 
 // Radius of stencil, e.g 5-point stencil => 1
 #ifndef RAD
-  #define RAD  1
+	#define RAD 1
 #endif
 
 // Number of parallel time steps
@@ -46,8 +48,8 @@
 
 // Padding to fix alignment for time steps that are not a multiple of 8
 #ifndef PAD
-  #define PAD TIME % 16
+	#define PAD TIME % 16
 #endif
 
-#define HALO_SIZE		TIME * RAD			// halo size
-#define BACK_OFF		2 * HALO_SIZE			// back off for going to next block
+#define HALO_SIZE TIME *RAD     // halo size
+#define BACK_OFF  2 * HALO_SIZE // back off for going to next block

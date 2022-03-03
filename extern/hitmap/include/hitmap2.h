@@ -88,12 +88,36 @@
  * @hideinitializer
  * 
  * @param var a HitTile.
- * @param ... Number of dimensions of the Tile and list of positions in each dimension.
+ * @param ... List of positions in each dimension.
  * @see hit_tileElemAtNoStride()
  */
 #define hit(var, ...)	HIT2_HIT_VARIADIC( var, HIT2_COUNTPARAM( __VA_ARGS__ ), __VA_ARGS__ )
 /** @cond INTERNAL */
 #define HIT2_HIT_VARIADIC(var, num, ...)	hit_tileElemAtNoStride( var, num, __VA_ARGS__ )
+
+/**
+ * Access to a HitTile with the same shape of another (with no stride).
+ * This function allows better optimizations than directly using hit()
+ * @hideinitializer
+ * 
+ * @param var a HitTile to be accesed.
+ * @param ref a HitTile to be used as the reference for the array shape.
+ * @param ... List of positions in each dimension.
+ * @see hit_tileElemAtNoStride()
+ */
+#define hit_as(var, ref, ...)	HIT2_HIT_TEST_VARIADIC( var, ref, HIT2_COUNTPARAM( __VA_ARGS__ ), __VA_ARGS__ )
+#define HIT2_HIT_TEST_VARIADIC(var, ref, num, ...)	hit_as_tileElemAtNoStride( var, ref, num, __VA_ARGS__ )
+
+#define hit_as_tileElemAtNoStride1(var, ref, pos)	((var).data[pos])
+
+#define hit_as_tileElemAtNoStride2(var, ref, pos1, pos2)	((var).data[(pos1)*(ref).origAcumCard[1]+(pos2)])
+
+#define hit_as_tileElemAtNoStride3(var, ref, pos1, pos2, pos3)	((var).data[(ref)*(var).origAcumCard[1]+(pos2)*(ref).origAcumCard[2]+(pos3)])
+
+#define hit_as_tileElemAtNoStride4(var, ref, pos1, pos2, pos3, pos4)	((var).data[(pos1)*(ref).origAcumCard[1]+(pos2)*(ref).origAcumCard[2]+(pos3)*(ref).origAcumCard[3]+(pos4)])
+
+/** @cond INTERNAL */
+/** @cond INTERNAL */
 /** @endcond */
 
 /**

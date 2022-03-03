@@ -19,20 +19,20 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 /* maximum power density possible (say 300W for a 10mm x 10mm chip) */
 #define MAX_PD (3.0e6)
 /* required precision in degrees */
-#define PRECISION 0.001
+#define PRECISION    0.001
 #define SPEC_HEAT_SI 1.75e6
-#define K_SI 100
+#define K_SI         100
 /* capacitance fitting factor */
 #define FACTOR_CHIP 0.5
 
 #define EXPAND_RATE 2 // add one iteration will extend the pyramid base by 2 per each borderline
 
 #define IN_RANGE(x, min, max) ((x) >= (min) && (x) <= (max))
-#define MIN(a, b) ((a) <= (b) ? (a) : (b))
+#define MIN(a, b)             ((a) <= (b) ? (a) : (b))
 
 /* chip parameters	*/
-const float t_chip = 0.0005;
+const float t_chip      = 0.0005;
 const float chip_height = 0.016;
-const float chip_width = 0.016;
+const float chip_width  = 0.016;
 /* ambient temperature, assuming no package at all	*/
 const float amb_temp = 80.0;

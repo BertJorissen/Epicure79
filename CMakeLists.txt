@@ -41,7 +41,7 @@ option(SUPPORT_FPGA "SUPPORT_FPGA" OFF) # Support for OpenCL FPGA Ctrl
 option(SUPPOPRT_INTEL "SUPPORT_INTEL" ON) # Use Intel platform in FPGA backend
 
 if(SUPPORT_INTEL)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_INTEL_KERNELS")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_INTEL_KERNELS")
 endif(SUPPORT_INTEL)
 
 
@@ -84,7 +84,7 @@ set(OPENCL_GPU_PROFILING_N_WRITE_TASKS "5000") # Numero de tareas de escritura
 set(OPENCL_GPU_PROFILING_N_KERNEL_TASKS "5000") # Numero de tareas de kernels
 
 # Extra options Cuda
-set(CUDA_ERROR_CHECK ON) # Activate CUDA error checking on kernel launch
+set(CUDA_ERROR_CHECK OFF) # Activate CUDA error checking on kernel launch
 set(CUDA_DEBUG OFF) # Internal debug (Ctrl library)
 set(CUDA_EVENT_DEBUG OFF) # Internal debug (Ctrl library)
 
@@ -176,9 +176,6 @@ endif(OPENMP_FOUND)
 # HWLOC
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lhwloc ")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lhwloc ")
-
-set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} "/opt/ohpc/pub/libs/hwloc/2.1.0/include")
-link_directories("/opt/ohpc/pub/libs/hwloc/2.1.0/lib")
 
 
 # CUDA

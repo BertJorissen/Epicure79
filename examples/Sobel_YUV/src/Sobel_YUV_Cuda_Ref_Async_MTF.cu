@@ -1,31 +1,31 @@
-#include <omp.h>
 #include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #ifdef _PROFILING_ENABLED_
-	#include "nvToolsExt.h"
+#include "nvToolsExt.h"
 #endif //_PROFILING_ENABLED_
 
 #ifndef _CTRL_EXAMPLES_CUDA_ERROR_CHECK_
-	#define CUDA_CHECK()
+#define CUDA_CHECK()
 #else
-	#define CUDA_CHECK()                                                         \
-		{                                                                        \
-			cudaError_t error;                                                   \
-			if ((error = cudaGetLastError()) != cudaSuccess) {                   \
-				printf("\tCUDA Error at: %s::%d\n %s: %s\n", __FILE__, __LINE__, \
-					cudaGetErrorName(error), cudaGetErrorString(error));         \
-				fflush(stdout);                                                  \
-				fflush(stderr);                                                  \
-				exit(EXIT_FAILURE);                                              \
-			}                                                                    \
-		}
+#define CUDA_CHECK()                                                         \
+	{                                                                        \
+		cudaError_t error;                                                   \
+		if ((error = cudaGetLastError()) != cudaSuccess) {                   \
+			printf("\tCUDA Error at: %s::%d\n %s: %s\n", __FILE__, __LINE__, \
+				   cudaGetErrorName(error), cudaGetErrorString(error));      \
+			fflush(stdout);                                                  \
+			fflush(stderr);                                                  \
+			exit(EXIT_FAILURE);                                              \
+		}                                                                    \
+	}
 #endif
 
 #define CUDA_CALL(func) \
-		func; \
-		CUDA_CHECK()
+	func;               \
+	CUDA_CHECK()
 
 typedef unsigned char BYTE;
 
@@ -34,23 +34,23 @@ typedef unsigned char BYTE;
 #define IMG_U 1
 #define IMG_V 2
 
-#define N_STREAMS 4
+#define N_STREAMS     4
 #define STREAM_KERNEL 0
-#define STREAM_HOST 1
-#define STREAM_HTD 2
-#define STREAM_DTH 3
+#define STREAM_HOST   1
+#define STREAM_HTD    2
+#define STREAM_DTH    3
 
-#define N_EVENTS 5
-#define EVENT_KERNEL 0
+#define N_EVENTS        5
+#define EVENT_KERNEL    0
 #define EVENT_HOST_LOAD 1
 #define EVENT_HOST_SAVE 2
-#define EVENT_HTD 3
-#define EVENT_DTH 4
+#define EVENT_HTD       3
+#define EVENT_DTH       4
 
 typedef struct hostFuncData {
-	BYTE **buffer;
-	BYTE **Img;
-	FILE *File;
+	BYTE  **buffer;
+	BYTE  **Img;
+	FILE   *File;
 	size_t *sizes;
 } hostFuncData_t;
 
@@ -59,16 +59,16 @@ double exec_clock;
 
 void Sobel_Host_Init(BYTE *Input_Img[N_IMG], BYTE *Output_Img[N_IMG], size_t sizes[N_IMG]) {
 	for (int i = 0; i < N_IMG; i++) {
-		CUDA_CALL( cudaMallocHost((void**)(&Input_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))) );
-		CUDA_CALL( cudaMallocHost((void**)(&Output_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))) );
+		CUDA_CALL(cudaMallocHost((void **)(&Input_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))));
+		CUDA_CALL(cudaMallocHost((void **)(&Output_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))));
 	}
 }
 
 void Sobel_Device_Init(BYTE *Input_Img[N_IMG], BYTE *Output_Img[N_IMG], size_t sizes[N_IMG]) {
 	for (int i = 0; i < N_IMG; i++) {
-		CUDA_CALL( cudaMalloc((void**)(&Input_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))) );
-		CUDA_CALL( cudaMalloc((void**)(&Output_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))) );
-		CUDA_CALL( cudaMemset(Output_Img[i], 0, (size_t)(sizes[i] * sizeof(BYTE))));
+		CUDA_CALL(cudaMalloc((void **)(&Input_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))));
+		CUDA_CALL(cudaMalloc((void **)(&Output_Img[i]), (size_t)(sizes[i] * sizeof(BYTE))));
+		CUDA_CALL(cudaMemset(Output_Img[i], 0, (size_t)(sizes[i] * sizeof(BYTE))));
 	}
 }
 
@@ -80,20 +80,20 @@ void Preload_Frame(BYTE *Input_Img[N_IMG], FILE *File_reader, size_t sizes[N_IMG
 
 void Get_Frame(void *data) {
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePushA("Host get frame");
+	nvtxRangePushA("Host get frame");
 	#endif //_PROFILING_ENABLED_
 
 	hostFuncData_t *tmp = (hostFuncData_t *)data;
 
-	BYTE **Input_Img = tmp->Img;
-	BYTE **buffer_read = tmp->buffer;
-	size_t *sizes = tmp->sizes;
+	BYTE  **Input_Img   = tmp->Img;
+	BYTE  **buffer_read = tmp->buffer;
+	size_t *sizes       = tmp->sizes;
 
 	for (int i = 0; i < N_IMG; i++)
 		memcpy(Input_Img[i], buffer_read[i], sizeof(BYTE) * sizes[i]);
 
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePop();
+	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
@@ -107,41 +107,42 @@ __global__ void Sobel_Operation(BYTE *Input, BYTE *Output, int Width, int Height
 
 	if ((Row_Index != 0) && (Col_Index != 0) && (Row_Index < Height - 1) && (Col_Index < Width - 1)) {
 		Gradient_v = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] +
-						Input[(Row_Index - 1) * Width + (Col_Index + 1)] -
-						2 * Input[Row_Index * Width + (Col_Index - 1)] +
-						2 * Input[Row_Index * Width + (Col_Index + 1)] -
-						Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
-						Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
+					   Input[(Row_Index - 1) * Width + (Col_Index + 1)] -
+					   2 * Input[Row_Index * Width + (Col_Index - 1)] +
+					   2 * Input[Row_Index * Width + (Col_Index + 1)] -
+					   Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
+					   Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
 
 		Gradient_h = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] -
-						2 * Input[(Row_Index - 1) * Width + Col_Index] -
-						Input[(Row_Index - 1) * Width + (Col_Index + 1)] +
-						Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
-						2 * Input[(Row_Index + 1) * Width + Col_Index] +
-						Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
+					   2 * Input[(Row_Index - 1) * Width + Col_Index] -
+					   Input[(Row_Index - 1) * Width + (Col_Index + 1)] +
+					   Input[(Row_Index + 1) * Width + (Col_Index - 1)] +
+					   2 * Input[(Row_Index + 1) * Width + Col_Index] +
+					   Input[(Row_Index + 1) * Width + (Col_Index + 1)]);
 
 		Gradient_mod = sqrt(Gradient_h * Gradient_h + Gradient_v * Gradient_v);
-		Output[Row_Index * Width + Col_Index] = ((int) Gradient_mod < 256) ? (BYTE) Gradient_mod : 255;
+
+		Output[Row_Index * Width + Col_Index] = ((int)Gradient_mod < 256) ? (BYTE)Gradient_mod : 255;
 	}
 }
 
 void Save_Frame(void *data) {
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePushA("Host put frame");
+	nvtxRangePushA("Host put frame");
 	#endif //_PROFILING_ENABLED_
 
 	hostFuncData_t *tmp = (hostFuncData_t *)data;
 
-	BYTE **Output_Img = tmp->Img;
-	FILE *File_writer = tmp->File;
-	size_t *sizes = tmp->sizes;
+	BYTE  **Output_Img  = tmp->Img;
+	FILE   *File_writer = tmp->File;
+	size_t *sizes       = tmp->sizes;
 
 	for (int i = 0; i < N_IMG; i++) {
 		fwrite(Output_Img[i], sizeof(BYTE), sizes[i], File_writer);
 	}
 
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePop();
+	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
@@ -156,41 +157,40 @@ int main(int argc, char **argv) {
 			argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	
+
 	int Width[N_IMG];
 	Width[IMG_Y] = atoi(argv[1]);
 	Width[IMG_U] = Width[IMG_V] = Width[IMG_Y] / 2;
-	
+
 	int Height[N_IMG];
 	Height[IMG_Y] = atoi(argv[2]);
 	Height[IMG_U] = Height[IMG_V] = Height[IMG_Y] / 2;
-	
+
 	int Num_Frames = atoi(argv[3]);
 
 	size_t sizes[N_IMG] = {
-			(size_t)(Width[IMG_Y] * Height[IMG_Y]),
-			(size_t)(Width[IMG_U] * Height[IMG_U]),
-			(size_t)(Width[IMG_V] * Height[IMG_V])
-	};
+		(size_t)(Width[IMG_Y] * Height[IMG_Y]),
+		(size_t)(Width[IMG_U] * Height[IMG_U]),
+		(size_t)(Width[IMG_V] * Height[IMG_V])};
 
-	char *Input_Filename = argv[4];
+	char *Input_Filename  = argv[4];
 	char *Output_Filename = argv[5];
 
 	int DEVICE = atoi(argv[6]);
 
 	cudaDeviceProp cu_dev_prop;
-	cudaGetDeviceProperties(&cu_dev_prop, DEVICE); 
+	cudaGetDeviceProperties(&cu_dev_prop, DEVICE);
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, ", cu_dev_prop.name);
+	printf("%s, ", cu_dev_prop.name);
 	#else
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n WIDTH: %d", Width[0]);
-		printf("\n HEIGHT: %d", Height[0]);
-		printf("\n NUM_FRAMES: %d", Num_Frames);
-		printf("\n DEVICE: %s", cu_dev_prop.name);
-		printf("\n POLICY ASYNC");
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n WIDTH: %d", Width[0]);
+	printf("\n HEIGHT: %d", Height[0]);
+	printf("\n NUM_FRAMES: %d", Num_Frames);
+	printf("\n DEVICE: %s", cu_dev_prop.name);
+	printf("\n POLICY ASYNC");
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	int Frame_num = 0;
@@ -210,18 +210,18 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < Num_Frames; i++) {
 		buffer_read[i] = (BYTE **)malloc(sizeof(BYTE *) * N_IMG);
 		for (int j = 0; j < N_IMG; j++) {
-			CUDA_CALL( cudaMallocHost((void **)(&(buffer_read[i][j])), sizes[j] * sizeof(BYTE)) );
+			CUDA_CALL(cudaMallocHost((void **)(&(buffer_read[i][j])), sizes[j] * sizeof(BYTE)));
 		}
 	}
 
 	cudaStream_t streams[N_STREAMS];
-	cudaEvent_t events[N_EVENTS];
+	cudaEvent_t  events[N_EVENTS];
 
 	for (int i = 0; i < N_STREAMS; i++) {
-		CUDA_CALL( cudaStreamCreate(&(streams[i])) );
+		CUDA_CALL(cudaStreamCreate(&(streams[i])));
 	}
 	for (int i = 0; i < N_EVENTS; i++) {
-		CUDA_CALL( cudaEventCreateWithFlags(&(events[i]), cudaEventDisableTiming) );
+		CUDA_CALL(cudaEventCreateWithFlags(&(events[i]), cudaEventDisableTiming));
 	}
 
 	hostFuncData_t *Load_Frame_data = (hostFuncData_t *)malloc(sizeof(hostFuncData_t) * Num_Frames);
@@ -229,13 +229,12 @@ int main(int argc, char **argv) {
 
 	dim3 dimBlock[N_IMG];
 	dim3 dimGrid[N_IMG];
-	
+
 	for (int i = 0; i < N_IMG; i++) {
 		dimBlock[i] = dim3(BLOCKSIZE_0, BLOCKSIZE_1);
-		dimGrid[i] = dim3(
-				(Width[i] + BLOCKSIZE_0 - 1) / BLOCKSIZE_0,
-				(Height[i] + BLOCKSIZE_1 - 1) / BLOCKSIZE_1
-		);
+		dimGrid[i]  = dim3(
+			 (Width[i] + BLOCKSIZE_0 - 1) / BLOCKSIZE_0,
+			 (Height[i] + BLOCKSIZE_1 - 1) / BLOCKSIZE_1);
 	}
 
 	if (!(File_reader = fopen(Input_Filename, "rb"))) {
@@ -254,81 +253,69 @@ int main(int argc, char **argv) {
 		Preload_Frame(buffer_read[i], File_reader, sizes);
 	}
 
-	CUDA_CALL( cudaDeviceSynchronize() );
+	CUDA_CALL(cudaDeviceSynchronize());
 	exec_clock = omp_get_wtime();
 
-	Load_Frame_data[0] = (hostFuncData_t) {
-			.buffer = buffer_read[0],
-			.Img = Host_Input_Img,
-			.File = NULL,
-			.sizes = sizes
-	};
+	Load_Frame_data[0] = (hostFuncData_t){.buffer = buffer_read[0],
+										  .Img    = Host_Input_Img,
+										  .File   = NULL,
+										  .sizes  = sizes};
 
-	CUDA_CALL( cudaLaunchHostFunc(streams[STREAM_HOST], Get_Frame, 
-			(void *)(&Load_Frame_data[0]))
-	);
-	CUDA_CALL( cudaEventRecord(events[EVENT_HOST_LOAD], streams[STREAM_HOST]) );
+	CUDA_CALL(cudaLaunchHostFunc(streams[STREAM_HOST], Get_Frame, (void *)(&Load_Frame_data[0])));
+	CUDA_CALL(cudaEventRecord(events[EVENT_HOST_LOAD], streams[STREAM_HOST]));
 
 	for (Frame_num = 0; Frame_num < Num_Frames; Frame_num++) {
-		CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_HTD], events[EVENT_HOST_LOAD], 0) );
-		CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_HTD], events[EVENT_KERNEL], 0) );
-		CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_KERNEL], events[EVENT_DTH], 0) );
-		CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_DTH], events[EVENT_HOST_SAVE], 0) );
+		CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_HTD], events[EVENT_HOST_LOAD], 0));
+		CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_HTD], events[EVENT_KERNEL], 0));
+		CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_KERNEL], events[EVENT_DTH], 0));
+		CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_DTH], events[EVENT_HOST_SAVE], 0));
 		for (int i = 0; i < N_IMG; i++) {
-			CUDA_CALL( cudaMemcpyAsync(Device_Input_Img[i], Host_Input_Img[i],
-					(size_t)(sizes[i] * sizeof(BYTE)),
-					cudaMemcpyHostToDevice, streams[STREAM_HTD])
-			);
-			CUDA_CALL( cudaEventRecord(events[EVENT_HTD], streams[STREAM_HTD]) );
-			CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_KERNEL], events[EVENT_HTD], 0) );
-			CUDA_CALL( (Sobel_Operation<<<dimGrid[i], dimBlock[i], 0, streams[STREAM_KERNEL]>>>(Device_Input_Img[i], Device_Output_Img[i], Width[i], Height[i])));
-			CUDA_CALL( cudaEventRecord(events[EVENT_KERNEL], streams[STREAM_KERNEL]) );
-			CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_DTH], events[EVENT_KERNEL], 0) );
-			CUDA_CALL( cudaMemcpyAsync(Host_Output_Img[i], Device_Output_Img[i],
-					(size_t)(sizes[i] * sizeof(BYTE)),
-					cudaMemcpyDeviceToHost, streams[STREAM_DTH])
-			);
+			CUDA_CALL(cudaMemcpyAsync(Device_Input_Img[i], Host_Input_Img[i],
+									  (size_t)(sizes[i] * sizeof(BYTE)),
+									  cudaMemcpyHostToDevice, streams[STREAM_HTD]));
+			CUDA_CALL(cudaEventRecord(events[EVENT_HTD], streams[STREAM_HTD]));
+			CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_KERNEL], events[EVENT_HTD], 0));
+			CUDA_CALL((Sobel_Operation<<<dimGrid[i], dimBlock[i], 0, streams[STREAM_KERNEL]>>>(Device_Input_Img[i],
+																							   Device_Output_Img[i],
+																							   Width[i], Height[i])));
+			CUDA_CALL(cudaEventRecord(events[EVENT_KERNEL], streams[STREAM_KERNEL]));
+			CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_DTH], events[EVENT_KERNEL], 0));
+			CUDA_CALL(cudaMemcpyAsync(Host_Output_Img[i], Device_Output_Img[i],
+									  (size_t)(sizes[i] * sizeof(BYTE)),
+									  cudaMemcpyDeviceToHost, streams[STREAM_DTH]));
 		}
-		CUDA_CALL( cudaEventRecord(events[EVENT_DTH], streams[STREAM_DTH]) );
+		CUDA_CALL(cudaEventRecord(events[EVENT_DTH], streams[STREAM_DTH]));
 
 		if (Frame_num + 1 < Num_Frames) {
-			Load_Frame_data[Frame_num + 1] = (hostFuncData_t) {
-					.buffer = buffer_read[Frame_num + 1],
-					.Img = Host_Input_Img,
-					.File = NULL,
-					.sizes = sizes
-			};
-			CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_HOST], events[EVENT_HTD], 0) );
-			CUDA_CALL( cudaLaunchHostFunc(streams[STREAM_HOST], Get_Frame,
-					(void *)(&Load_Frame_data[Frame_num + 1]))
-			);
-			CUDA_CALL( cudaEventRecord(events[EVENT_HOST_LOAD], streams[STREAM_HOST]) );
+			Load_Frame_data[Frame_num + 1] = (hostFuncData_t){.buffer = buffer_read[Frame_num + 1],
+															  .Img    = Host_Input_Img,
+															  .File   = NULL,
+															  .sizes  = sizes};
+			CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_HOST], events[EVENT_HTD], 0));
+			CUDA_CALL(cudaLaunchHostFunc(streams[STREAM_HOST], Get_Frame, (void *)(&Load_Frame_data[Frame_num + 1])));
+			CUDA_CALL(cudaEventRecord(events[EVENT_HOST_LOAD], streams[STREAM_HOST]));
 		}
 
-		Save_Frame_data[Frame_num] = (hostFuncData_t) {
-				.buffer = NULL,
-				.Img = Host_Output_Img,
-				.File = File_writer,
-				.sizes = sizes
-		};
-		CUDA_CALL( cudaStreamWaitEvent(streams[STREAM_HOST], events[EVENT_DTH], 0) );
-		CUDA_CALL( cudaLaunchHostFunc(streams[STREAM_HOST], Save_Frame,
-				(void *)(&Save_Frame_data[Frame_num]))
-		);
-		CUDA_CALL( cudaEventRecord(events[EVENT_HOST_SAVE], streams[STREAM_HOST]) );
+		Save_Frame_data[Frame_num] = (hostFuncData_t){.buffer = NULL,
+													  .Img    = Host_Output_Img,
+													  .File   = File_writer,
+													  .sizes  = sizes};
+		CUDA_CALL(cudaStreamWaitEvent(streams[STREAM_HOST], events[EVENT_DTH], 0));
+		CUDA_CALL(cudaLaunchHostFunc(streams[STREAM_HOST], Save_Frame, (void *)(&Save_Frame_data[Frame_num])));
+		CUDA_CALL(cudaEventRecord(events[EVENT_HOST_SAVE], streams[STREAM_HOST]));
 	}
 
-	CUDA_CALL( cudaDeviceSynchronize() );
+	CUDA_CALL(cudaDeviceSynchronize());
 	exec_clock = omp_get_wtime() - exec_clock;
 
 	for (int i = 0; i < N_IMG; i++) {
-		CUDA_CALL( cudaFreeHost(Host_Input_Img[i]) );
-		CUDA_CALL( cudaFreeHost(Host_Output_Img[i]) );
-		
-		CUDA_CALL( cudaFree(Device_Input_Img[i]) );
-		CUDA_CALL( cudaFree(Device_Output_Img[i]) );
+		CUDA_CALL(cudaFreeHost(Host_Input_Img[i]));
+		CUDA_CALL(cudaFreeHost(Host_Output_Img[i]));
+
+		CUDA_CALL(cudaFree(Device_Input_Img[i]));
+		CUDA_CALL(cudaFree(Device_Output_Img[i]));
 	}
-	
+
 	free(Load_Frame_data);
 	free(Save_Frame_data);
 
@@ -337,22 +324,22 @@ int main(int argc, char **argv) {
 
 	for (int i = 0; i < Num_Frames; i++) {
 		for (int j = 0; j < N_IMG; j++) {
-			CUDA_CALL( cudaFreeHost(buffer_read[i][j]) );
+			CUDA_CALL(cudaFreeHost(buffer_read[i][j]));
 		}
 		free(buffer_read[i]);
 	}
 	free(buffer_read);
 
 	main_clock = omp_get_wtime() - main_clock;
-	
+
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf\n", main_clock, exec_clock);
-		fflush(stdout);
+	printf("%lf, %lf\n", main_clock, exec_clock);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- TIME ----------------------- \n\n");
-		printf(" Clock main: %lf\n", main_clock);
-		printf(" Clock exec: %lf\n", exec_clock);
-		printf("\n ---------------------------------------------------- \n");
+	printf("\n ----------------------- TIME ----------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif
 
 	return EXIT_SUCCESS;

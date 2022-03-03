@@ -1,8 +1,8 @@
+#include <math.h>
+#include <mkl.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <omp.h>
-#include <mkl.h>
 
 // Alignment of memory to be allocated by mkl
 #define MEM_ALIGNMENT 64
@@ -11,9 +11,9 @@ double main_clock;
 double exec_clock;
 
 /* B. Initialize matrices */
-void init_matrix(float* A, float* B, int size){
-	for(int i=0; i<size; i++){
-		for(int j=0; j<size; j++){
+void init_matrix(float *A, float *B, int size) {
+	for (int i = 0; i < size; i++) {
+		for (int j = 0; j < size; j++) {
 			A[i * size + j] = 1.0;
 			B[i * size + j] = 2.0;
 		}
@@ -21,19 +21,19 @@ void init_matrix(float* A, float* B, int size){
 }
 
 /* C. Calculate norm */
-void norm_calc(float* matrix, int size){
-	double resultado=0;
-	double suma=0;
-	for (int i=0; i<size; i++ ) {
-		for (int j=0; j<size; j++ ) {
-			suma += pow( matrix[i * size + j] , 2);
+void norm_calc(float *matrix, int size) {
+	double resultado = 0;
+	double suma      = 0;
+	for (int i = 0; i < size; i++) {
+		for (int j = 0; j < size; j++) {
+			suma += pow(matrix[i * size + j], 2);
 		}
 	}
-	resultado=sqrt( suma );
+	resultado = sqrt(suma);
 
 	printf("\n ----------------------- NORM ----------------------- \n");
-	printf("\n Acumulated sum: %lf",suma);
-	printf("\n Result: %lf \n",resultado);
+	printf("\n Acumulated sum: %lf", suma);
+	printf("\n Result: %lf \n", resultado);
 	printf("\n ---------------------------------------------------- \n");
 	fflush(stdout);
 }
@@ -41,16 +41,16 @@ void norm_calc(float* matrix, int size){
 /*
  * Main program to perform matrix addition
  */
-int main(int argc, char* argv[]){
+int main(int argc, char *argv[]) {
 	main_clock = omp_get_wtime();
 
 	// 1. Taking arguments
-	if ( argc != 3 ) {
+	if (argc != 3) {
 		fprintf(stderr, "\nUsage: %s <numRows> <numThreads>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	int size = atoi( argv[1] );
-	int n_threads = atoi( argv[2] );
+	int size      = atoi(argv[1]);
+	int n_threads = atoi(argv[2]);
 	mkl_set_num_threads_local(n_threads);
 
 	printf("\n ----------------------- ARGS ------------------------- \n");
@@ -60,8 +60,8 @@ int main(int argc, char* argv[]){
 	fflush(stdout);
 
 	// 2. Allocate data structures
-	float* A = (float*)mkl_malloc(size * size * sizeof(float), MEM_ALIGNMENT);
-	float* B = (float*)mkl_malloc(size * size * sizeof(float), MEM_ALIGNMENT);
+	float *A = (float *)mkl_malloc(size * size * sizeof(float), MEM_ALIGNMENT);
+	float *B = (float *)mkl_malloc(size * size * sizeof(float), MEM_ALIGNMENT);
 
 	// 3. Initialize data structures
 	init_matrix(A, B, size);

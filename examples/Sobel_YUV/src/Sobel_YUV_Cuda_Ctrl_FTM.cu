@@ -7,7 +7,7 @@
 #include "Ctrl.h"
 
 #ifdef _PROFILING_ENABLED_
-	#include "nvToolsExt.h"
+#include "nvToolsExt.h"
 #endif //_PROFILING_ENABLED_
 
 #define SEED 6834723
@@ -28,8 +28,7 @@ Ctrl_NewType(BYTE);
 
 CTRL_KERNEL_CHAR(Sobel_Operation, MANUAL, BLOCKSIZE_0, BLOCKSIZE_1);
 
-CTRL_KERNEL(Sobel_Operation, GENERIC, DEFAULT, KHitTile_BYTE Output, KHitTile_BYTE Input,
-{
+CTRL_KERNEL(Sobel_Operation, GENERIC, DEFAULT, KHitTile_BYTE Output, KHitTile_BYTE Input, {
 	// Variable for Gradient in X and Y direction and Final one
 	float Gradient_h;
 	float Gradient_v;
@@ -39,31 +38,31 @@ CTRL_KERNEL(Sobel_Operation, GENERIC, DEFAULT, KHitTile_BYTE Output, KHitTile_BY
 	unsigned int Col_Index = thread_id_y;
 	unsigned int Row_Index = thread_id_x;
 	if ((Row_Index != 0) && (Col_Index != 0) && (Row_Index < hit_tileDimCard(Input, 0) - 1) && (Col_Index < hit_tileDimCard(Input, 1) - 1)) {
-		Gradient_v = 
-				-(-hit(Input, (Row_Index - 1), (Col_Index - 1)) +
-				hit(Input, (Row_Index - 1), (Col_Index + 1)) -
-				2 * hit(Input, Row_Index, (Col_Index - 1)) +
-				2 * hit(Input, Row_Index, (Col_Index + 1)) -
-				hit(Input, (Row_Index + 1), (Col_Index - 1)) +
-				hit(Input, (Row_Index + 1), (Col_Index + 1)));
+		Gradient_v =
+			-(-hit(Input, (Row_Index - 1), (Col_Index - 1)) +
+			  hit(Input, (Row_Index - 1), (Col_Index + 1)) -
+			  2 * hit(Input, Row_Index, (Col_Index - 1)) +
+			  2 * hit(Input, Row_Index, (Col_Index + 1)) -
+			  hit(Input, (Row_Index + 1), (Col_Index - 1)) +
+			  hit(Input, (Row_Index + 1), (Col_Index + 1)));
 
-		Gradient_h = 
-				-(-hit(Input, (Row_Index - 1), (Col_Index - 1)) -
-				2 * hit(Input, (Row_Index - 1), Col_Index) -
-				hit(Input, (Row_Index - 1), (Col_Index + 1)) +
-				hit(Input, (Row_Index + 1), (Col_Index - 1)) +
-				2 * hit(Input, (Row_Index + 1), Col_Index) +
-				hit(Input, (Row_Index + 1), (Col_Index + 1)));
+		Gradient_h =
+			-(-hit(Input, (Row_Index - 1), (Col_Index - 1)) -
+			  2 * hit(Input, (Row_Index - 1), Col_Index) -
+			  hit(Input, (Row_Index - 1), (Col_Index + 1)) +
+			  hit(Input, (Row_Index + 1), (Col_Index - 1)) +
+			  2 * hit(Input, (Row_Index + 1), Col_Index) +
+			  hit(Input, (Row_Index + 1), (Col_Index + 1)));
 
 		Gradient_mod = sqrt(Gradient_h * Gradient_h + Gradient_v * Gradient_v);
-		hit(Output, Row_Index, Col_Index) = ((int) Gradient_mod < 256) ? (BYTE) Gradient_mod : 255;
+
+		hit(Output, Row_Index, Col_Index) = ((int)Gradient_mod < 256) ? (BYTE)Gradient_mod : 255;
 	}
 });
 
-CTRL_KERNEL_PROTO(Sobel_Operation, 1, GENERIC, DEFAULT, 2, 
-		OUT, HitTile_BYTE, Output, 
-		IN, HitTile_BYTE, Input
-);
+CTRL_KERNEL_PROTO(Sobel_Operation, 1, GENERIC, DEFAULT, 2,
+				  OUT, HitTile_BYTE, Output,
+				  IN, HitTile_BYTE, Input);
 
 void Save_Frame(BYTE *Output_Img[N_IMG], FILE *File_writer, size_t sizes[N_IMG]) {
 	for (int i = 0; i < N_IMG; i++) {
@@ -71,9 +70,9 @@ void Save_Frame(BYTE *Output_Img[N_IMG], FILE *File_writer, size_t sizes[N_IMG])
 	}
 }
 
-CTRL_HOST_TASK(Load_Frame, HitTile_BYTE Image_Y, HitTile_BYTE Image_U,HitTile_BYTE Image_V, FILE *File_reader) {
+CTRL_HOST_TASK(Load_Frame, HitTile_BYTE Image_Y, HitTile_BYTE Image_U, HitTile_BYTE Image_V, FILE *File_reader) {
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePushA("Host load frame");
+	nvtxRangePushA("Host load frame");
 	#endif //_PROFILING_ENABLED_
 
 	fread(&(hit(Image_Y, 0)), sizeof(BYTE), hit_tileCard(Image_Y), File_reader);
@@ -81,20 +80,19 @@ CTRL_HOST_TASK(Load_Frame, HitTile_BYTE Image_Y, HitTile_BYTE Image_U,HitTile_BY
 	fread(&(hit(Image_V, 0)), sizeof(BYTE), hit_tileCard(Image_V), File_reader);
 
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePop();
+	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
-CTRL_HOST_TASK_PROTO(Load_Frame, 4, 
-		OUT, HitTile_BYTE, Image_Y,
-		OUT, HitTile_BYTE, Image_U,
-		OUT, HitTile_BYTE, Image_V,
-		INVAL, FILE *, File_reader
-);
+CTRL_HOST_TASK_PROTO(Load_Frame, 4,
+					 OUT, HitTile_BYTE, Image_Y,
+					 OUT, HitTile_BYTE, Image_U,
+					 OUT, HitTile_BYTE, Image_V,
+					 INVAL, FILE *, File_reader);
 
 CTRL_HOST_TASK(Put_Frame, HitTile_BYTE Image_Y, HitTile_BYTE Image_U, HitTile_BYTE Image_V, BYTE **buffer_write) {
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePushA("Host put frame");
+	nvtxRangePushA("Host put frame");
 	#endif //_PROFILING_ENABLED_
 
 	memcpy(buffer_write[IMG_Y], &(hit(Image_Y, 0)), sizeof(BYTE) * hit_tileCard(Image_Y));
@@ -102,16 +100,15 @@ CTRL_HOST_TASK(Put_Frame, HitTile_BYTE Image_Y, HitTile_BYTE Image_U, HitTile_BY
 	memcpy(buffer_write[IMG_V], &(hit(Image_V, 0)), sizeof(BYTE) * hit_tileCard(Image_V));
 
 	#ifdef _PROFILING_ENABLED_
-		nvtxRangePop();
+	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
 
 CTRL_HOST_TASK_PROTO(Put_Frame, 4,
-		IN, HitTile_BYTE, Image_Y,
-		IN, HitTile_BYTE, Image_U,
-		IN, HitTile_BYTE, Image_V,
-		INVAL, BYTE **, buffer_write
-);
+					 IN, HitTile_BYTE, Image_Y,
+					 IN, HitTile_BYTE, Image_U,
+					 IN, HitTile_BYTE, Image_V,
+					 INVAL, BYTE **, buffer_write);
 
 CTRL_HOST_TASK(Memset, HitTile_BYTE Image_Y, HitTile_BYTE Image_U, HitTile_BYTE Image_V) {
 	memset(&(hit(Image_Y, 0)), 0, hit_tileCard(Image_Y));
@@ -120,11 +117,10 @@ CTRL_HOST_TASK(Memset, HitTile_BYTE Image_Y, HitTile_BYTE Image_U, HitTile_BYTE 
 }
 
 CTRL_HOST_TASK_PROTO(Memset, 3,
-		OUT, HitTile_BYTE, Image_Y,
-		OUT, HitTile_BYTE, Image_U,
-		OUT, HitTile_BYTE, Image_V
-);
-	
+					 OUT, HitTile_BYTE, Image_Y,
+					 OUT, HitTile_BYTE, Image_U,
+					 OUT, HitTile_BYTE, Image_V);
+
 int main(int argc, char *argv[]) {
 	main_clock = omp_get_wtime();
 
@@ -137,30 +133,30 @@ int main(int argc, char *argv[]) {
 
 	int Width[3];
 	Width[0] = atoi(argv[1]);
-	Width[1] = Width[2] = Width[0] / 2; 
-	
+	Width[1] = Width[2] = Width[0] / 2;
+
 	int Height[3];
 	Height[0] = atoi(argv[2]);
 	Height[1] = Height[2] = Height[0] / 2;
-	
+
 	int Num_Frames = atoi(argv[3]);
-	
-	char *Input_Filename = argv[4];
-	char *Output_Filename = argv[5];
-	int DEVICE = atoi(argv[6]);
-	Ctrl_Policy policy = (Ctrl_Policy) atoi(argv[7]);
-	int host_aff = atoi(argv[8]);
+
+	char       *Input_Filename  = argv[4];
+	char       *Output_Filename = argv[5];
+	int         DEVICE          = atoi(argv[6]);
+	Ctrl_Policy policy          = (Ctrl_Policy)atoi(argv[7]);
+	int         host_aff        = atoi(argv[8]);
 	Ctrl_SetHostAffinity(host_aff);
 
 	int Frame_num = 0; // loop variable
 
 	size_t *sizes = (size_t *)malloc(sizeof(size_t) * N_IMG);
-	sizes[IMG_Y] = (size_t)(Width[IMG_Y] * Height[IMG_Y]);
-	sizes[IMG_U] = (size_t)(Width[IMG_U] * Height[IMG_U]);
-	sizes[IMG_V] = (size_t)(Width[IMG_V] * Height[IMG_V]);
+	sizes[IMG_Y]  = (size_t)(Width[IMG_Y] * Height[IMG_Y]);
+	sizes[IMG_U]  = (size_t)(Width[IMG_U] * Height[IMG_U]);
+	sizes[IMG_V]  = (size_t)(Width[IMG_V] * Height[IMG_V]);
 
 	BYTE ***buffer_write;
-	
+
 	buffer_write = (BYTE ***)malloc(sizeof(BYTE **) * Num_Frames);
 
 	for (int i = 0; i < Num_Frames; i++) {
@@ -174,31 +170,31 @@ int main(int argc, char *argv[]) {
 	FILE *File_writer, *File_reader;
 
 	cudaDeviceProp cu_dev_prop;
-	cudaGetDeviceProperties(&cu_dev_prop, DEVICE); 
+	cudaGetDeviceProperties(&cu_dev_prop, DEVICE);
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, ", cu_dev_prop.name);
+	printf("%s, ", cu_dev_prop.name);
 	#else
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n WIDTH: %d", Width[0]);
-		printf("\n HEIGHT: %d", Height[0]);
-		printf("\n NUM_FRAMES: %d", Num_Frames);
-		printf("\n POLICY %s", policy ? "Async" : "Sync");
-		printf("\n DEVICE: %s", cu_dev_prop.name);
-		printf("\n HOST AFFINITY: %d", host_aff);
-		#ifdef _CTRL_QUEUE_
-			printf("\n QUEUES: ON");
-		#else
-			printf("\n QUEUES: OFF");
-		#endif // _CTRL_QUEUE_              
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n WIDTH: %d", Width[0]);
+	printf("\n HEIGHT: %d", Height[0]);
+	printf("\n NUM_FRAMES: %d", Num_Frames);
+	printf("\n POLICY %s", policy ? "Async" : "Sync");
+	printf("\n DEVICE: %s", cu_dev_prop.name);
+	printf("\n HOST AFFINITY: %d", host_aff);
+	#ifdef _CTRL_QUEUE_
+	printf("\n QUEUES: ON");
+	#else
+	printf("\n QUEUES: OFF");
+	#endif // _CTRL_QUEUE_
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	Ctrl_Thread threads[N_IMG];
 	for (int i = 0; i < N_IMG; i++) {
 		Ctrl_ThreadInit(threads[i], Height[i], Width[i]);
 	}
-	
+
 	if (!(File_reader = fopen(Input_Filename, "rb"))) {
 		printf("\nError in opening input file: %s\n", Input_Filename);
 		exit(EXIT_FAILURE);
@@ -209,9 +205,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	#ifdef _CTRL_QUEUE_
-		__ctrl_block__(1,1)
-	#else
-		__ctrl_block__(1,0)
+	__ctrl_block__(1, 1)
+		#else
+		__ctrl_block__(1, 0)
 	#endif //_CTRL_QUEUE_
 	{
 		PCtrl ctrl = Ctrl_Create(CTRL_TYPE_CUDA, policy, DEVICE);
@@ -225,16 +221,16 @@ int main(int argc, char *argv[]) {
 		Output_Img[IMG_Y] = Ctrl_DomainAlloc(ctrl, BYTE, hitShapeSize(Height[IMG_Y], Width[IMG_Y]));
 		Output_Img[IMG_U] = Ctrl_DomainAlloc(ctrl, BYTE, hitShapeSize(Height[IMG_U], Width[IMG_U]));
 		Output_Img[IMG_V] = Ctrl_DomainAlloc(ctrl, BYTE, hitShapeSize(Height[IMG_V], Width[IMG_V]));
-		
+
 		// init output to 0
 		Ctrl_HostTask(ctrl, Memset, Output_Img[IMG_Y], Output_Img[IMG_U], Output_Img[IMG_V]);
 		Ctrl_MoveTo(ctrl, Output_Img[IMG_Y], Output_Img[IMG_U], Output_Img[IMG_V]);
-		
+
 		Ctrl_GlobalSync(ctrl);
 		exec_clock = omp_get_wtime();
 
 		Ctrl_HostTask(ctrl, Load_Frame, Input_Img[IMG_Y], Input_Img[IMG_U], Input_Img[IMG_V], File_reader);
-		
+
 		for (Frame_num = 0; Frame_num < Num_Frames; Frame_num++) {
 			for (int i = 0; i < N_IMG; i++) {
 				Ctrl_Launch(ctrl, Sobel_Operation, threads[i], CTRL_THREAD_NULL, Output_Img[i], Input_Img[i]);
@@ -270,15 +266,15 @@ int main(int argc, char *argv[]) {
 	free(buffer_write);
 
 	main_clock = omp_get_wtime() - main_clock;
-	
+
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf\n", main_clock, exec_clock);
-		fflush(stdout);
+	printf("%lf, %lf\n", main_clock, exec_clock);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- TIME ----------------------- \n\n");
-		printf(" Clock main: %lf\n", main_clock);
-		printf(" Clock exec: %lf\n", exec_clock);
-		printf("\n ---------------------------------------------------- \n");
+	printf("\n ----------------------- TIME ----------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif
 
 	return 0;

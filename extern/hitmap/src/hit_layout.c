@@ -55,6 +55,11 @@
 #include <hit_cshape.h>
 #include <hit_bshape.h>
 
+/* MACROS FOR LAYOUT SIGNATURE COMPUTATION */
+#define HIT_LAY_SIG_DIVISOR hit_min(blocksCard, procsCard)
+#define HIT_LAY_SIG_BEGIN( procId ) ((procId) * (blocksCard / HIT_LAY_SIG_DIVISOR)) \
+	+ (hit_min(procId, blocksCard % HIT_LAY_SIG_DIVISOR))
+
 /* TOOL: EXTERN DECLARATION FOR vfor LOOPS */
 int hit_lsig_vfor_index[HIT_MAXDIMS];
 
@@ -345,7 +350,7 @@ int	hit_layout_plug_layBlocks_Sig(int procId, int procsCard, int blocksCard,
 		return 0;
 	}
 
-	int begin = procId * blocksCard / hit_min(blocksCard, procsCard);
+	int begin = HIT_LAY_SIG_BEGIN(procId);
 
 	/* DETECT NON-ACTIVE VIRTUAL PROCESS (NOT ENOUGH LOGICAL PROCESSES) */
 	if ( begin >= blocksCard ) {
@@ -358,7 +363,7 @@ int	hit_layout_plug_layBlocks_Sig(int procId, int procsCard, int blocksCard,
 		(*res).begin = begin * input.stride + input.begin;
 
 		/* END */
-		(*res).end = ((( procId + 1 )  * blocksCard   / hit_min(blocksCard, procsCard))-1)
+		(*res).end = (HIT_LAY_SIG_BEGIN( procId + 1 )-1)
 					* input.stride + input.begin;
 
 		/* STRIDE */
@@ -699,13 +704,13 @@ int	hit_layout_plug_layBlocksX_Sig(int procId, int procsCard, int blocksCard, Hi
 	}
 	/* MORE LOGICAL PROCESSES THAN VIRTUAL PROCESSORS */
 	else {
-		int begin = procId * blocksCard / hit_min(blocksCard, procsCard);
+		int begin = HIT_LAY_SIG_BEGIN(procId);
 
 		/* BEGIN */
 		(*res).begin = begin * input.stride + input.begin;
 
 		/* END */
-		(*res).end = ((( procId + 1 )  * blocksCard   / hit_min(blocksCard, procsCard))-1)
+		(*res).end = (HIT_LAY_SIG_BEGIN( procId + 1 )-1)
 					* input.stride + input.begin;
 
 		/* STRIDE */

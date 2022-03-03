@@ -1,18 +1,18 @@
 /*
  * <license>
- * 
+ *
  * Controller v2.1
- * 
+ *
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or 
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright 
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
  * holder. The origin of this software must not be misrepresented; you must not claim that you
  * wrote the original software. If you use this software for any purpose (e.g. publication),
  * a reference to the software package and the authors must be included.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
  * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
@@ -20,14 +20,14 @@
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  * Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
- * 
+ *
  * More information on http://trasgo.infor.uva.es/
- * 
+ *
  * </license>
-*/
+ */
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #define FPGA_EMULATION 1
@@ -44,12 +44,11 @@
 #include <string.h>
 
 #define ERR_NOT_FOUND -1
-#define ERR_READ -2
-#define ERR_FRAME -3
-
+#define ERR_READ      -2
+#define ERR_FRAME     -3
 
 #define _STRINGIFY(x) #x
-#define STRINGIFY(x) _STRINGIFY(x)
+#define STRINGIFY(x)  _STRINGIFY(x)
 
 #define SEED 6834723
 
@@ -60,23 +59,23 @@ typedef unsigned char BYTE;
 #define IMG_U 1
 #define IMG_V 2
 
-#define N_QUEUES 4
-#define QUEUE_Y 0
-#define QUEUE_U 1
-#define QUEUE_V 2
+#define N_QUEUES     4
+#define QUEUE_Y      0
+#define QUEUE_U      1
+#define QUEUE_V      2
 #define QUEUE_KERNEL 3
 
-#define N_EVENTS 5
-#define EVENT_Y 0
-#define EVENT_U 1
-#define EVENT_V 2
+#define N_EVENTS        5
+#define EVENT_Y         0
+#define EVENT_U         1
+#define EVENT_V         2
 #define EVENT_HOST_LOAD 3
 #define EVENT_HOST_SAVE 4
 
 #define N_EVENTS_KERNEL 3
-#define EVENT_KERNEL_Y 0
-#define EVENT_KERNEL_U 1
-#define EVENT_KERNEL_V 2
+#define EVENT_KERNEL_Y  0
+#define EVENT_KERNEL_U  1
+#define EVENT_KERNEL_V  2
 
 #define SOBEL_YUV_KERNEL_NAME_SOBEL_OPERATION "Sobel_Operation"
 
@@ -85,7 +84,7 @@ double exec_clock;
 
 void Load_Frame(BYTE *Input_Img[N_IMG], FILE *File_reader, size_t sizes[N_IMG]) {
 	for (int i = 0; i < N_IMG; i++) {
-		if(!(fread(Input_Img[i], sizeof(BYTE), sizes[i], File_reader))) {
+		if (!(fread(Input_Img[i], sizeof(BYTE), sizes[i], File_reader))) {
 			printf("Cannot read frame\n");
 			exit(ERR_FRAME);
 		}
@@ -119,24 +118,23 @@ int main(int argc, char **argv) {
 	int Width[N_IMG];
 	Width[IMG_Y] = atoi(argv[1]);
 	Width[IMG_U] = Width[IMG_V] = Width[IMG_Y] / 2;
-	
+
 	int Height[N_IMG];
 	Height[IMG_Y] = atoi(argv[2]);
 	Height[IMG_U] = Height[IMG_V] = Height[IMG_Y] / 2;
-	
-	int Num_Frames = atoi(argv[3]);
-	
-	char *Input_Filename = argv[4];
-	char *Output_Filename = argv[5];
-	
-	int DEVICE = atoi(argv[6]);
-	int PLATFORM = atoi(argv[7]);
-	int EXEC_MODE = atoi(argv[8]);
 
+	int Num_Frames = atoi(argv[3]);
+
+	char *Input_Filename  = argv[4];
+	char *Output_Filename = argv[5];
+
+	int DEVICE    = atoi(argv[6]);
+	int PLATFORM  = atoi(argv[7]);
+	int EXEC_MODE = atoi(argv[8]);
 
 	/* VARIABLES */
 
-	int Frame_num = 0;  // loop variable
+	int Frame_num = 0; // loop variable
 
 	// File pointer for reading and writting
 	FILE *File_reader, *File_writer;
@@ -147,20 +145,19 @@ int main(int argc, char **argv) {
 	size_t global_sizes[N_IMG][2];
 
 	size_t sizes[N_IMG] = {
-			(size_t)(Width[IMG_Y] * Height[IMG_Y]),
-			(size_t)(Width[IMG_U] * Height[IMG_U]),
-			(size_t)(Width[IMG_V] * Height[IMG_V])
-	};
+		(size_t)(Width[IMG_Y] * Height[IMG_Y]),
+		(size_t)(Width[IMG_U] * Height[IMG_U]),
+		(size_t)(Width[IMG_V] * Height[IMG_V])};
 
 	cl_platform_id platform_id;
-	cl_device_id device_id;
+	cl_device_id   device_id;
 
 	cl_context context;
 	cl_program program;
-	cl_kernel kernel_sobel_operation;
+	cl_kernel  kernel_sobel_operation;
 
 	cl_command_queue_properties properties;
-	cl_command_queue queues[N_QUEUES];
+	cl_command_queue            queues[N_QUEUES];
 
 	cl_event default_event;
 	cl_event events[N_EVENTS];
@@ -173,10 +170,10 @@ int main(int argc, char **argv) {
 	cl_event host_wait_v;
 
 	cl_mem mem_input_img[N_IMG];
-	BYTE *p_pinned_input_img[N_IMG];
-	
+	BYTE  *p_pinned_input_img[N_IMG];
+
 	cl_mem mem_output_img[N_IMG];
-	BYTE *p_pinned_output_img[N_IMG];
+	BYTE  *p_pinned_output_img[N_IMG];
 
 	BYTE ***buffer_write;
 
@@ -185,12 +182,12 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < Num_Frames; i++) {
 		buffer_write[i] = (BYTE **)malloc(sizeof(BYTE *) * N_IMG);
 		for (int j = 0; j < N_IMG; j++) {
-			buffer_write[i][j] = (BYTE*)malloc(sizes[j] * sizeof(BYTE));
+			buffer_write[i][j] = (BYTE *)malloc(sizes[j] * sizeof(BYTE));
 		}
 	}
 
 	/* OPEN AND CLOSE FILE OPERATION */
-	
+
 	if (!(File_reader = fopen(Input_Filename, "rb"))) {
 		printf("\nError in opening input file: %s\n", Input_Filename);
 		exit(EXIT_FAILURE);
@@ -206,91 +203,85 @@ int main(int argc, char **argv) {
 	clGetPlatformIDs(PLATFORM + 1, p_platforms, NULL);
 	platform_id = p_platforms[PLATFORM];
 	free(p_platforms);
-	
+
 	cl_device_id *p_devices = (cl_device_id *)malloc((DEVICE + 1) * sizeof(cl_device_id));
 	clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ACCELERATOR, DEVICE + 1, p_devices, NULL);
 	device_id = p_devices[DEVICE];
 	free(p_devices);
 
 	size_t platform_name_size;
-	clGetPlatformInfo( platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size);
-	char* platform_name = (char*)malloc( sizeof(char) * platform_name_size);
-	clGetPlatformInfo( platform_id, CL_PLATFORM_NAME, platform_name_size, platform_name, NULL );
-	
+	clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size);
+	char *platform_name = (char *)malloc(sizeof(char) * platform_name_size);
+	clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, platform_name_size, platform_name, NULL);
+
 	size_t device_name_size;
 	clGetDeviceInfo(device_id, CL_DEVICE_NAME, 0, NULL, &device_name_size);
-	char* device_name = (char*) malloc( sizeof(char) * device_name_size );
+	char *device_name = (char *)malloc(sizeof(char) * device_name_size);
 	clGetDeviceInfo(device_id, CL_DEVICE_NAME, device_name_size, device_name, NULL);
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, %s, ", device_name, platform_name);
+	printf("%s, %s, ", device_name, platform_name);
 	#else
-		printf("\n ----------------------- ARGS ----------------------- \n");
-		printf("\n WIDTH: %d", Width[0]);
-		printf("\n HEIGHT: %d", Height[0]);
-		printf("\n NUM_FRAMES: %d", Num_Frames);
-		printf("\n DEVICE: %s", device_name);
-		printf("\n PLATFORM: %s", platform_name);
-		printf("\n EXEC_MODE: %d", EXEC_MODE);
-		printf("\n POLICY ASYNC");
-		printf("\n\n ---------------------------------------------------- \n");
-		fflush(stdout);
+	printf("\n ----------------------- ARGS ----------------------- \n");
+	printf("\n WIDTH: %d", Width[0]);
+	printf("\n HEIGHT: %d", Height[0]);
+	printf("\n NUM_FRAMES: %d", Num_Frames);
+	printf("\n DEVICE: %s", device_name);
+	printf("\n PLATFORM: %s", platform_name);
+	printf("\n EXEC_MODE: %d", EXEC_MODE);
+	printf("\n POLICY ASYNC");
+	printf("\n\n ---------------------------------------------------- \n");
+	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 	free(platform_name);
 	free(device_name);
 
 	/* SET UP, CONTEXTO, COLAS, KERNELS, ETC */
-	
-	cl_context_properties context_properties[] = {
-			CL_CONTEXT_PLATFORM, 
-			(cl_context_properties)platform_id, 
-			0};
-	context = clCreateContext(context_properties, 1, &device_id, NULL, NULL, &err);
-	
 
-	FILE *binary_file;			
+	cl_context_properties context_properties[] = {
+		CL_CONTEXT_PLATFORM,
+		(cl_context_properties)platform_id,
+		0};
+	context = clCreateContext(context_properties, 1, &device_id, NULL, NULL, &err);
+
+	FILE *binary_file;
 	char *kernel_path = (char *)malloc(500 * sizeof(char));
-	kernel_path[0] = '\0';
+	kernel_path[0]    = '\0';
 	strcat(kernel_path, STRINGIFY(REF_KERNEL_PATH));
 	strcat(kernel_path, SOBEL_YUV_KERNEL_NAME_SOBEL_OPERATION);
 	strcat(kernel_path, "/");
 	strcat(kernel_path, SOBEL_YUV_KERNEL_NAME_SOBEL_OPERATION);
-	if(EXEC_MODE == FPGA_PROFILING)
+	if (EXEC_MODE == FPGA_PROFILING)
 		strcat(kernel_path, "_profiling");
-	else if(EXEC_MODE == FPGA_EMULATION)
+	else if (EXEC_MODE == FPGA_EMULATION)
 		strcat(kernel_path, "_emu");
 	strcat(kernel_path, "_Ref.aocx");
-	if(!(binary_file = fopen(kernel_path, "rb"))) {
+	if (!(binary_file = fopen(kernel_path, "rb"))) {
 		printf("Kernel file not found.\n");
 		exit(ERR_NOT_FOUND);
 	}
 	fseek(binary_file, 0, SEEK_END);
-	size_t binary_length = ftell(binary_file);
-	unsigned char *binary_str = (unsigned char*)malloc(binary_length * sizeof(unsigned char));
+	size_t         binary_length = ftell(binary_file);
+	unsigned char *binary_str    = (unsigned char *)malloc(binary_length * sizeof(unsigned char));
 	rewind(binary_file);
-	if(!(fread(binary_str, binary_length, 1, binary_file))) {
+	if (!(fread(binary_str, binary_length, 1, binary_file))) {
 		printf("Error reading kernel file\n");
 		exit(ERR_READ);
 	}
 
-	program = clCreateProgramWithBinary(context, 1, &device_id, (const size_t *)&binary_length, (const unsigned char**)&binary_str, NULL, &err);
-			
+	program = clCreateProgramWithBinary(context, 1, &device_id, (const size_t *)&binary_length, (const unsigned char **)&binary_str, NULL, &err);
 
 	err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
 	if (err == CL_BUILD_PROGRAM_FAILURE) {
 		size_t log_size;
-		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL,
-							  &log_size);
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
 		char *log = (char *)malloc(log_size);
-		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG,
-							  log_size, log, NULL);
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, log_size, log, NULL);
 		printf("%s\n", log);
 		free(log);
 	}
-	
 
 	kernel_sobel_operation = clCreateKernel(program, SOBEL_YUV_KERNEL_NAME_SOBEL_OPERATION, &err);
-	
 
 	local_size[0] = LOCAL_SIZE_0;
 	local_size[1] = LOCAL_SIZE_1;
@@ -308,15 +299,12 @@ int main(int argc, char **argv) {
 		}
 	}
 
-
 	properties = 0;
-	for (int i = 0; i < N_QUEUES; i++){
+	for (int i = 0; i < N_QUEUES; i++) {
 		queues[i] = clCreateCommandQueue(context, device_id, properties, &err);
-		
 	}
 
 	default_event = clCreateUserEvent(context, &err);
-	
 
 	clSetUserEventStatus(default_event, CL_COMPLETE);
 
@@ -330,37 +318,36 @@ int main(int argc, char **argv) {
 
 	for (int i = 0; i < N_IMG; i++) {
 		mem_input_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizes[i] * sizeof(BYTE), NULL, &err);
-		
-		posix_memalign((void**)&p_pinned_input_img[i], AOCL_ALIGNMENT, sizes[i] * sizeof(BYTE));
+
+		posix_memalign((void **)&p_pinned_input_img[i], AOCL_ALIGNMENT, sizes[i] * sizeof(BYTE));
 
 		mem_output_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizes[i] * sizeof(BYTE), NULL, &err);
-		cl_uint pattern = 0;
+		cl_uint pattern   = 0;
 		clEnqueueFillBuffer(queues[0], mem_output_img[i], &pattern, sizeof(cl_uint), 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL);
-		
-		posix_memalign((void**)&p_pinned_output_img[i], AOCL_ALIGNMENT, sizes[i] * sizeof(BYTE));
+
+		posix_memalign((void **)&p_pinned_output_img[i], AOCL_ALIGNMENT, sizes[i] * sizeof(BYTE));
 	}
-	
 
 	omp_set_num_threads(2);
-	#pragma omp parallel 
+	#pragma omp parallel
 	{
 		#pragma omp master
 		{
 			for (int i = 0; i < N_QUEUES; i++)
 				clFlush(queues[i]);
 
-			for (int i = 0; i < N_QUEUES; i++)    
+			for (int i = 0; i < N_QUEUES; i++)
 				clFinish(queues[i]);
 
 			int iterations[N_IMG];
 			iterations[0] = Width[0] * Height[0];
 			iterations[1] = Width[1] * Height[1];
 			iterations[2] = Width[2] * Height[2];
-			
+
 			exec_clock = omp_get_wtime();
 
 			events[EVENT_HOST_LOAD] = clCreateUserEvent(context, &err);
-			
+
 			aux_event_host = events[EVENT_HOST_LOAD];
 
 			#pragma omp task depend(inout: sizes) firstprivate(aux_event_host)
@@ -371,46 +358,41 @@ int main(int argc, char **argv) {
 
 			for (Frame_num = 0; Frame_num < Num_Frames; Frame_num++) {
 
-
 				for (int i = 0; i < N_IMG; i++) {
 					wait_events[0] = events[EVENT_HOST_LOAD];
 					wait_events[1] = events_kernel[i];
-					clEnqueueWriteBuffer(queues[i], mem_input_img[i], 
-							CL_FALSE, 
-							0, sizes[i] * sizeof(BYTE), (void *)p_pinned_input_img[i], 
-							2, 
-							wait_events, 
-							&events[i]
-					);
+					clEnqueueWriteBuffer(queues[i], mem_input_img[i],
+										 CL_FALSE,
+										 0, sizes[i] * sizeof(BYTE), (void *)p_pinned_input_img[i],
+										 2, wait_events,
+										 &events[i]);
 					clFlush(queues[i]);
 					aux_host_wait_events[i] = events[i];
-					
+
 					err = clSetKernelArg(kernel_sobel_operation, 0, sizeof(cl_mem), &mem_input_img[i]);
 					err |= clSetKernelArg(kernel_sobel_operation, 1, sizeof(cl_mem), &mem_output_img[i]);
 					err |= clSetKernelArg(kernel_sobel_operation, 2, sizeof(cl_int), &iterations[i]);
-					
+
 					clEnqueueTask(queues[QUEUE_KERNEL], kernel_sobel_operation, 1, &events[i], &events_kernel[i]);
 					clFlush(queues[QUEUE_KERNEL]);
-					
+
 					wait_events[0] = events[EVENT_HOST_SAVE];
 					wait_events[1] = events_kernel[i];
-					clEnqueueReadBuffer(queues[i], mem_output_img[i], 
-							CL_FALSE, 
-							0, sizes[i] * sizeof(BYTE), (void *)p_pinned_output_img[i], 
-							2, 
-							wait_events, 
-							&events[i]
-					);
+					clEnqueueReadBuffer(queues[i], mem_output_img[i],
+										CL_FALSE,
+										0, sizes[i] * sizeof(BYTE), (void *)p_pinned_output_img[i],
+										2, wait_events,
+										&events[i]);
 					clFlush(queues[i]);
 				}
 
 				if (Frame_num + 1 < Num_Frames) {
 					events[EVENT_HOST_LOAD] = clCreateUserEvent(context, &err);
-					
+
 					aux_event_host = events[EVENT_HOST_LOAD];
-					host_wait_y = aux_host_wait_events[IMG_Y];
-					host_wait_u = aux_host_wait_events[IMG_U];
-					host_wait_v = aux_host_wait_events[IMG_V];
+					host_wait_y    = aux_host_wait_events[IMG_Y];
+					host_wait_u    = aux_host_wait_events[IMG_U];
+					host_wait_v    = aux_host_wait_events[IMG_V];
 
 					#pragma omp task depend(inout: sizes) firstprivate(aux_event_host, host_wait_y, host_wait_u, host_wait_v)
 					{
@@ -426,11 +408,11 @@ int main(int argc, char **argv) {
 				}
 
 				events[EVENT_HOST_SAVE] = clCreateUserEvent(context, &err);
-				
+
 				aux_event_host = events[EVENT_HOST_SAVE];
-				host_wait_y = events[IMG_Y];
-				host_wait_u = events[IMG_U];
-				host_wait_v = events[IMG_V];
+				host_wait_y    = events[IMG_Y];
+				host_wait_u    = events[IMG_U];
+				host_wait_v    = events[IMG_V];
 
 				#pragma omp task depend(inout: sizes) firstprivate(aux_event_host, host_wait_y, host_wait_u, host_wait_v, Frame_num)
 				{
@@ -444,11 +426,11 @@ int main(int argc, char **argv) {
 					clSetUserEventStatus(aux_event_host, CL_COMPLETE);
 				}
 			}
-			
+
 			for (int i = 0; i < N_QUEUES; i++)
 				clFlush(queues[i]);
 
-			for (int i = 0; i < N_QUEUES; i++)    
+			for (int i = 0; i < N_QUEUES; i++)
 				clFinish(queues[i]);
 
 			clWaitForEvents(1, &events[EVENT_HOST_SAVE]);
@@ -456,7 +438,7 @@ int main(int argc, char **argv) {
 			exec_clock = omp_get_wtime() - exec_clock;
 		}
 	}
-	
+
 	for (int i = 0; i < Num_Frames; i++) {
 		Save_Frame(buffer_write[i], File_writer, sizes);
 	}
@@ -490,17 +472,14 @@ int main(int argc, char **argv) {
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%lf, %lf\n", main_clock, exec_clock);
-		fflush(stdout);
+	printf("%lf, %lf\n", main_clock, exec_clock);
+	fflush(stdout);
 	#else
-		printf("\n ----------------------- TIME ----------------------- \n\n");
-		printf(" Clock main: %lf\n", main_clock);
-		printf(" Clock exec: %lf\n", exec_clock);
-		printf("\n ---------------------------------------------------- \n");
+	printf("\n ----------------------- TIME ----------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif
 
 	return 0;
 }
-
-
-
