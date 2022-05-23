@@ -488,9 +488,9 @@ static inline void Ctrl_GenericEvent_Wait(Ctrl_GenericEvent event) {
 static inline void Ctrl_GenericEvent_Signal(Ctrl_GenericEvent event) {
 	switch (event.event_type) {
 		case CTRL_EVENT_TYPE_OPENCL:
-			#ifdef _CTRL_ARCH_OPENCL_GPU_
+			#if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
 			clSetUserEventStatus(event.event.event_cl, CL_COMPLETE);
-			#endif //_CTRL_ARCH_OPENCL_GPU_
+			#endif //_CTRL_ARCH_OPENCL_GPU_ || _CTRL_ARCH_FPGA_
 			break;
 		case CTRL_EVENT_TYPE_USERCPU:
 			Ctrl_CpuUserEvent_Signal(&event.event.user_event_cpu);
