@@ -172,12 +172,12 @@ awk -e '
 
 			# Kernel header
 			printf( "\n/*\n * Generic stencil skeleton\n * Generated kernel: %s\n */\n", varName );
-			printf( "CTRL_KERNEL_FUNCTION ( %s, CUDA , DEFAULT , KHitTile_float mat , KHitTile_float copy ) {\n", varName );
-    			printf( "\tint %s = thread_id_x ;\n", dimNames[0] );
+			printf( "CTRL_KERNEL( %s, GENERIC, DEFAULT, KHitTile_float mat, KHitTile_float copy, {\n", varName );
+    			printf( "\tint %s = thread_id_x;\n", dimNames[0] );
 			if ( shapesDims[ varName ] > 1 ) 
-    				printf( "\tint %s = thread_id_y ;\n", dimNames[1] );
+    				printf( "\tint %s = thread_id_y;\n", dimNames[1] );
 			if ( shapesDims[ varName ] > 2 ) 
-    				printf( "\tint %s = thread_id_z ;\n", dimNames[2] );
+    				printf( "\tint %s = thread_id_z;\n", dimNames[2] );
 
 			# Update access expresion
 			printf( "\n\thit( mat, %s", dimNames[0] );
@@ -227,7 +227,7 @@ awk -e '
 				exit;
 			}
 			printf( "\t) / %s ;\n", factors[ varName ] );
-			printf( "\tCTRL_KERNEL_END( CUDA );\n}\n\n" );
+			printf( "});\n\n" );
 		}
 	}
 	' $1

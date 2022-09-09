@@ -34,9 +34,9 @@ project (Ctrl LANGUAGES C)
 
 # Architectures
 option(SUPPORT_CPU "SUPPORT_CPU" OFF) # Support for CPU Ctrl
-option(SUPPORT_CUDA "SUPPORT_CUDA" OFF) # Support for CUDA Ctrl
-option(SUPPORT_OPENCL_GPU "SUPPORT_OPENCL_GPU" OFF) # Support for OpenCL GPU Ctrl
-option(SUPPORT_OPENCL_GPU_AMD "Use AMD platform" OFF) # Use AMD platform in OpenCL_GPU backend
+option(SUPPORT_CUDA "SUPPORT_CUDA" ON) # Support for CUDA Ctrl
+option(SUPPORT_OPENCL_GPU "SUPPORT_OPENCL_GPU" ON) # Support for OpenCL GPU Ctrl
+option(SUPPORT_OPENCL_GPU_AMD "Use AMD platform" ON) # Use AMD platform in OpenCL_GPU backend
 option(SUPPORT_FPGA "SUPPORT_FPGA" OFF) # Support for OpenCL FPGA Ctrl
 option(SUPPOPRT_INTEL "SUPPORT_INTEL" ON) # Use Intel platform in FPGA backend
 
@@ -223,10 +223,10 @@ if(USE_EXPERIMENTATION_EXAMPLES)
 endif(USE_EXPERIMENTATION_EXAMPLES)
 
 # Examples
-add_subdirectory(examples)
+#add_subdirectory(examples)
 
-# Parallel stencil skeleton
-add_subdirectory(ParallelStencilSkeleton)
+# EPSILOD
+add_subdirectory(EPSILOD)
 
 # Verbose
 if (CTRL_CMAKE_VERBOSE_MAIN)

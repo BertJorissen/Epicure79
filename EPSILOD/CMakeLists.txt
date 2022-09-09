@@ -16,30 +16,30 @@ endif (CTRL_EXAMPLES_CUDA_ERROR_CHECK)
 if (CTRL_EXAMPLES_CUDA_DEBUG)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_EXAMPLES_CUDA_DEBUG_")
 	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_EXAMPLES_CUDA_DEBUG_")
-	endif (CTRL_EXAMPLES_CUDA_DEBUG)
+endif (CTRL_EXAMPLES_CUDA_DEBUG)
 	
-	# Verbose
-	if (CTRL_CMAKE_VERBOSE_EXAMPLES)
+# Verbose
+if (CTRL_CMAKE_VERBOSE_EXAMPLES)
 	message(STATUS "PARALLEL_STENCIL_SKELETON_INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
 	message(STATUS "PARALLEL_STENCIL_SKELETON_LIBS = ${CTRL_LIBS}")
 	message(STATUS "PARALLEL_STENCIL_SKELETON_CTRL_C vars = ${CMAKE_C_FLAGS}")
 	if (SUPPORT_CUDA)
-	message(STATUS "PARALLEL_STENCIL_SKELETON_CTRL_CUDA vars = ${CMAKE_CUDA_FLAGS}")
+		message(STATUS "PARALLEL_STENCIL_SKELETON_CTRL_CUDA vars = ${CMAKE_CUDA_FLAGS}")
 	endif (SUPPORT_CUDA)
-	endif(CTRL_CMAKE_VERBOSE_EXAMPLES)
+endif(CTRL_CMAKE_VERBOSE_EXAMPLES)
 	
-	# Include directories
-	include_directories(${CTRL_INCLUDE_DIRS})
+# Include directories
+include_directories(${CTRL_INCLUDE_DIRS})
 	
-	set(CTRL_LIBS ${CTRL_LIBS} Ctrl)
+set(CTRL_LIBS ${CTRL_LIBS} Ctrl)
 	
-	# Compile for any architecture (GENERIC)
-	if (SUPPORT_CUDA)
-	set(PSS_KERNEL_SOURCE "src/ParallelStencilSkeletonKernels.cu")
+# Compile for any architecture (GENERIC)
+if (SUPPORT_CUDA)
+	set(PSS_KERNEL_SOURCE "src/epsilodKernels.cu")
 	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_35,code=sm_35 -gencode arch=compute_52,code=sm_52 -gencode arch=compute_70,code=sm_70")
 else (SUPPORT_CUDA)
-	set(PSS_KERNEL_SOURCE "src/ParallelStencilSkeletonKernels.c")
+	set(PSS_KERNEL_SOURCE "src/epsilodKernels.c")
 endif(SUPPORT_CUDA)
 
-add_executable(ParallelStencilSkeleton ${PSS_KERNEL_SOURCE} src/ParallelStencilSkeleton.c)
-target_link_libraries(ParallelStencilSkeleton ${CTRL_LIBS})
+add_executable(epsilod ${PSS_KERNEL_SOURCE} src/epsilod.c)
+target_link_libraries(epsilod ${CTRL_LIBS})

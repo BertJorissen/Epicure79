@@ -1,10 +1,10 @@
 /*
- * ParallelStencilSkeleton.c
+ * epsilod.c
  * 	Ctrl example
  * 	Stencil code: Any dimensions, stencil as a pattern of weights.
  *
- * v1.0
- * (c) 2019-2021, Arturo Gonzalez-Escribano, Yuri Torres de la Sierra, Manuel de Castro Caballero
+ * v1.1
+ * (c) 2019-2022, Arturo Gonzalez-Escribano, Yuri Torres de la Sierra, Manuel de Castro Caballero
  */
 
 /*
@@ -47,9 +47,10 @@
 #include "Ctrl.h"
 
 //#define WRITE_RESULT
-#define _PSS_TRASGO_CLUSTER_
-#define _PSS_DEV_INFO_
-#define _PSS_MANUAL_REDISTRIBUTION_
+//#define _PSS_TRASGO_CLUSTER_
+//#define _PSS_DEV_INFO_
+//#define _PSS_USE_STATIC_LOAD_BALANCING_
+//#define _PSS_USE_1D_LAYOUT_
 
 Ctrl_NewType(float);
 
@@ -60,11 +61,13 @@ typedef void (*outputDataFunction)(HitTile_float, int, int[], int[]);
 
 /* Parallel stencil skeleton launcher prototype (public API). */
 void stencilComputation(int sizes[], HitShape stencilShape, float stencilData[], float factor,
-						int numIterations, stencilFunction f_pdateCell,
+						int numIterations, stencilFunction f_updateCell,
 						initDataFunction f_init, outputDataFunction f_output);
 
-/* Optimized stencil kernel prototypes and wrapper launcher */
-#define REGISTER_STENCIL(stencilname, ...)                                                                                                                            \
+/* Specific stencil kernel prototypes and wrapper launcher */
+#define REGISTER_STENCIL(stencilname) REGISTER_STENCIL_WITH_ARCH(stencilname, GENERIC, DEFAULT)
+
+#define REGISTER_STENCIL_WITH_ARCH(stencilname, ...)                                                                                                                            \
 	REGISTER_STENCIL_N(stencilname, CTRL_COUNTPARAM(__VA_ARGS__), __VA_ARGS__)                                                                                        \
 	CTRL_KERNEL_CHAR(stencilname, MANUAL, 64, 8, 1);                                                                                                                  \
 	void stencilname(PCtrl ctrl, Ctrl_Thread threads, Ctrl_Thread blockSize, int stream, HitTile_float mat, HitTile_float copy, HitTile_float weight, float factor) { \
@@ -183,13 +186,13 @@ HitClock commClock;
 #define CHAR_CPU      ((Ctrl_Thread){.dims = 2, .x = 16, .y = 16, .z = 1})
 
 /* EXPERIMENTATION: Optimized stencil kernels registration */
-REGISTER_STENCIL(updateCell_1dNC4, GENERIC, DEFAULT);
-REGISTER_STENCIL(updateCell_1dC2, GENERIC, DEFAULT);
-REGISTER_STENCIL(updateCell_4, GENERIC, DEFAULT);
-REGISTER_STENCIL(updateCell_9, GENERIC, DEFAULT);
-REGISTER_STENCIL(updateCell_NC9, GENERIC, DEFAULT);
-REGISTER_STENCIL(updateCell_F5, GENERIC, DEFAULT);
-REGISTER_STENCIL(updateCell_3d27, GENERIC, DEFAULT);
+REGISTER_STENCIL(updateCell_1dNC4);
+REGISTER_STENCIL(updateCell_1dC2);
+REGISTER_STENCIL(updateCell_4);
+REGISTER_STENCIL(updateCell_9);
+REGISTER_STENCIL(updateCell_NC9);
+REGISTER_STENCIL(updateCell_F5);
+REGISTER_STENCIL(updateCell_3d27);
 
 /* B.0. INITIALIZE ARRAY: 1, 2 or 3 DIMENSIONS */
 void initData(HitTile_float tileMat, int dims, int borderLow[], int borderHigh[]) {
@@ -437,7 +440,7 @@ CTRL_HOST_TASK(Ctrl_Copy_Stencil, HitTile_float stencil, float *stencil_data) {
 						hit(stencil, i, j, k) = stencil_data[dataind++];
 			break;
 		default:
-			fprintf(stderr, "[Parallel Stencil Skeleton] %d dims are not supported in the stencil definition, max. 3 dims\n", dims);
+			fprintf(stderr, "[EPSILOD] %d dims are not supported in the stencil definition, max. 3 dims\n", dims);
 			exit(EXIT_FAILURE);
 	}
 }
@@ -478,7 +481,7 @@ void stencilComputation(int sizes[], HitShape stencilShape, float stencilData[],
 				f_updateCell = updateCell_default_3D;
 				break;
 			default:
-				fprintf(stderr, "[Parallel Stencil Skeleton ERROR] Invalidly dimensioned stencil. The skeleton only supports 1D, 2D or 3D stencils.\n");
+				fprintf(stderr, "[EPSILOD ERROR] Invalidly dimensioned stencil. The skeleton only supports 1D, 2D or 3D stencils.\n");
 				fflush(stderr);
 				exit(EXIT_FAILURE);
 		}
@@ -666,20 +669,42 @@ void stencilComputation(int sizes[], HitShape stencilShape, float stencilData[],
 		}
 
 		/* 3.2. BUILD DISTRIBUTED SHAPE */
-		HitTopology topo = hit_topology(plug_topPlain);
-		;
-		#ifdef _PSS_MANUAL_REDISTRIBUTION_
+		HitTopology topo;
+
+		#ifdef _PSS_USE_STATIC_LOAD_BALANCING_
+		#ifdef _PSS_TRASGO_CLUSTER_
 		float GPUWeights[7] = {
-			1.0, 1.0, 0.46, 0.46, // < Manticore weights
-			0.25,                 // 0.25, 0.25, 0.25, // < Gorgon weights
+			/* Manticore: Use 0.41 instead of 0.41 for 2dnc9 */
+			1.0, 1.0, 0.46, 0.46, // < Manticore weights (V100s first)
+			//0.46, 0.46, 1.0, 1.0, // < Manticore weights (Radeons first)
+			0.25,                 // < Gorgon weights (1 GPU)
+			//0.25, 0.25, 0.25,     // < Gorgon weights (4 GPUs)
 			0.35,                 // < Medusa weights
 			0.21                  // < Hydra weights
 		};
+		#else // !_PSS_TRASGO_CLUSTER_
+		fprintf(stderr, "[EPSILOD ERROR] No weights provided for static load balancing. "
+			"Edit the EPSILOD function accordingly.\n");
+		exit(EXIT_FAILURE);
+		#endif // _PSS_TRASGO_CLUSTER_
+		topo = hit_topology(plug_topPlain);
 		HitWeights weights = hitWeights(hit_NProcs, GPUWeights);
 		HitLayout  lay     = hit_layout(plug_layDimWeighted_Blocks, topo, shpInner, 0, weights);
-		#else // !_PSS_MANUAL_REDISTRIBUTION_
+		#else // !_PSS_USE_STATIC_LOAD_BALANCING_
+		#ifdef _PSS_USE_1D_LAYOUT_
+		topo = hit_topology(plug_topPlain);
+		HitLayout lay = hit_layout(plug_layDimBlocks, topo, shpInner, 0);
+		#else // !_PSS_USE_1D_LAYOUT_
+		if (dims == 3) {
+			topo = hit_topology(plug_topArray3D);
+		} else if (dims == 2) {
+			topo = hit_topology(plug_topArray2DComplete);
+		} else {
+			topo = hit_topology(plug_topPlain);
+		}
 		HitLayout lay = hit_layout(plug_layBlocks, topo, shpInner);
-		#endif
+		#endif // _PSS_USE_1D_LAYOUT_
+		#endif // _PSS_USE_STATIC_LOAD_BALANCING_
 
 		HitShape shpLayout = hit_layShape(lay);
 		#ifdef _PSS_DEV_INFO_
@@ -1048,7 +1073,7 @@ void stencilComputation(int sizes[], HitShape stencilShape, float stencilData[],
 					if (validShape(tileBorderOutDev[i][0].shape) && validShape(tileCopyBorderOutDev[i][0].shape)) {
 						f_updateCell(comm, thrBorderOutDev[i][0], H_BORDER_CHAR, 2 * i, tileBorderOutDev[i][0], tileCopyBorderOutDev[i][0], stencil, factor);
 					}
-					if (validShape(tileBorderOutDev[i][1].shape) && validShape(tileBorderOutDev[i][1].shape)) {
+					if (validShape(tileBorderOutDev[i][1].shape) && validShape(tileCopyBorderOutDev[i][1].shape)) {
 						f_updateCell(comm, thrBorderOutDev[i][1], V_BORDER_CHAR, 2 * i + 1, tileBorderOutDev[i][1], tileCopyBorderOutDev[i][1], stencil, factor);
 					}
 				}
