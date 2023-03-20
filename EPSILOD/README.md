@@ -13,17 +13,17 @@ If you use EPSILOD or do research based on it, please cite it as below.
  * [EPSILOD: efficient parallel skeleton for generic iterative stencil computations in distributed GPUs](https://link.springer.com/article/10.1007/s11227-022-05040-y)
 ```BibTeX
 @article{deCastro2023:EPSILOD,
-				author={de Castro, Manuel
-				and Santamaria-Valenzuela, Inmaculada
-				and Torres, Yuri
-				and Gonzalez-Escribano, Arturo
-				and Llanos, Diego R.},
-				title={EPSILOD: efficient parallel skeleton for generic iterative stencil computations in distributed GPUs},
-				journal={The Journal of Supercomputing},
-				year={2023},
-				month={Jan},
-				issn={1573-0484},
-				doi={10.1007/s11227-022-05040-y},
+	author={de Castro, Manuel
+	and Santamaria-Valenzuela, Inmaculada
+	and Torres, Yuri
+	and Gonzalez-Escribano, Arturo
+	and Llanos, Diego R.},
+	title={EPSILOD: efficient parallel skeleton for generic iterative stencil computations in distributed GPUs},
+	journal={The Journal of Supercomputing},
+	year={2023},
+	month={Jan},
+	issn={1573-0484},
+	doi={10.1007/s11227-022-05040-y},
 }
 
 ```
