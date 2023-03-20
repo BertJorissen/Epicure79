@@ -4,7 +4,7 @@
  * 	Stencil code: Any dimensions, stencil as a pattern of weights.
  *
  * v1.1
- * (c) 2019-2022, Arturo Gonzalez-Escribano, Yuri Torres de la Sierra, Manuel de Castro Caballero
+ * (c) 2019-2023, Arturo Gonzalez-Escribano, Yuri Torres de la Sierra, Manuel de Castro Caballero
  */
 
 /*
@@ -30,7 +30,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2023, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  *
  * More information on http://trasgo.infor.uva.es/
