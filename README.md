@@ -1,3 +1,29 @@
+EPSILOD: Efficient parallel skeleton for generic iterative stencil computations in distributed GPUs
+====
+This repository contains the source code for EPSILOD, a parallel skeleton for the efficient computation of iterative stencils in distributed multi-GPU systems. The code is embedded within the Controllers library for heterogeneous programming, and can be found inside the `EPSILOD` directory. Further information on EPSILOD can also be found there.
+
+Citation
+----
+If you use EPSILOD or do research based on it, please cite it as below.
+
+ * [EPSILOD: efficient parallel skeleton for generic iterative stencil computations in distributed GPUs](https://link.springer.com/article/10.1007/s11227-022-05040-y)
+```BibTeX
+@article{deCastro2023:EPSILOD,
+				author={de Castro, Manuel
+				and Santamaria-Valenzuela, Inmaculada
+				and Torres, Yuri
+				and Gonzalez-Escribano, Arturo
+				and Llanos, Diego R.},
+				title={EPSILOD: efficient parallel skeleton for generic iterative stencil computations in distributed GPUs},
+				journal={The Journal of Supercomputing},
+				year={2023},
+				month={Jan},
+				issn={1573-0484},
+				doi={10.1007/s11227-022-05040-y},
+}
+
+```
+
 Controllers library
 ====
 Controllers is a library written in C99 that provides a simplified way to program application that can exploit heterogeneous computational platforms including accelerators and/or multi-core CPUs.
@@ -26,7 +52,7 @@ CUDA architecture dependencies:
  - CUDA (9.x or higher)
 
 OpenCL GPU architecture dependencies:
- - OpenCl
+ - OpenCL
 
 FPGA architecture dependencies:
  - OpenCL
@@ -91,6 +117,31 @@ Relevant publications
 ---
 Here are some of the more important publications about this project:
 
- - Efficient heterogeneous programming with FPGAs using the Controller model. G. Rodriguez-Canal, Y. Torres, F.J. Andújar, A. Gonzalez-Escribano. The Journal of Supercomputing, Springer, 2021. DOI: 10.1007/s11227-021-03792-7
+ - [Efficient heterogeneous programming with FPGAs using the Controller model](https://link.springer.com/article/10.1007/s11227-021-03792-7)
+```BibTeX
+@article{Rodriguez-Canal2021:FPGAsController,
+				author = {Rodriguez-Canal, Gabriel and Torres, Yuri and Andujar, Francisco J. and Gonzalez-Escribano, Arturo},
+				year = {2021},
+				month = {12},
+				pages = {1-16},
+				title = {Efficient heterogeneous programming with FPGAs using the Controller model},
+				volume = {77},
+				journal = {The Journal of Supercomputing},
+				doi = {10.1007/s11227-021-03792-7}
+}
+```
 
- - Controllers: An abstraction to ease the use of hardware accelerators. A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962
+ - [Controllers: An abstraction to ease the use of hardware accelerators](https://journals.sagepub.com/doi/10.1177/1094342017702962)
+```BibTeX
+@article{Moreton-Fernandez2018:Controllers,
+				author = {Ana Moreton–Fernandez and Hector Ortega–Arranz and Arturo Gonzalez–Escribano},
+				title ={Controllers: An abstraction to ease the use of hardware accelerators},
+				journal = {The International Journal of High Performance Computing Applications},
+				volume = {32},
+				number = {6},
+				pages = {838-853},
+				year = {2018},
+				doi = {10.1177/1094342017702962},
+}
+
+```
