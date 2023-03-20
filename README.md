@@ -110,7 +110,7 @@ Below are some of the more important publications about this project. If you use
 @article{Moreton-Fernandez2018:Controllers,
 	author = {Ana Moreton–Fernandez and Hector Ortega–Arranz and Arturo Gonzalez–Escribano},
 	title ={Controllers: An abstraction to ease the use of hardware accelerators},
-journal = {The International Journal of High Performance Computing Applications},
+	journal = {The International Journal of High Performance Computing Applications},
 	volume = {32},
 	number = {6},
 	pages = {838-853},
