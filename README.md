@@ -26,7 +26,7 @@ CUDA architecture dependencies:
  - CUDA (9.x or higher)
 
 OpenCL GPU architecture dependencies:
- - OpenCl
+ - OpenCL
 
 FPGA architecture dependencies:
  - OpenCL
@@ -105,7 +105,7 @@ Below are some of the more important publications about this project. If you use
 }
 ```
 
-- [Controllers: An abstraction to ease the use of hardware accelerators](https://journals.sagepub.com/doi/10.1177/1094342017702962). A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962
+ - [Controllers: An abstraction to ease the use of hardware accelerators](https://journals.sagepub.com/doi/10.1177/1094342017702962). A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962
 ```BibTeX
 @article{Moreton-Fernandez2018:Controllers,
 	author = {Ana Moreton–Fernandez and Hector Ortega–Arranz and Arturo Gonzalez–Escribano},
