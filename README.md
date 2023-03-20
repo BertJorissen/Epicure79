@@ -87,10 +87,34 @@ If you find any bugs or problems, or want to request a new feature feel free to 
 
 If you want to contribute code to the project get started [here](./CONTRIBUTE.md).
 
-Relevant publications
+Citation
 ---
-Here are some of the more important publications about this project:
+Below are some of the more important publications about this project. If you use this software, please cite one or more of these publications.
 
- - Efficient heterogeneous programming with FPGAs using the Controller model. G. Rodriguez-Canal, Y. Torres, F.J. Andújar, A. Gonzalez-Escribano. The Journal of Supercomputing, Springer, 2021. DOI: 10.1007/s11227-021-03792-7
+ - [Efficient heterogeneous programming with FPGAs using the Controller model](https://link.springer.com/article/10.1007/s11227-021-03792-7). G. Rodriguez-Canal, Y. Torres, F.J. Andújar, A. Gonzalez-Escribano. The Journal of Supercomputing, Springer, 2021. DOI: 10.1007/s11227-021-03792-7
+```BibTeX
+@article{Rodriguez-Canal2021:FPGAsController,
+	author = {Rodriguez-Canal, Gabriel and Torres, Yuri and Andujar, Francisco J. and Gonzalez-Escribano, Arturo},
+	year = {2021},
+	month = {12},
+	pages = {1-16},
+	title = {Efficient heterogeneous programming with FPGAs using the Controller model},
+	volume = {77},
+	journal = {The Journal of Supercomputing},
+	doi = {10.1007/s11227-021-03792-7}
+}
+```
 
- - Controllers: An abstraction to ease the use of hardware accelerators. A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962
+- [Controllers: An abstraction to ease the use of hardware accelerators](https://journals.sagepub.com/doi/10.1177/1094342017702962). A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962
+```BibTeX
+@article{Moreton-Fernandez2018:Controllers,
+	author = {Ana Moreton–Fernandez and Hector Ortega–Arranz and Arturo Gonzalez–Escribano},
+	title ={Controllers: An abstraction to ease the use of hardware accelerators},
+journal = {The International Journal of High Performance Computing Applications},
+	volume = {32},
+	number = {6},
+	pages = {838-853},
+	year = {2018},
+	doi = {10.1177/1094342017702962},
+}
+```
