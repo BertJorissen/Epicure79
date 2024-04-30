@@ -168,40 +168,7 @@ typedef struct HitTile HitTile;
  */
 /**@{*/
 
-/** 
- * Flag for read/write file operations with integer numbers.
- * @hideinitializer
- */
-#define HIT_FILE_INT		0
-/** 
- * Flag for read/write file operations with long integer numbers.
- * @hideinitializer
- */
-#define HIT_FILE_LONG		1
-/** 
- * Flag for read/write file operations with float numbers
- * @hideinitializer
- */
-#define HIT_FILE_FLOAT		2
-/** 
- * Flag for read/write file operations with double numbers
- * @hideinitializer
- */
-#define HIT_FILE_DOUBLE		3
-
-/* 2.c.4. MODES FOR POSITION OF THE TILES IN THE FILE: COORDINATE SYSTEM */
-/** 
- * Flag for read/write file operations in tile files (with tile coordinates)
- * @hideinitializer
- */
-#define HIT_FILE_TILE		0
-/** 
- * Flag for read/write file operations in array files (with array coordinates)
- * @hideinitializer
- */
-#define HIT_FILE_ARRAY		1
-
-/* 2.d. CONSTANTS FOR ALLOCATING VERTICES AND/OR EDGES IS SPARSE STRUCTURES */
+/* 1. CONSTANTS FOR ALLOCATING VERTICES AND/OR EDGES IS SPARSE STRUCTURES */
 /**
  * Flag to allocate only the vertices in a CSR/Bitmap sparse shape.
  * @hideinitializer
@@ -223,7 +190,7 @@ typedef struct HitTile HitTile;
 /**@}*/
 
 
-/* 3. NULL VARIABLES */
+/* 2. NULL VARIABLES */
 /**
  * Null value for HitTile derived types. 
  */
@@ -715,7 +682,7 @@ void hit_tileGlue( void *tileInA, void *tileInB, void *tileOut );
  * @param[in]	 var	\e HitTile	A HitTile derived type variable.
  * @retval	int 		Number of dimensions of the HitTile variable.
  */
-#define	hit_tileDims(var)	(hit_shapeDims((var).shape))
+#define	hit_tileDims(var)	(hit_sshapeDims((var).shape))
 
 /**
  * Get the shape of a HitTile variable.
@@ -906,11 +873,26 @@ HitShape hit_tileShapeArray2Tile(void *var, HitShape sh);
  * The root ancestor of a new array which is not a selection of another one, is itself.
  *
  * @param[in] tileP		A pointer to a HitTile derived type variable.
- * @return  A pointer fot the root ancestor of the input tile variable.
+ * @return  A pointer to the root ancestor of the input tile variable.
  */
 static inline HitTile *	hit_tileRoot( void * tileP ) {
 	HitTile *tile = (HitTile *)tileP;
 	while( tile->ref != NULL ) tile = tile->ref;
+	return tile;
+}
+
+/**
+ * Nearest memory owner ancestor.
+ *
+ * Finds the nearest tile ancestor with allocated memory on the selection chain 
+ * of the input tile variable. The memory ancestor of a tile with allocated memory is itself.
+ *
+ * @param[in] tileP		A pointer to a HitTile derived type variable.
+ * @return  A pointer to the nearest memory owner ancestor of the input tile variable.
+ */
+static inline HitTile *	hit_tileMemoryAncestor( void * tileP ) {
+	HitTile *tile = (HitTile *)tileP;
+	while( tile->memStatus != HIT_MS_OWNER ) tile = tile->ref;
 	return tile;
 }
 

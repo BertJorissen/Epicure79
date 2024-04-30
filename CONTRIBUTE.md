@@ -26,7 +26,6 @@ Create a new folder with the new controller name at paths:
 Inside `Ctrl/inc/Architectures` you should write headers defining the structure of your controller. These headers files can also define the structure with additional information about the tile. Your controller should implement the following function prototypes:
 - `void Ctrl_<ControllerName>_Create(Ctrl_<ControllerName> *p_ctrl, Ctrl_Policy policy, <extra args if needed>);` Create controller context with internal variables.
 - `void Ctrl_<ControllerName>_Destroy(Ctrl_<ControllerName> *p_ctrl);` Destroy internal variables related to controller context.
-- `void Ctrl_<ControllerName>_Sync(Ctrl_<ControllerName> *p_ctrl);` Sync controller with main thread if queues are enabled. Does nothing otherwise.
 - `void Ctrl_<ControllerName>_CreateTile(Ctrl_<ControllerName> *p_ctrl, Ctrl_Task *p_task);` Allocate memory for a new tile in the controller.
 - `void Ctrl_<ControllerName>_InitTile(Ctrl_<ControllerName> *p_ctrl, Ctrl_Task *p_task);` Initialize controller tile.
 - `void Ctrl_<ControllerName>_EvalTask(Ctrl_<ControllerName> *p_ctrl, Ctrl_Task *p_task);` Evaluate the following types of tasks (`Ctrl_Task` member `type`):
@@ -34,13 +33,12 @@ Inside `Ctrl/inc/Architectures` you should write headers defining the structure 
 	- `CTRL_TASK_TYPE_HOST`
 	- `CTRL_TASK_TYPE_GLOBALSYNC`
 	- `CTRL_TASK_TYPE_ALLOCTILE`
-	- `CTRL_TASK_TYPE_DOMAINTILE`
 	- `CTRL_TASK_TYPE_SELECTTILE`
 	- `CTRL_TASK_TYPE_FREETILE`
 	- `CTRL_TASK_TYPE_MOVETO`
 	- `CTRL_TASK_TYPE_MOVEFROM`
 	- `CTRL_TASK_TYPE_WAITTILE`
-	- `CTRL_TASK_TYPE_DESTROYCNTRL`
+	- `CTRL_TASK_TYPE_DESTROYCTRL`
 	- `CTRL_TASK_TYPE_SETDEPENDANCEMODE`
 
 Inside `Ctrl/inc/Kernel/Architectures` your header should define the following macros:

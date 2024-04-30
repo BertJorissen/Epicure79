@@ -1,0 +1,6 @@
+node manticore
+	proc 0 0
+		cpu 48 1-2 1
+node gorgon
+	proc 0 1
+		cpu 32 2-3 1

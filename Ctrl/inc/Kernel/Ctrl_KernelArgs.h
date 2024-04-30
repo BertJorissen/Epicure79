@@ -4,7 +4,7 @@
  * @file Ctrl_KernelArgs.h
  * @author Trasgo Group
  * @brief Macros to process lists of arguments in kernels definitions and launches
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -52,6 +52,14 @@
 	#define CTRL_KERNEL_CUDA_KERNEL_CHAR(...)
 #endif // _CTRL_ARCH_CUDA_
 
+#ifdef _CTRL_ARCH_HIP_
+	#include "Kernel/Architectures/Hip/Ctrl_Hip_KernelArgs.h"
+	#include "Kernel/Architectures/Hip/Ctrl_Hip_KernelChar.h"
+#else
+	#define CTRL_KERNEL_HIP_KTILE_DEVICE_DATA(...)
+	#define CTRL_KERNEL_HIP_KERNEL_CHAR(...)
+#endif // _CTRL_ARCH_HIP_
+
 #ifdef _CTRL_ARCH_OPENCL_GPU_
 	#include "Kernel/Architectures/OpenCL/Ctrl_OpenCL_KernelArgs.h"
 	#include "Kernel/Architectures/OpenCL/Ctrl_OpenCL_Gpu_KernelChar.h"
@@ -89,6 +97,7 @@
 #define CTRL_KERNEL_CHARN2(name, type, dims, ...)                      \
 	CTRL_KERNEL_CPU_KERNEL_CHAR(name, type, dims, __VA_ARGS__);        \
 	CTRL_KERNEL_CUDA_KERNEL_CHAR(name, type, dims, __VA_ARGS__);       \
+	CTRL_KERNEL_HIP_KERNEL_CHAR(name, type, dims, __VA_ARGS__);        \
 	CTRL_KERNEL_OPENCL_GPU_KERNEL_CHAR(name, type, dims, __VA_ARGS__); \
 	CTRL_KERNEL_FPGA_KERNEL_CHAR(name, type, dims, __VA_ARGS__);
 
@@ -104,7 +113,11 @@
 #define C_GUARD
 #endif // __cplusplus
 
-#define CTRL_KERNEL_STRINGIFY(arg) #arg
+#define CTRL_MACRO_STRINGIFY(a)  CTRL_MACRO_STRINGIFY2(a)
+#define CTRL_MACRO_STRINGIFY2(a) #a
+
+#define CTRL_COUNTPARAM(...) CTRL_COUNTPARAM_N(__VA_ARGS__, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+#define CTRL_COUNTPARAM_N(n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, num, ...) num
 
 /* Copy parameter types and names */
 #define CTRL_KERNEL_TYPED(list, numArgs, ...) CTRL_KERNEL_TYPED_##numArgs(__VA_ARGS__)
@@ -202,9 +215,6 @@
 			CTRL_KERNEL_ARGS_POINTERS_2,                                              \
 			CTRL_KERNEL_ARGS_POINTERS_1,                                              \
 		)(__VA_ARGS__)
-
-#define CTRL_COUNTPARAM(...) CTRL_COUNTPARAM_N(__VA_ARGS__, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
-#define CTRL_COUNTPARAM_N(n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16, n17, n18, n19, n20, n21, num, ...) num
 
 /*
  * Arguments list size (sum of the type sizes of all the arguments)
@@ -382,35 +392,36 @@
 	CTRL_KERNEL_KTILE_STORE_NO_INVAL(list, type, name)
 
 // TODO @waxa las lineas de deviceType hay que moverlas a compilacion condicional
-#define CTRL_KERNEL_KTILE_STORE_NO_INVAL(list, type, name)                                                                               \
-	KHitTile k_##name##_void;                                                                                                            \
-	switch (ctrl_type) {                                                                                                                 \
-		CTRL_KERNEL_CPU_KTILE_DEVICE_DATA(name)                                                                                          \
-		CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA(name)                                                                                         \
-		CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA(name)                                                                                       \
-		CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA(name)                                                                                         \
-		default:                                                                                                                         \
-			fprintf(stderr, "[Ctrl_KernelArgs] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", ctrl_type); \
-			exit(EXIT_FAILURE);                                                                                                          \
-			break;                                                                                                                       \
-	}                                                                                                                                    \
-	K##type k_##name;                                                                                                                    \
-	memcpy(&k_##name, &k_##name##_void, sizeof(KHitTile));                                                                               \
-	k_##name.origAcumCard[0] = name->origAcumCard[0];                                                                                    \
-	k_##name.origAcumCard[1] = name->origAcumCard[1];                                                                                    \
-	k_##name.origAcumCard[2] = name->origAcumCard[2];                                                                                    \
-	k_##name.origAcumCard[3] = name->origAcumCard[3];                                                                                    \
-	k_##name.card[0]         = hit_tileDimCard((*name), 0);                                                                              \
-	k_##name.card[1]         = hit_tileDimCard((*name), 1);                                                                              \
-	k_##name.card[2]         = hit_tileDimCard((*name), 2);                                                                              \
-	/* Offset for subselections. Most times will be 0. */                                                                                \
-	{                                                                                                                                    \
-		type *p_parent = name;                                                                                                           \
-		while (p_parent->memStatus == HIT_MS_NOT_OWNER)                                                                                  \
-			p_parent = p_parent->ref;                                                                                                    \
-		k_##name.offset = ((size_t)name->data - (size_t)p_parent->data) / name->baseExtent;                                              \
-	}                                                                                                                                    \
-	*((K##type *)(list)) = k_##name;
+#define CTRL_KERNEL_KTILE_STORE_NO_INVAL(list, hit_type, name)                                                                              \
+	KHitTile k_##name##_void;                                                                                                               \
+	switch (p_ctrl->type) {                                                                                                                 \
+		CTRL_KERNEL_CPU_KTILE_DEVICE_DATA(name)                                                                                             \
+		CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA(name)                                                                                            \
+		CTRL_KERNEL_HIP_KTILE_DEVICE_DATA(name)                                                                                             \
+		CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA(name)                                                                                          \
+		CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA(name)                                                                                            \
+		default:                                                                                                                            \
+			fprintf(stderr, "[Ctrl_KernelArgs] Unsupported Ctrl type: %d. Recompile the library with the proper support.\n", p_ctrl->type); \
+			exit(EXIT_FAILURE);                                                                                                             \
+			break;                                                                                                                          \
+	}                                                                                                                                       \
+	K##hit_type k_##name;                                                                                                                   \
+	memcpy(&k_##name, &k_##name##_void, sizeof(KHitTile));                                                                                  \
+	k_##name.origAcumCard[0] = name->origAcumCard[0];                                                                                       \
+	k_##name.origAcumCard[1] = name->origAcumCard[1];                                                                                       \
+	k_##name.origAcumCard[2] = name->origAcumCard[2];                                                                                       \
+	k_##name.origAcumCard[3] = name->origAcumCard[3];                                                                                       \
+	k_##name.card[0]         = hit_tileDimCard((*name), 0);                                                                                 \
+	k_##name.card[1]         = hit_tileDimCard((*name), 1);                                                                                 \
+	k_##name.card[2]         = hit_tileDimCard((*name), 2);                                                                                 \
+	/* Offset for subselections. Most times will be 0. */                                                                                   \
+	{                                                                                                                                       \
+		hit_type *p_parent = name;                                                                                                          \
+		while (p_parent->memStatus == HIT_MS_NOT_OWNER)                                                                                     \
+			p_parent = p_parent->ref;                                                                                                       \
+		k_##name.offset = ((size_t)name->data - (size_t)p_parent->data) / name->baseExtent;                                                 \
+	}                                                                                                                                       \
+	*((K##hit_type *)(list)) = k_##name;
 
 /*
  * List store for Ktile types: Store a copy of the values in a contiguos buffer, also casting to kTiles and transferring memory
@@ -809,7 +820,7 @@
 #define CTRL_KERNEL_DISPLACEMENTS_TILES_19(displacementsList, numArgs, role, type, name, ...) displacementsList[numArgs - 18] = displacementsList[numArgs - 19] + CTRL_KERNEL_LIST_SIZE_KTILE(INVAL, type, name); CTRL_KERNEL_DISPLACEMENTS_TILES_18(displacementsList, numArgs, __VA_ARGS__);
 #define CTRL_KERNEL_DISPLACEMENTS_TILES_20(displacementsList, numArgs, role, type, name, ...) displacementsList[numArgs - 19] = displacementsList[numArgs - 20] + CTRL_KERNEL_LIST_SIZE_KTILE(INVAL, type, name); CTRL_KERNEL_DISPLACEMENTS_TILES_19(displacementsList, numArgs, __VA_ARGS__);
 
-#define CTRL_KERNEL_EXTRACT_KERNEL_1(kernel)    CTRL_KERNEL_STRINGIFY(kernel);
+#define CTRL_KERNEL_EXTRACT_KERNEL_1(kernel)    CTRL_MACRO_STRINGIFY(kernel);
 #define CTRL_KERNEL_EXTRACT_KERNEL_2(arg, ...)  CTRL_KERNEL_EXTRACT_KERNEL_1(__VA_ARGS__)
 #define CTRL_KERNEL_EXTRACT_KERNEL_3(arg, ...)  CTRL_KERNEL_EXTRACT_KERNEL_2(__VA_ARGS__)
 #define CTRL_KERNEL_EXTRACT_KERNEL_4(arg, ...)  CTRL_KERNEL_EXTRACT_KERNEL_3(__VA_ARGS__)

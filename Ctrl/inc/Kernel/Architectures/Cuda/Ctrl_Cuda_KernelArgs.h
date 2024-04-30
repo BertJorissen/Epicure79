@@ -5,7 +5,7 @@
  * @file Ctrl_Cuda_KernelArgs.h
  * @author Trasgo Group
  * @brief Macros to cast Ctrl CUDA tiles to KHitTiles for their use in kernels.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -32,9 +32,8 @@
  * @copyright More information on http://trasgo.infor.uva.es/
  */
 
+#include "Core/Ctrl_Tile.h"
 #include <cuda_runtime_api.h>
-
-#include "Architectures/Cuda/Ctrl_Cuda_Tile.h"
 
 /**
  * Macro used to convert tiles into \e KHitTiles for kernel execution.
@@ -44,9 +43,10 @@
  *
  * @see KHitTile
  */
-#define CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA(name)                               \
-	case CTRL_TYPE_CUDA:                                                       \
-		k_##name##_void.data = (((Ctrl_Cuda_Tile *)name->ext)->p_device_data); \
+#define CTRL_KERNEL_CUDA_KTILE_DEVICE_DATA(name)                                                                   \
+	case CTRL_TYPE_CUDA:                                                                                           \
+		k_##name##_void.data         = (((Ctrl_Tile *)name->ext)->p_impls[p_ctrl->id].tile.p_cuda->p_device_data); \
+		k_##name##_void.ext.cuda.tex = (((Ctrl_Tile *)name->ext)->p_impls[p_ctrl->id].tile.p_cuda->texture);       \
 		break;
 
 ///@endcond

@@ -1,0 +1,98 @@
+stages: 
+  - build
+  - test
+  - build_docu
+
+# Commands to execute before all jobs
+before_script:
+  - module load mpich3/gcc
+  - module load mpich/prod/3.2.1/gcc-7.2
+  - make
+  # - cd src
+  # - make
+  # - cd ..
+
+build_gcc:
+  stage: build
+  # instead of calling g++ directly you can also use some build toolkit like make
+  # install the necessary build tools when needed
+  before_script: 
+    # - apt update && apt -y install make autoconf
+    - module load mpich3/gcc
+    - module load mpich/prod/3.2.1/gcc-7.2
+  script: 
+    - echo "Building Hitmap library using MPICH-GCC"
+    - make
+    - cd src
+    - make
+  artifacts:
+    paths:
+      - lib/libhit.a
+      - metis/libmetis.a
+      - iohb1.0/libiohb.a
+      - src/*
+      - lib/*
+    expire_in: 10 mins 2 sec
+  
+
+
+# run tests using the binary built before
+test_1:
+  stage: test
+  script:
+    - echo 'HitSig tests'
+    - cd ciTests/HitSig
+    - cwdfront
+    - ./tests3.sh -v
+
+  dependencies:
+    - build_gcc
+
+test_2:
+  stage: test
+  script:
+    - echo 'HitShape tests'
+    - cd ciTests/HitShape
+    - cwdfront
+    - ./tests3.sh -v
+  dependencies:
+    - build_gcc
+
+
+test_3:
+  stage: test
+  script:
+    - echo 'HitTile tests'
+    - cd ciTests/HitTile
+    - cwdfront
+    - ./tests3.sh -v
+  dependencies:
+    - build_gcc
+
+test_4:
+  stage: test
+  script:
+    - echo 'HitLayout tests'
+    - cd ciTests/HitLayout
+    - cwdfront
+    - ./tests3.sh -v
+  dependencies:
+    - build_gcc
+
+
+
+build_docu:
+  stage: build_docu
+  before_script:
+    # - apt update && apt -y install doxygen
+    - echo "Building Hitmap documentation"
+  script:
+    # - echo "Building Hitmap documentation"
+    - cd include
+    - doxygen doxygenInclude
+    - zip -r docu.zip html/*
+  artifacts:
+    paths:
+      - include/docu.zip
+    expire_in: 30 mins
+

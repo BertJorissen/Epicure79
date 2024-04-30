@@ -5,7 +5,7 @@
  * @file Ctrl_Cuda_Request.h
  * @author Trasgo Group
  * @brief Specific CUDA implementation for a request.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific

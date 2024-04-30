@@ -3,7 +3,7 @@
  * @file Ctrl_Cpu.c
  * @author Trasgo Group
  * @brief Source code for Cpu backend.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -31,30 +31,14 @@
  */
 
 #include "Architectures/Cpu/Ctrl_Cpu.h"
+#include "Core/Ctrl_Core.h"
 
 /*************************************************************
  ******** Prototypes of private functions ********************
  *************************************************************/
 
 /**
- * Sync with main thread if queues are enabled, if queues are not enabled this function does nothing.
- *
- * @param p_ctrl Pointer to the ctrl to perform the syncronization.
- */
-void Ctrl_Cpu_Sync(Ctrl_Cpu *p_ctrl);
-
-/**
- * Allocate memory for a new \e Ctrl_Cpu_Tile.
- *
- * @param p_ctrl Pointer to the ctrl to be attached to the tile.
- * @param p_task Pointer to the task containing the hitTile that will contain the new \e Ctrl_Cpu_Tile.
- *
- * @see Ctrl_Cpu_EvalTaskAllocTile, Ctrl_Cpu_Tile
- */
-void Ctrl_Cpu_CreateTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
-
-/**
- * Initializate a \e Ctrl_Cpu_Tile.
+ * Initialize a \e Ctrl_Cpu_Tile.
  *
  * @param p_ctrl Pointer to the ctrl attached to the tile and to be updated of the initialization.
  * @param p_task Pointer to the task containing the HitTile that contains the \e Ctrl_Cpu_Tile to be.
@@ -63,7 +47,7 @@ void Ctrl_Cpu_CreateTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 void Ctrl_Cpu_InitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
- * Perform memory transfer from host to device.
+ * Enqueue memory transfer from host to device.
  *
  * Pushes appropiate wait events and MoveTo task to the "move to" task queue.
  *
@@ -76,7 +60,7 @@ void Ctrl_Cpu_InitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 void Ctrl_Cpu_EvalTaskMoveToInner(Ctrl_Cpu *p_ctrl, HitTile *p_tile);
 
 /**
- * Perform memory transfer from device to host.
+ * Enqueue memory transfer from device to host.
  *
  * Pushes appropiate wait events and MoveFrom task to the "move from" task queue.
  *
@@ -89,16 +73,17 @@ void Ctrl_Cpu_EvalTaskMoveToInner(Ctrl_Cpu *p_ctrl, HitTile *p_tile);
 void Ctrl_Cpu_EvalTaskMoveFromInner(Ctrl_Cpu *p_ctrl, HitTile *p_tile);
 
 /**
- * Extract and evaluate tasks from \p p_stream until a task of type CTRL_TASK_TYPE_DESTROYCNTRL is found.
+ * Extract and evaluate tasks from \p p_stream until a task of type CTRL_TASK_TYPE_DESTROYCTRL is found.
  *
  * This function calls \e Ctrl_Cpu_EvalTaskInner for the evaluation of tasks. This function is used for cpu kernel queue
  * and cpu memory transfer queues.
  *
  * @param p_stream Stream to extract the tasks from.
+ * @param p_ctrl Ctrl responsible for the queues.
  *
  * @see Ctrl_Cpu_EvalTaskInner, Ctrl_Cpu_ThreadInit
  */
-void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream);
+void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream, Ctrl_Cpu *p_ctrl);
 
 /**
  * Evaluation for inner cpu tasks.
@@ -107,10 +92,11 @@ void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream);
  * \e Ctrl_Cpu_StreamConsume for tasks in cpu kernel and cpu trasnsfers queues.
  *
  * @param p_task Task to be evaluated.
+ * @param p_ctrl Ctrl responsible for the task.
  *
  * @see Ctrl_Cpu_EvalTask, Ctrl_Cpu_StreamConsume
  */
-void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task);
+void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task, Ctrl_Cpu *p_ctrl);
 
 /*************************************************************
  ******** Prototypes of tasks' evaluation functions **********
@@ -119,8 +105,9 @@ void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task);
 /**
  * Destroy a CPU ctrl.
  * @param p_ctrl Ctrl to be destroyed.
+ * @param p_task Destroy task.
  */
-void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl);
+void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
  * Evaluation of kernel launch.
@@ -133,16 +120,6 @@ void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl);
 void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
- * Evaluation of host task launch.
- *
- * @param p_ctrl Ctrl in charge of task.
- * @param p_task Task to be evaluated.
- *
- * @see Ctrl_Cpu_EvalTask, Ctrl_HostTask
- */
-void Ctrl_Cpu_EvalTaskHostTaskLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
-
-/**
  * Evaluation of global sync. Waits for all work related to any tile attached to this ctrl.
  *
  * @param p_ctrl Ctrl in charge of task.
@@ -151,16 +128,6 @@ void Ctrl_Cpu_EvalTaskHostTaskLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
  * @see Ctrl_Cpu_EvalTask, Ctrl_GlobalSync
  */
 void Ctrl_Cpu_EvalTaskGlobalSync(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
-
-/**
- * Evaluation of creation of tiles.
- *
- * @param p_ctrl Ctrl in charge of task.
- * @param p_task Task to be evaluated.
- *
- * @see Ctrl_Cpu_EvalTask, Ctrl_Domain
- */
-void Ctrl_Cpu_EvalTaskDomainTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
 
 /**
  * Evaluation of allocation of tiles.
@@ -184,6 +151,7 @@ void Ctrl_Cpu_EvalTaskAllocTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
  * @see Ctrl_Cpu_EvalTask, Ctrl_Select
  */
 void Ctrl_Cpu_EvalTaskSelectTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
+
 /**
  * Evaluation of freeing of tiles.
  *
@@ -243,39 +211,39 @@ void Ctrl_Cpu_EvalTaskSetDependanceMode(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task);
  ******** CPU Controller functions **********
  ********************************************/
 
-void Ctrl_Cpu_Create(Ctrl_Cpu *p_ctrl, Ctrl_Policy policy, int n_cores, int *p_numa_nodes, int n_numa_nodes, bool mem_moves) {
-	p_ctrl->policy           = policy;
-	p_ctrl->n_cores          = n_cores;
+void Ctrl_Cpu_Create(Ctrl_Cpu *p_ctrl, Ctrl_Policy policy, char *args) {
+	p_ctrl->policy    = policy;
+	p_ctrl->n_cores   = atoi(strtok(args, " "));
+	int numa_begin    = atoi(strtok(NULL, "-"));
+	int numa_end      = atoi(strtok(NULL, " "));
+	p_ctrl->mem_moves = atoi(strtok(NULL, ""));
+
 	p_ctrl->p_tile_list_head = NULL;
 	p_ctrl->p_tile_list_tail = NULL;
 	p_ctrl->dependance_mode  = CTRL_MODE_IMPLICIT;
 
 	// Set the cpuset (for kernel bind) to the ORed cpusets of the NUMA nodes selected by the user
 	p_ctrl->device_cpuset = hwloc_bitmap_alloc();
-	if (n_numa_nodes > 0) {
+	if (numa_begin < numa_end) {
 		hwloc_obj_t obj;
-		for (int i = 0; i < n_numa_nodes; i++) {
-			obj = hwloc_get_obj_by_type(p_ctrl->topo, HWLOC_OBJ_NUMANODE, p_numa_nodes[i]);
+		for (int i = numa_begin; i < numa_end; i++) {
+			obj = hwloc_get_obj_by_type(p_ctrl->topo, HWLOC_OBJ_NUMANODE, i);
 			if (!obj) {
-				fprintf(stderr, "[Ctrl_Cpu] warning: Numanode %d not found, ignoring it\n", p_numa_nodes[i]);
+				fprintf(stderr, "[Ctrl_Cpu] warning: Numanode %d not found, ignoring it\n", i);
 				break;
 			}
 			hwloc_bitmap_or(p_ctrl->device_cpuset, p_ctrl->device_cpuset, obj->cpuset);
 		}
 	}
 
-	p_ctrl->mem_moves = mem_moves;
-	p_ctrl->event_seq = Ctrl_CpuEvent_Create();
+	p_ctrl->seq_event = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
 
 	// Alloc queues for kernel and memory transfers
-	p_ctrl->p_kernel_stream = (Ctrl_TaskQueue *)malloc(sizeof(Ctrl_TaskQueue));
-	Ctrl_TaskQueue_Init(p_ctrl->p_kernel_stream);
+	p_ctrl->p_kernel_stream = Ctrl_TaskQueue_Create();
 
 	if (p_ctrl->mem_moves) {
-		p_ctrl->p_moveTo_stream   = (Ctrl_TaskQueue *)malloc(sizeof(Ctrl_TaskQueue));
-		p_ctrl->p_moveFrom_stream = (Ctrl_TaskQueue *)malloc(sizeof(Ctrl_TaskQueue));
-		Ctrl_TaskQueue_Init(p_ctrl->p_moveTo_stream);
-		Ctrl_TaskQueue_Init(p_ctrl->p_moveFrom_stream);
+		p_ctrl->p_moveTo_stream   = Ctrl_TaskQueue_Create();
+		p_ctrl->p_moveFrom_stream = Ctrl_TaskQueue_Create();
 	}
 }
 
@@ -284,17 +252,11 @@ void Ctrl_Cpu_EvalTask(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 		case CTRL_TASK_TYPE_KERNEL:
 			Ctrl_Cpu_EvalTaskKernelLaunch(p_ctrl, p_task);
 			break;
-		case CTRL_TASK_TYPE_HOST:
-			Ctrl_Cpu_EvalTaskHostTaskLaunch(p_ctrl, p_task);
-			break;
 		case CTRL_TASK_TYPE_GLOBALSYNC:
 			Ctrl_Cpu_EvalTaskGlobalSync(p_ctrl, p_task);
 			break;
 		case CTRL_TASK_TYPE_ALLOCTILE:
 			Ctrl_Cpu_EvalTaskAllocTile(p_ctrl, p_task);
-			break;
-		case CTRL_TASK_TYPE_DOMAINTILE:
-			Ctrl_Cpu_EvalTaskDomainTile(p_ctrl, p_task);
 			break;
 		case CTRL_TASK_TYPE_SELECTTILE:
 			Ctrl_Cpu_EvalTaskSelectTile(p_ctrl, p_task);
@@ -311,8 +273,8 @@ void Ctrl_Cpu_EvalTask(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 		case CTRL_TASK_TYPE_WAITTILE:
 			Ctrl_Cpu_EvalTaskWaitTile(p_ctrl, p_task);
 			break;
-		case CTRL_TASK_TYPE_DESTROYCNTRL:
-			Ctrl_Cpu_Destroy(p_ctrl);
+		case CTRL_TASK_TYPE_DESTROYCTRL:
+			Ctrl_Cpu_Destroy(p_ctrl, p_task);
 			break;
 		case CTRL_TASK_TYPE_SETDEPENDANCEMODE:
 			Ctrl_Cpu_EvalTaskSetDependanceMode(p_ctrl, p_task);
@@ -323,17 +285,21 @@ void Ctrl_Cpu_EvalTask(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	}
 }
 
+int Ctrl_Cpu_GetNumQueues(Ctrl_Cpu *p_ctrl) {
+	return 0;
+}
+
+Ctrl_TaskQueue **Ctrl_Cpu_GetHostQueues(Ctrl_Cpu *p_ctrl, Ctrl_TaskQueue **pp_queues) {
+	return pp_queues;
+}
+
 int Ctrl_Cpu_GetNumThreads(Ctrl_Cpu *p_ctrl) {
 	return p_ctrl->mem_moves ? 3 : 1;
 }
 
 void Ctrl_Cpu_ThreadInit(Ctrl_Cpu *p_ctrl, hwloc_topology_t topo, int node) {
 	// index of the thread used to execute kernels
-	#ifdef _CTRL_QUEUE_
-	int kernel_thread = 1;
-	#else // _CTRL_QUEUE_
 	int kernel_thread = 0;
-	#endif //_CTRL_QUEUE_
 
 	if (omp_get_thread_num() == kernel_thread) { // kernel thread
 		// bind thread
@@ -341,73 +307,91 @@ void Ctrl_Cpu_ThreadInit(Ctrl_Cpu *p_ctrl, hwloc_topology_t topo, int node) {
 			hwloc_set_cpubind(topo, p_ctrl->device_cpuset, HWLOC_CPUBIND_THREAD);
 		}
 		// start executing tasks from the queue
-		Ctrl_Cpu_StreamConsume(p_ctrl->p_kernel_stream);
+		Ctrl_Cpu_StreamConsume(p_ctrl->p_kernel_stream, p_ctrl);
 
 	} else if (omp_get_thread_num() == kernel_thread + 1) { // host to device
 		// bind thread
-		hwloc_obj_t obj = hwloc_get_obj_below_by_type(topo, HWLOC_OBJ_NUMANODE, node, HWLOC_OBJ_CORE, kernel_thread + 2);
+		hwloc_obj_t obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_NUMANODE, node);
 		if (obj) {
 			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
 		}
 		// start executing tasks from the queue
-		Ctrl_Cpu_StreamConsume(p_ctrl->p_moveTo_stream);
+		Ctrl_Cpu_StreamConsume(p_ctrl->p_moveTo_stream, p_ctrl);
 
 	} else if (omp_get_thread_num() == kernel_thread + 2) { // device to host
 		// bind thread
-		hwloc_obj_t obj = hwloc_get_obj_below_by_type(topo, HWLOC_OBJ_NUMANODE, node, HWLOC_OBJ_CORE, kernel_thread + 3);
+		hwloc_obj_t obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_NUMANODE, node);
 		if (obj) {
 			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
 		}
 		// start executing tasks from the queue
-		Ctrl_Cpu_StreamConsume(p_ctrl->p_moveFrom_stream);
+		Ctrl_Cpu_StreamConsume(p_ctrl->p_moveFrom_stream, p_ctrl);
 	}
+}
+
+void Ctrl_Cpu_GetInfo(Ctrl_Cpu *p_ctrl, Ctrl_Info *p_info) {
+	p_info->type          = "CPU";
+	p_info->n_threads     = p_ctrl->n_cores;
+	p_info->mem_transfers = p_ctrl->mem_moves;
+
+	int         n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(p_ctrl->topo, p_ctrl->device_cpuset, HWLOC_OBJ_NUMANODE);
+	hwloc_obj_t obj     = hwloc_get_obj_inside_cpuset_by_type(p_ctrl->topo, p_ctrl->device_cpuset, HWLOC_OBJ_NUMANODE, 0);
+
+	if (!obj) {
+		fprintf(stderr, "[Ctrl_Cpu_GetInfo] Can't get hwloc numa object for this device\n");
+		exit(EXIT_FAILURE);
+	}
+
+	p_info->numa_range_min = obj->logical_index;
+	p_info->numa_range_max = obj->logical_index + n_nodes;
+
+	// Device name
+	p_info->device_name[0] = '\0';
+	char  line[CTRL_MAX_DEV_NAME + 15];
+	FILE *fcpuinfo = fopen("/proc/cpuinfo", "r");
+	if (fcpuinfo == NULL) {
+		fprintf(stderr, "Warning: File /proc/cpuinfo can not be opened for reading. No device name available\n");
+	} else {
+		int found = 0;
+		while (!found && !feof(fcpuinfo)) {
+			fgets(line, CTRL_MAX_DEV_NAME, fcpuinfo);
+			char *field_name = strtok(line, ":");
+			if (!strcmp(field_name, "model name\t")) {
+				found      = 1;
+				field_name = strtok(NULL, "\n");
+				strncpy(p_info->device_name, field_name, CTRL_MAX_DEV_NAME - 1);
+				p_info->device_name[255] = '\0';
+			}
+		}
+		fclose(fcpuinfo);
+	}
+}
+
+void Ctrl_Cpu_CreateTex(Ctrl_Cpu *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_desc) {
+	fprintf(stderr, "[Ctrl_Cpu_CreateTex] Error: not implemented\n");
+	exit(EXIT_FAILURE);
 }
 
 /*********************************
  ******* Private functions *******
  *********************************/
 
-void Ctrl_Cpu_Sync(Ctrl_Cpu *p_ctrl) {
-	#ifdef _CTRL_QUEUE_
-	omp_set_lock(p_ctrl->p_lock_first_ctrl);
-	omp_unset_lock(p_ctrl->p_lock_ctrl);
-	omp_set_lock(p_ctrl->p_lock_host);
-	omp_unset_lock(p_ctrl->p_lock_first_ctrl);
-
-	omp_set_lock(p_ctrl->p_lock_first_host);
-	omp_unset_lock(p_ctrl->p_lock_host);
-	omp_set_lock(p_ctrl->p_lock_ctrl);
-	omp_unset_lock(p_ctrl->p_lock_first_host);
-	#endif //_CTRL_QUEUE_
-}
-
-void Ctrl_Cpu_CreateTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)malloc(sizeof(Ctrl_Cpu_Tile));
-
-	p_tile_data->p_ctrl = p_ctrl;
-
-	p_tile_data->host_status   = CTRL_TILE_UNALLOC;
-	p_tile_data->device_status = CTRL_TILE_UNALLOC;
-
-	p_tile->ext = (void *)p_tile_data;
-
-	p_tile_data->p_parent_ext = NULL;
-
-	p_tile_data->is_initialized = false;
-}
-
 void Ctrl_Cpu_InitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+	Ctrl_Tile *p_tile_data = (Ctrl_Tile *)(p_task->p_tile->ext);
+	p_tile_data->valid_impls++;
 
-	// create node for the the new tile
-	Ctrl_Cpu_Tile_List *p_list_node = (Ctrl_Cpu_Tile_List *)malloc(sizeof(Ctrl_Cpu_Tile_List));
+	Ctrl_Cpu_Tile *p_tile_data_impl_cpu                = (Ctrl_Cpu_Tile *)malloc(sizeof(Ctrl_Cpu_Tile));
+	p_tile_data->p_impls[p_ctrl->global_id].type       = CTRL_TYPE_CPU;
+	p_tile_data->p_impls[p_ctrl->global_id].tile.p_cpu = p_tile_data_impl_cpu;
 
-	p_list_node->p_prev      = NULL;
-	p_list_node->p_next      = NULL;
-	p_list_node->p_tile_ext  = p_tile_data;
-	p_tile_data->p_tile_elem = p_list_node;
+	p_tile_data_impl_cpu->p_ctrl = p_ctrl;
+
+	Ctrl_Tile_List *p_list_node = (Ctrl_Tile_List *)malloc(sizeof(Ctrl_Tile_List));
+
+	p_list_node->p_prev               = NULL;
+	p_list_node->p_next               = NULL;
+	p_list_node->p_tile_ext           = p_tile_data;
+	p_tile_data_impl_cpu->p_tile_elem = p_list_node;
 
 	// insert node into the linked list of tiles
 	if (p_ctrl->p_tile_list_tail != NULL) {
@@ -418,116 +402,105 @@ void Ctrl_Cpu_InitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 		p_ctrl->p_tile_list_head = p_ctrl->p_tile_list_tail = p_list_node;
 	}
 
-	p_tile_data->host_last_read_event  = Ctrl_CpuEvent_Create();
-	p_tile_data->host_last_write_event = Ctrl_CpuEvent_Create();
-
-	if (p_ctrl->mem_moves) {
-		p_tile_data->kernel_last_read_event  = Ctrl_CpuEvent_Create();
-		p_tile_data->kernel_last_write_event = Ctrl_CpuEvent_Create();
-
-		p_tile_data->offloading_last_read_event  = Ctrl_CpuEvent_Create();
-		p_tile_data->offloading_last_write_event = Ctrl_CpuEvent_Create();
-	}
-
-	p_tile_data->is_initialized = true;
+	p_tile_data->last_host_read_event             = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
+	p_tile_data->last_host_write_event            = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
+	p_tile_data_impl_cpu->last_kernel_read_event  = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
+	p_tile_data_impl_cpu->last_kernel_write_event = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
+	p_tile_data_impl_cpu->last_htd_event          = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
+	p_tile_data_impl_cpu->last_dth_event          = Ctrl_GenericEvent_Create(CTRL_EVENT_TYPE_CPU, p_ctrl->global_id);
 }
 
 void Ctrl_Cpu_EvalTaskMoveToInner(Ctrl_Cpu *p_ctrl, HitTile *p_tile) {
-	Ctrl_Cpu_Tile    *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
-	Ctrl_GenericEvent move_event  = CTRL_GENERIC_EVENT_NULL;
-	move_event.event_type         = CTRL_EVENT_TYPE_CPU;
+	Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
+	Ctrl_Cpu_Tile  *p_tile_data_cpu  = p_tile_data_impl->tile.p_cpu;
+
+	for (int i = 0; i < Ctrl_GetNCtrls(); i++) {
+		Ctrl_MoveToWait(&p_tile_data->p_impls[i], p_ctrl->p_moveTo_stream);
+	}
 
 	// Wait for appropiate events
-	move_event.event.event_cpu = p_tile_data->kernel_last_read_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveTo_stream);
-
-	move_event.event.event_cpu = p_tile_data->kernel_last_write_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveTo_stream);
-
-	move_event.event.event_cpu = p_tile_data->offloading_last_read_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveTo_stream);
-
-	move_event.event.event_cpu = p_tile_data->host_last_write_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveTo_stream);
+	Ctrl_GenericEvent_StreamWait(p_tile_data_cpu->last_kernel_read_event, p_ctrl->p_moveTo_stream);
+	Ctrl_GenericEvent_StreamWait(p_tile_data_cpu->last_kernel_write_event, p_ctrl->p_moveTo_stream);
+	Ctrl_GenericEvent_StreamWait(p_tile_data->last_host_write_event, p_ctrl->p_moveTo_stream);
 
 	// wait for previous task to finish if policy is sync
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		move_event.event.event_cpu = p_ctrl->event_seq;
-		Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveTo_stream);
-	}
+	Ctrl_SyncWait(p_ctrl->p_moveTo_stream);
 
 	Ctrl_Task task = CTRL_TASK_NULL;
 	task.task_type = CTRL_TASK_TYPE_MOVETO;
-	task.p_tile    = p_tile;
+	task.tile      = *p_tile;
 
 	// Push moveFrom task to moveFrom execution queue
 	Ctrl_TaskQueue_Push(p_ctrl->p_moveTo_stream, task);
 
 	// Update events
-	Ctrl_CpuEvent_Record(&p_tile_data->offloading_last_write_event, p_ctrl->p_moveTo_stream);
+	Ctrl_CpuEvent_Record(&p_tile_data_cpu->last_htd_event.event.event_cpu, p_ctrl->p_moveTo_stream);
 
 	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_CpuEvent_Record(&p_ctrl->event_seq, p_ctrl->p_moveTo_stream);
+		Ctrl_CpuEvent_Record(&p_ctrl->seq_event.event.event_cpu, p_ctrl->p_moveTo_stream);
 	}
 
 	// Update state of the tile
-	p_tile_data->host_status   = CTRL_TILE_VALID;
-	p_tile_data->device_status = CTRL_TILE_VALID;
+	p_tile_data->host_status        = CTRL_TILE_VALID;
+	p_tile_data_impl->device_status = CTRL_TILE_VALID;
+}
+
+void Ctrl_Cpu_MoveToWait(Ctrl_Cpu_Tile *p_tile_data, Ctrl_TaskQueue *p_queue) {
+	Ctrl_GenericEvent_StreamWait(p_tile_data->last_dth_event, p_queue);
 }
 
 void Ctrl_Cpu_EvalTaskMoveFromInner(Ctrl_Cpu *p_ctrl, HitTile *p_tile) {
-	Ctrl_Cpu_Tile    *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
-	Ctrl_GenericEvent move_event  = CTRL_GENERIC_EVENT_NULL;
-	move_event.event_type         = CTRL_EVENT_TYPE_CPU;
+	Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
+	Ctrl_Cpu_Tile  *p_tile_data_cpu  = p_tile_data_impl->tile.p_cpu;
+
+	for (int i = 0; i < Ctrl_GetNCtrls(); i++) {
+		Ctrl_MoveFromWait(&p_tile_data->p_impls[i], p_ctrl->p_moveTo_stream);
+	}
 
 	// Wait for appropiate events
-	move_event.event.event_cpu = p_tile_data->kernel_last_write_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveFrom_stream);
-
-	move_event.event.event_cpu = p_tile_data->offloading_last_write_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveFrom_stream);
-
-	move_event.event.event_cpu = p_tile_data->host_last_read_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveFrom_stream);
-
-	move_event.event.event_cpu = p_tile_data->host_last_write_event;
-	Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveFrom_stream);
+	Ctrl_GenericEvent_StreamWait(p_tile_data_cpu->last_kernel_write_event, p_ctrl->p_moveFrom_stream);
+	Ctrl_GenericEvent_StreamWait(p_tile_data->last_host_read_event, p_ctrl->p_moveFrom_stream);
+	Ctrl_GenericEvent_StreamWait(p_tile_data->last_host_write_event, p_ctrl->p_moveFrom_stream);
 
 	// wait for previous task to finish if policy is sync
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		move_event.event.event_cpu = p_ctrl->event_seq;
-		Ctrl_GenericEvent_StreamWait(move_event, p_ctrl->p_moveFrom_stream);
-	}
+	Ctrl_SyncWait(p_ctrl->p_moveFrom_stream);
 
 	Ctrl_Task task = CTRL_TASK_NULL;
 	task.task_type = CTRL_TASK_TYPE_MOVEFROM;
-	task.p_tile    = p_tile;
+	task.tile      = *p_tile;
 	// Push moveFrom task to moveFrom execution queue
 	Ctrl_TaskQueue_Push(p_ctrl->p_moveFrom_stream, task);
 
 	// Update events
-	Ctrl_CpuEvent_Record(&p_tile_data->offloading_last_read_event, p_ctrl->p_moveFrom_stream);
+	Ctrl_CpuEvent_Record(&p_tile_data_cpu->last_dth_event.event.event_cpu, p_ctrl->p_moveFrom_stream);
 
 	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_CpuEvent_Record(&p_ctrl->event_seq, p_ctrl->p_moveFrom_stream);
+		Ctrl_CpuEvent_Record(&p_ctrl->seq_event.event.event_cpu, p_ctrl->p_moveFrom_stream);
 	}
 
 	// Update state of the tile
-	p_tile_data->host_status   = CTRL_TILE_VALID;
-	p_tile_data->device_status = CTRL_TILE_VALID;
+	p_tile_data->host_status        = CTRL_TILE_VALID;
+	p_tile_data_impl->device_status = CTRL_TILE_VALID;
 }
 
-void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream) {
+void Ctrl_Cpu_MoveFromWait(Ctrl_Cpu_Tile *p_tile_data, Ctrl_TaskQueue *p_queue) {
+	// TODO @sergioalo does this need to wait for dth transfers?
+	Ctrl_GenericEvent_StreamWait(p_tile_data->last_htd_event, p_queue);
+}
+
+void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream, Ctrl_Cpu *p_ctrl) {
 	bool finish = false;
 	while (!finish) {
 		// Extract task from queue
 		Ctrl_Task *p_task = Ctrl_TaskQueue_Pop(p_stream);
 
-		if (p_task->task_type == CTRL_TASK_TYPE_DESTROYCNTRL) {
+		if (p_task->task_type == CTRL_TASK_TYPE_DESTROYCTRL) {
 			finish = true;
 		} else {
 			// Evaluate task
-			Ctrl_Cpu_EvalTaskInner(p_task);
+			Ctrl_Cpu_EvalTaskInner(p_task, p_ctrl);
 			// Update task counter
 			#pragma omp atomic update
 			p_stream->last_finished++;
@@ -538,37 +511,37 @@ void Ctrl_Cpu_StreamConsume(Ctrl_TaskQueue *p_stream) {
 		}
 	}
 	Ctrl_TaskQueue_Destroy(p_stream);
-	free(p_stream);
 }
 
-void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task) {
+void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task, Ctrl_Cpu *p_ctrl) {
 	switch (p_task->task_type) {
 		case CTRL_TASK_TYPE_KERNEL:
-			p_task->pfn_kernel_wrapper(p_task->request, p_task->device_id, p_task->ctrl_type, p_task->threads, p_task->blocksize, p_task->p_arguments);
+			p_task->pfn_kernel_wrapper(p_task->request, p_task->device_id, CTRL_TYPE_CPU, p_task->threads, p_task->blocksize, p_task->p_arguments);
 			break;
 		case CTRL_TASK_TYPE_MOVETO: {
-			Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_task->p_tile->ext);
-			HitTile       *p_tile      = p_task->p_tile;
+			HitTile       *p_tile          = &p_task->tile;
+			Ctrl_Tile     *p_tile_data     = (Ctrl_Tile *)p_tile->ext;
+			Ctrl_Cpu_Tile *p_tile_data_cpu = p_tile_data->p_impls[p_ctrl->global_id].tile.p_cpu;
 			/* TODO: STRIDED TILES */
 
 			/* TILES WITH THEIR OWN MEMORY ALLOCATION, OR CONTIGUOUS 1D TILES NEED ONLY ONE CONTIGUOUS COPY */
 			if ((p_tile->memStatus == HIT_MS_OWNER) || (p_tile->shape.info.sig.numDims == 1)) {
-				memcpy(p_tile_data->p_device_data, p_tile->data, ((size_t)(p_tile->acumCard)) * (p_tile->baseExtent));
+				memcpy(p_tile_data_cpu->p_device_data, p_tile->data, ((size_t)(p_tile->acumCard)) * (p_tile->baseExtent));
 			}
-			/* CONTIGUOUS 2D TILES */
+			/* 2D TILES */
 			else if (p_tile->shape.info.sig.numDims == 2) {
 				for (int i = 0; i < p_tile->card[0]; i++) {
-					memcpy((void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1])),
+					memcpy((void *)(p_tile_data_cpu->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1])),
 						   (void *)(p_tile->data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1])),
 						   ((size_t)(p_tile->card[1])) * (p_tile->baseExtent));
 				}
 			}
-			/* CONTIGUOUS 3D TILES */
+			/* 3D TILES */
 			// TODO: Check if 3D transfers are correct! - Manu 04/2021
 			else if (p_tile->shape.info.sig.numDims == 3) {
 				for (int i = 0; i < p_tile->card[0]; i++) {
 					for (int j = 0; j < p_tile->card[1]; j++) {
-						memcpy((void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1] + j * p_tile->origAcumCard[2])),
+						memcpy((void *)(p_tile_data_cpu->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1] + j * p_tile->origAcumCard[2])),
 							   (void *)(p_tile->data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1] + j * p_tile->origAcumCard[2])),
 							   ((size_t)(p_tile->card[2])) * (p_tile->baseExtent));
 					}
@@ -580,19 +553,20 @@ void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task) {
 			break;
 		}
 		case CTRL_TASK_TYPE_MOVEFROM: {
-			Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_task->p_tile->ext);
-			HitTile       *p_tile      = p_task->p_tile;
+			HitTile       *p_tile          = &p_task->tile;
+			Ctrl_Tile     *p_tile_data     = (Ctrl_Tile *)p_tile->ext;
+			Ctrl_Cpu_Tile *p_tile_data_cpu = p_tile_data->p_impls[p_ctrl->global_id].tile.p_cpu;
 			/* TODO: STRIDED TILES */
 
 			/* TILES WITH THEIR OWN MEMORY ALLOCATION, OR CONTIGUOUS 1D TILES NEED ONLY ONE CONTIGUOUS COPY */
 			if ((p_tile->memStatus == HIT_MS_OWNER) || (p_tile->shape.info.sig.numDims == 1)) {
-				memcpy(p_tile->data, p_tile_data->p_device_data, ((size_t)(p_tile->acumCard)) * (p_tile->baseExtent));
+				memcpy(p_tile->data, p_tile_data_cpu->p_device_data, ((size_t)(p_tile->acumCard)) * (p_tile->baseExtent));
 			}
 			/* CONTIGUOUS 2D TILES */
 			else if (p_tile->shape.info.sig.numDims == 2) {
 				for (int i = 0; i < p_tile->card[0]; i++) {
 					memcpy((void *)(p_tile->data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1])),
-						   (void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1])),
+						   (void *)(p_tile_data_cpu->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1])),
 						   ((size_t)(p_tile->card[1])) * (p_tile->baseExtent));
 				}
 			}
@@ -602,7 +576,7 @@ void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task) {
 				for (int i = 0; i < p_tile->card[0]; i++) {
 					for (int j = 0; j < p_tile->card[1]; j++) {
 						memcpy((void *)(p_tile->data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1] + j * p_tile->origAcumCard[2])),
-							   (void *)(p_tile_data->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1] + j * p_tile->origAcumCard[2])),
+							   (void *)(p_tile_data_cpu->p_device_data + (p_tile->baseExtent) * (i * p_tile->origAcumCard[1] + j * p_tile->origAcumCard[2])),
 							   ((size_t)(p_tile->card[2])) * (p_tile->baseExtent));
 					}
 				}
@@ -614,12 +588,10 @@ void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task) {
 		}
 		case CTRL_TASK_TYPE_WAITEVENT:
 			Ctrl_GenericEvent_Wait(p_task->event);
+			Ctrl_GenericEvent_Release(p_task->event);
 			break;
 		case CTRL_TASK_TYPE_SIGNALEVENT:
 			Ctrl_GenericEvent_Signal(p_task->event);
-			break;
-		case CTRL_TASK_TYPE_RELEASEEVENT:
-			Ctrl_GenericEvent_Release(p_task->event);
 			break;
 		default:
 			fprintf(stderr, "[Ctrl_Cpu] EvalTaskInner: task type %d not implemented on this stream\n", p_task->task_type);
@@ -631,12 +603,16 @@ void Ctrl_Cpu_EvalTaskInner(Ctrl_Task *p_task) {
  ** TASKS'S EVALUATION FUNCTIONS **
  **********************************/
 
-void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl) {
+void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
+	if (p_ctrl->p_tile_list_head != NULL) {
+		fprintf(stderr, "Warning: Tiles left attached to ctrl %d\n", p_ctrl->global_id);
+		fflush(stderr);
+	}
+
 	// send destroy task to kernel and host tasks streams
 	Ctrl_Task task = CTRL_TASK_NULL;
-	task.task_type = CTRL_TASK_TYPE_DESTROYCNTRL;
+	task.task_type = CTRL_TASK_TYPE_DESTROYCTRL;
 	Ctrl_TaskQueue_Push(p_ctrl->p_kernel_stream, task);
-	Ctrl_TaskQueue_Push(p_ctrl_host_stream, task);
 
 	// send destroy task to transfer streams
 	if (p_ctrl->mem_moves) {
@@ -649,93 +625,166 @@ void Ctrl_Cpu_Destroy(Ctrl_Cpu *p_ctrl) {
 	p_ctrl->p_tile_list_tail = NULL;
 
 	// Free reamaining fields from Ctrl
-	Ctrl_CpuEvent_Destroy(&p_ctrl->event_seq);
+	Ctrl_GenericEvent_Release(p_ctrl->seq_event);
 	hwloc_bitmap_free(p_ctrl->device_cpuset);
 }
 
 void Ctrl_Cpu_EvalTaskGlobalSync(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	// wait for all events from all tiles
-	for (Ctrl_Cpu_Tile_List *p_aux = p_ctrl->p_tile_list_head; p_aux != NULL; p_aux = p_aux->p_next) {
-		Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_aux->p_tile_ext);
+	for (Ctrl_Tile_List *p_aux = p_ctrl->p_tile_list_head; p_aux != NULL; p_aux = p_aux->p_next) {
+		Ctrl_Tile     *p_tile_data     = (Ctrl_Tile *)(p_aux->p_tile_ext);
+		Ctrl_Cpu_Tile *p_tile_data_cpu = p_tile_data->p_impls[p_ctrl->global_id].tile.p_cpu;
 
-		Ctrl_CpuEvent_Wait(p_tile_data->host_last_read_event);
-		Ctrl_CpuEvent_Wait(p_tile_data->host_last_write_event);
+		Ctrl_GenericEvent_Wait(p_tile_data->last_host_read_event);
+		Ctrl_GenericEvent_Wait(p_tile_data->last_host_write_event);
 		if (p_ctrl->mem_moves) {
-			Ctrl_CpuEvent_Wait(p_tile_data->kernel_last_read_event);
-			Ctrl_CpuEvent_Wait(p_tile_data->kernel_last_write_event);
+			Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_kernel_read_event);
+			Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_kernel_write_event);
 
-			Ctrl_CpuEvent_Wait(p_tile_data->offloading_last_read_event);
-			Ctrl_CpuEvent_Wait(p_tile_data->offloading_last_write_event);
+			Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_htd_event);
+			Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_dth_event);
 		}
 	}
-	Ctrl_Cpu_Sync(p_ctrl);
 }
 
 void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	Ctrl_GenericEvent kernel_event = CTRL_GENERIC_EVENT_NULL;
-	kernel_event.event_type        = CTRL_EVENT_TYPE_CPU;
-
 	// wait for appropiate events from arguments according to their role
 	for (int i = 0; i < p_task->n_arguments; i++) {
 		if (p_task->p_roles[i] != KERNEL_INVAL) {
-			HitTile       *p_tile      = (HitTile *)(p_task->pp_pointers[i]);
-			Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+			HitTile        *p_tile           = (HitTile *)(p_task->pp_pointers[i]);
+			Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+			Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
+			Ctrl_Cpu_Tile  *p_tile_data_cpu  = p_tile_data_impl->tile.p_cpu;
 
 			if (hit_tileIsNull(*p_tile)) {
-				fprintf(stderr, "Warning: Launching task, skipping null tile on parameter %d\n", i);
+				fprintf(stderr, "Warning: Launching task %s, skipping null tile on parameter %d (starting at 0)\n", p_task->p_func_name, i);
 				fflush(stderr);
 				continue;
 			}
 
 			if (p_ctrl->mem_moves) {
-				if (p_tile_data->device_status == CTRL_TILE_UNALLOC) {
-					fprintf(stderr, "[Ctrl_Cpu] Internal Error: Launching kernel with tile with no device memory as argument and mem moves active %d\n", i);
+				if (p_tile_data_impl->device_status == CTRL_TILE_UNALLOC) {
+					fprintf(stderr, "[Ctrl_Cpu] Internal Error: Launching kernel %s with memory movements active, with a tile with no device memory as parameter %d (starting at 0)\n", p_task->p_func_name, i);
+					fflush(stderr);
+					exit(EXIT_FAILURE);
+				}
+
+				// if tile's role is IN or IO, is not updated on device and host has memory allocated transfer it
+				if (p_task->p_roles[i] != KERNEL_OUT && p_tile_data_impl->device_status == CTRL_TILE_INVALID &&
+					p_tile_data->host_status != CTRL_TILE_UNALLOC && p_ctrl->dependance_mode == CTRL_MODE_IMPLICIT) {
+					if (p_tile_data->host_status == CTRL_TILE_INVALID) {
+						for (int j = 0; j < Ctrl_GetNCtrls(); j++) {
+							Ctrl_Tile_Impl *p_tile_impl_j = &p_tile_data->p_impls[j];
+							if (p_tile_impl_j->device_status == CTRL_TILE_VALID) {
+								// TODO @sergioalo if tiles had ptr to associated abstract ctrl normal movefrom could be used and this switch removed
+								switch (p_tile_impl_j->type) {
+									#ifdef _CTRL_ARCH_CPU_
+									case CTRL_TYPE_CPU:
+										Ctrl_Cpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_cpu->p_ctrl, p_tile);
+										break;
+									#endif // _CTRL_ARCH_CPU_
+
+									#ifdef _CTRL_ARCH_CUDA_
+									case CTRL_TYPE_CUDA:
+										Ctrl_Cuda_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_cuda->p_ctrl, p_tile);
+										break;
+									#endif // _CTRL_ARCH_CUDA_
+
+									#ifdef _CTRL_ARCH_OPENCL_GPU_
+									case CTRL_TYPE_OPENCL_GPU:
+										Ctrl_OpenCLGpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_opencl->p_ctrl, p_tile);
+										break;
+									#endif // _CTRL_ARCH_OPENCL_GPU_
+
+									#ifdef _CTRL_ARCH_FPGA_
+									case CTRL_TYPE_FPGA:
+										Ctrl_FPGA_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_fpga->p_ctrl, p_tile);
+										break;
+									#endif // _CTRL_ARCH_FPGA_
+									default:
+										break;
+								}
+								break;
+							}
+						}
+						if (p_tile_data->host_status == CTRL_TILE_INVALID) {
+							fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on kernel %s, parameter: %d (starting at 0)\n", p_task->p_func_name, i);
+							fflush(stderr);
+						}
+					}
+					Ctrl_Cpu_EvalTaskMoveToInner(p_ctrl, p_tile);
+				}
+
+				if (p_tile_data_impl->device_status == CTRL_TILE_INVALID && p_task->p_roles[i] != KERNEL_OUT) {
+					fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on kernel %s, parameter: %d (starting at 0)\n", p_task->p_func_name, i);
 					fflush(stderr);
 				}
 
-				if (p_task->p_roles[i] != KERNEL_OUT && p_tile_data->device_status == CTRL_TILE_INVALID) {
-					if (p_tile_data->host_status != CTRL_TILE_VALID) {
-						fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on kernel %d\n", i);
-						fflush(stderr);
-					} else {
-						// if tile's role is IN or IO, is not updated on device and host has memory allocated transfer it
-						if (p_ctrl->dependance_mode == CTRL_MODE_IMPLICIT) {
-							Ctrl_Cpu_EvalTaskMoveToInner(p_ctrl, p_tile);
-						}
-					}
+				if (p_tile_data->host_status != CTRL_TILE_UNALLOC && !(p_tile_data_impl->device_status == CTRL_TILE_VALID && p_tile_data->host_status == CTRL_TILE_INVALID)) {
+					Ctrl_GenericEvent_StreamWait(p_tile_data_cpu->last_htd_event, p_ctrl->p_kernel_stream);
 				}
-
-				kernel_event.event.event_cpu = p_tile_data->kernel_last_write_event;
-				Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
-
-				kernel_event.event.event_cpu = p_tile_data->offloading_last_write_event;
-				Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
 
 				if (p_task->p_roles[i] != KERNEL_IN) {
-					kernel_event.event.event_cpu = p_tile_data->kernel_last_read_event;
-					Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
-
-					kernel_event.event.event_cpu = p_tile_data->offloading_last_read_event;
-					Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
+					if (p_tile_data->host_status != CTRL_TILE_UNALLOC && !(p_tile_data_impl->device_status == CTRL_TILE_VALID && p_tile_data->host_status == CTRL_TILE_INVALID)) {
+						Ctrl_GenericEvent_StreamWait(p_tile_data_cpu->last_dth_event, p_ctrl->p_kernel_stream);
+					}
 				}
 			} else {
-				if (p_tile_data->device_status == CTRL_TILE_UNALLOC && p_tile_data->host_status == CTRL_TILE_UNALLOC) {
+				if (p_tile_data->host_status == CTRL_TILE_UNALLOC) {
 					fprintf(stderr, "[Ctrl_Cpu] Internal Error: Tile with no memory allocated as argument to kernel %d\n", i);
 					fflush(stderr);
 					exit(EXIT_FAILURE);
 				}
 
-				if (p_task->p_roles[i] != KERNEL_OUT && (p_tile_data->host_status == CTRL_TILE_INVALID || p_tile_data->device_status == CTRL_TILE_INVALID)) {
-					fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on kernel %d\n", i);
+				for (int j = 0; j < Ctrl_GetNCtrls(); j++) {
+					Ctrl_Tile_Impl *p_tile_impl_j = &p_tile_data->p_impls[j];
+					if (p_tile_data_impl->type == CTRL_TYPE_NULL) {
+						continue;
+					}
+
+					if (p_task->p_roles[i] != KERNEL_OUT && p_tile_data->host_status == CTRL_TILE_INVALID && p_tile_impl_j->device_status == CTRL_TILE_VALID) {
+						// TODO @sergioalo if tiles had ptr to associated abstract ctrl normal movefrom could be used and this switch removed
+						switch (p_tile_impl_j->type) {
+							#ifdef _CTRL_ARCH_CPU_
+							case CTRL_TYPE_CPU:
+								Ctrl_Cpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_cpu->p_ctrl, p_tile);
+								break;
+							#endif // _CTRL_ARCH_CPU_
+
+							#ifdef _CTRL_ARCH_CUDA_
+							case CTRL_TYPE_CUDA:
+								Ctrl_Cuda_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_cuda->p_ctrl, p_tile);
+								break;
+							#endif // _CTRL_ARCH_CUDA_
+
+							#ifdef _CTRL_ARCH_OPENCL_GPU_
+							case CTRL_TYPE_OPENCL_GPU:
+								Ctrl_OpenCLGpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_opencl->p_ctrl, p_tile);
+								break;
+							#endif // _CTRL_ARCH_OPENCL_GPU_
+
+							#ifdef _CTRL_ARCH_FPGA_
+							case CTRL_TYPE_FPGA:
+								Ctrl_FPGA_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_fpga->p_ctrl, p_tile);
+								break;
+							#endif // _CTRL_ARCH_FPGA_
+							default:
+								break;
+						}
+					}
+					// 0 cpy kernel uses the host memory so the events are the same as a host task
+					Ctrl_HostTaskWait(p_tile_impl_j, p_task->p_roles[i], p_ctrl->p_kernel_stream);
+				}
+
+				if (p_tile_data->host_status == CTRL_TILE_INVALID && p_task->p_roles[i] != KERNEL_OUT) {
+					fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on kernel. Argument position %d.\n", i);
 					fflush(stderr);
 				}
 
-				kernel_event.event.event_cpu = p_tile_data->host_last_write_event;
-				Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
+				Ctrl_GenericEvent_StreamWait(p_tile_data->last_host_write_event, p_ctrl->p_kernel_stream);
 
 				if (p_task->p_roles[i] != KERNEL_IN) {
-					kernel_event.event.event_cpu = p_tile_data->host_last_read_event;
-					Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
+					Ctrl_GenericEvent_StreamWait(p_tile_data->last_host_read_event, p_ctrl->p_kernel_stream);
 				}
 			}
 		}
@@ -744,14 +793,10 @@ void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	Ctrl_Request request;
 	request.cpu.n_cores = p_ctrl->n_cores;
 
-	p_task->request   = request;
-	p_task->ctrl_type = CTRL_TYPE_CPU;
+	p_task->request = request;
 
 	// wait for previous task to finish if policy is sync
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		kernel_event.event.event_cpu = p_ctrl->event_seq;
-		Ctrl_GenericEvent_StreamWait(kernel_event, p_ctrl->p_kernel_stream);
-	}
+	Ctrl_SyncWait(p_ctrl->p_kernel_stream);
 
 	// push kernel task to kernel exec queue
 	Ctrl_TaskQueue_Push(p_ctrl->p_kernel_stream, *p_task);
@@ -759,304 +804,199 @@ void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	// update events on arguments according to their roles
 	for (int i = 0; i < p_task->n_arguments; i++) {
 		if (p_task->p_roles[i] != KERNEL_INVAL) {
-			HitTile       *p_tile      = (HitTile *)(p_task->pp_pointers[i]);
-			Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+			HitTile        *p_tile           = (HitTile *)(p_task->pp_pointers[i]);
+			Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+			Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
+			Ctrl_Cpu_Tile  *p_tile_data_cpu  = p_tile_data_impl->tile.p_cpu;
 
-			if (p_ctrl->mem_moves) {
-				if (p_task->p_roles[i] != KERNEL_IN) {
-					p_tile_data->device_status = CTRL_TILE_VALID;
-					if (p_tile_data->host_status == CTRL_TILE_VALID) p_tile_data->host_status = CTRL_TILE_INVALID;
-					Ctrl_CpuEvent_Record(&p_tile_data->kernel_last_write_event, p_ctrl->p_kernel_stream);
-				}
-
-				if (p_task->p_roles[i] != KERNEL_OUT) {
-					Ctrl_CpuEvent_Record(&p_tile_data->kernel_last_read_event, p_ctrl->p_kernel_stream);
-				}
-			} else {
-				if (p_task->p_roles[i] != KERNEL_IN) {
-					if (p_tile_data->host_status != CTRL_TILE_UNALLOC)
-						p_tile_data->host_status = CTRL_TILE_VALID;
-					else
-						p_tile_data->device_status = CTRL_TILE_VALID;
-
-					Ctrl_CpuEvent_Record(&p_tile_data->host_last_write_event, p_ctrl->p_kernel_stream);
-				}
-
-				if (p_task->p_roles[i] != KERNEL_OUT) {
-					Ctrl_CpuEvent_Record(&p_tile_data->host_last_read_event, p_ctrl->p_kernel_stream);
-				}
-			}
-		}
-	}
-
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_CpuEvent_Record(&p_ctrl->event_seq, p_ctrl->p_kernel_stream);
-	}
-}
-
-void Ctrl_Cpu_EvalTaskHostTaskLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	Ctrl_GenericEvent host_task_event = CTRL_GENERIC_EVENT_NULL;
-	host_task_event.event_type        = CTRL_EVENT_TYPE_CPU;
-
-	// wait for appropiate events from arguments according to their role
-	for (int i = 0; i < p_task->n_arguments; i++) {
-		if (p_task->p_roles[i] != KERNEL_INVAL) {
-			HitTile       *p_tile      = (HitTile *)(p_task->pp_pointers[i]);
-			Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
-
-			if (p_ctrl->mem_moves) {
-				if (p_tile_data->host_status == CTRL_TILE_UNALLOC) {
-					fprintf(stderr, "[Ctrl_Cpu] Internal Error: Launching host task with tile with no host memory as argument with mem moves active %d\n", i);
-					fflush(stderr);
-				}
-
-				if (p_task->p_roles[i] != KERNEL_OUT && p_tile_data->host_status == CTRL_TILE_INVALID) {
-					if (p_tile_data->device_status != CTRL_TILE_VALID) {
-						fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on host task %d\n", i);
-						fflush(stderr);
-					} else {
-						// if tile's role is IN or IO, is not updated on host and device is valid transfer it
-						if (p_ctrl->dependance_mode == CTRL_MODE_IMPLICIT) {
-							Ctrl_Cpu_EvalTaskMoveFromInner(p_ctrl, p_tile);
-						}
+			if (p_task->p_roles[i] != KERNEL_IN) {
+				// invalidate tile on all other devs (this one is validated later)
+				for (int j = 0; j < Ctrl_GetNCtrls(); j++) {
+					Ctrl_Tile_Impl *p_tile_data_impl_j = &p_tile_data->p_impls[j];
+					if (p_tile_data_impl_j->type == CTRL_TYPE_NULL) {
+						continue;
 					}
+					if (p_tile_data_impl_j->device_status == CTRL_TILE_VALID) p_tile_data_impl_j->device_status = CTRL_TILE_INVALID;
 				}
-
-				host_task_event.event.event_cpu = p_tile_data->offloading_last_read_event;
-				Ctrl_GenericEvent_StreamWait(host_task_event, p_ctrl_host_stream);
-			} else {
-				if (p_tile_data->device_status == CTRL_TILE_UNALLOC && p_tile_data->host_status == CTRL_TILE_UNALLOC) {
-					fprintf(stderr, "[Ctrl_Cpu] Internal Error: Tile with no memory allocated as argument to host task %d\n", i);
-					fflush(stderr);
-					exit(EXIT_FAILURE);
-				}
-				if (p_task->p_roles[i] != KERNEL_OUT && p_tile_data->host_status == CTRL_TILE_INVALID) {
-					fprintf(stderr, "[Ctrl_Cpu] Warning: Tile with uninitialized data as input on kernel %d\n", i);
-					fflush(stderr);
-				}
-			}
-
-			host_task_event.event.event_cpu = p_tile_data->host_last_write_event;
-			Ctrl_GenericEvent_StreamWait(host_task_event, p_ctrl_host_stream);
-
-			if (p_task->p_roles[i] != KERNEL_IN) {
 				if (p_ctrl->mem_moves) {
-					p_tile_data->host_status = CTRL_TILE_VALID;
-					if (p_tile_data->device_status == CTRL_TILE_VALID) p_tile_data->device_status = CTRL_TILE_INVALID;
-					host_task_event.event.event_cpu = p_tile_data->offloading_last_write_event;
-					Ctrl_GenericEvent_StreamWait(host_task_event, p_ctrl_host_stream);
+					if (p_tile_data->host_status == CTRL_TILE_VALID) p_tile_data->host_status = CTRL_TILE_INVALID;
+					p_tile_data_impl->device_status = CTRL_TILE_VALID;
+					Ctrl_CpuEvent_Record(&p_tile_data_cpu->last_kernel_write_event.event.event_cpu, p_ctrl->p_kernel_stream);
 				} else {
-					if (p_tile_data->host_status != CTRL_TILE_UNALLOC)
-						p_tile_data->host_status = CTRL_TILE_VALID;
-					else
-						p_tile_data->device_status = CTRL_TILE_VALID;
+					p_tile_data->host_status = CTRL_TILE_VALID;
+					Ctrl_CpuEvent_Record(&p_tile_data->last_host_write_event.event.event_cpu, p_ctrl->p_kernel_stream);
 				}
-
-				host_task_event.event.event_cpu = p_tile_data->host_last_read_event;
-				Ctrl_GenericEvent_StreamWait(host_task_event, p_ctrl_host_stream);
-			}
-		}
-	}
-
-	// wait for previous task to finish if policy is sync
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		host_task_event.event.event_cpu = p_ctrl->event_seq;
-		Ctrl_GenericEvent_StreamWait(host_task_event, p_ctrl_host_stream);
-	}
-
-	// push host task to host exec queue
-	Ctrl_TaskQueue_Push(p_ctrl_host_stream, *p_task);
-
-	// update events on arguments according to their roles
-	for (int i = 0; i < p_task->n_arguments; i++) {
-		if (p_task->p_roles[i] != KERNEL_INVAL) {
-			HitTile       *p_tile      = (HitTile *)(p_task->pp_pointers[i]);
-			Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
-			if (p_task->p_roles[i] != KERNEL_IN) {
-				Ctrl_CpuEvent_Record(&p_tile_data->host_last_write_event, p_ctrl_host_stream);
 			}
 
 			if (p_task->p_roles[i] != KERNEL_OUT) {
-				Ctrl_CpuEvent_Record(&p_tile_data->host_last_read_event, p_ctrl_host_stream);
+				if (p_ctrl->mem_moves) {
+					Ctrl_CpuEvent_Record(&p_tile_data_cpu->last_kernel_read_event.event.event_cpu, p_ctrl->p_kernel_stream);
+				} else {
+					Ctrl_CpuEvent_Record(&p_tile_data->last_host_read_event.event.event_cpu, p_ctrl->p_kernel_stream);
+				}
 			}
 		}
-	}
 
-	// wait for host task to finish if policy is sync
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_CpuEvent_Record(&p_ctrl->event_seq, p_ctrl_host_stream);
-		Ctrl_CpuEvent_Wait(p_ctrl->event_seq);
-		Ctrl_Cpu_Sync(p_ctrl);
+		if (p_ctrl->policy == CTRL_POLICY_SYNC) {
+			Ctrl_CpuEvent_Record(&p_ctrl->seq_event.event.event_cpu, p_ctrl->p_kernel_stream);
+		}
 	}
 }
 
-void Ctrl_Cpu_EvalTaskDomainTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	Ctrl_Cpu_CreateTile(p_ctrl, p_task);
-	Ctrl_Cpu_Sync(p_ctrl);
+void Ctrl_Cpu_HostTaskWait(Ctrl_Cpu_Tile *p_tile, char rol, Ctrl_TaskQueue *p_queue) {
+	Ctrl_GenericEvent_StreamWait(p_tile->last_dth_event, p_queue);
+
+	if (rol != KERNEL_IN) {
+		Ctrl_GenericEvent_StreamWait(p_tile->last_htd_event, p_queue);
+	}
+}
+
+void Ctrl_Cpu_SyncWait(Ctrl_Cpu *p_ctrl, Ctrl_TaskQueue *p_queue) {
+	Ctrl_GenericEvent_StreamWait(p_ctrl->seq_event, p_queue);
 }
 
 void Ctrl_Cpu_EvalTaskAllocTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+	HitTile        *p_tile           = p_task->p_tile;
+	Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
 
-	if (!(p_tile_data->is_initialized))
+	if (p_tile_data_impl->type == CTRL_TYPE_NULL)
 		Ctrl_Cpu_InitTile(p_ctrl, p_task);
 
-	// memory was already allocated for this tile but mem moves are off
-	if (!p_ctrl->mem_moves && (p_tile_data->host_status != CTRL_TILE_UNALLOC || p_tile_data->device_status != CTRL_TILE_UNALLOC)) {
-		fprintf(stderr, "[Ctrl_Cpu] Warning: Memory movements are off for this ctrl and memory for this tile was already allocated. Ignoring allocation call.\n");
-		Ctrl_Cpu_Sync(p_ctrl);
+	Ctrl_Cpu_Tile *p_tile_data_cpu = p_tile_data_impl->tile.p_cpu;
+
+	// make device memory point to already allocated host memory
+	if (!p_ctrl->mem_moves && p_tile_data->host_status != CTRL_TILE_UNALLOC) {
+		p_tile_data_cpu->p_device_data = p_tile->data;
 		return;
 	}
 
-	if (p_task->flags & (CTRL_MEM_ALLOC_BOTH | CTRL_MEM_ALLOC_HOST) || !(p_task->flags & CTRL_MEM_ALLOC_DEV)) {
-		if (p_tile_data->host_status != CTRL_TILE_UNALLOC) {
-			fprintf(stderr, "[Ctrl_Cpu] Warning: Host memory already allocated for this tile, ignoring this call.\n");
-			fflush(stderr);
-			Ctrl_Cpu_Sync(p_ctrl);
-			return;
-		}
+	if ((p_task->flags & CTRL_MEM_ALLOC_HOST || !(p_task->flags & CTRL_MEM_ALLOC_DEV)) && p_tile_data->host_status == CTRL_TILE_UNALLOC) {
 		// Allocate memory for the host image of the data inside the tile, equivalent to hit_tileAlloc(p_tile);
 		p_tile->data             = (void *)malloc((size_t)p_tile->acumCard * p_tile->baseExtent);
 		p_tile->memPtr           = p_tile->data;
 		p_tile_data->host_status = CTRL_TILE_INVALID;
+		p_tile_data->pinned      = CTRL_TYPE_NULL;
 		if (!p_ctrl->mem_moves) {
-			p_tile_data->p_device_data = p_tile->data;
+			p_tile_data_cpu->p_device_data = p_tile->data;
 		}
 	}
 
-	if ((p_ctrl->mem_moves && (p_task->flags & (CTRL_MEM_ALLOC_DEV | CTRL_MEM_ALLOC_BOTH) || !(p_task->flags & CTRL_MEM_ALLOC_HOST))) ||
-		(!p_ctrl->mem_moves && (p_task->flags & CTRL_MEM_ALLOC_DEV) && !(p_task->flags & (CTRL_MEM_ALLOC_BOTH | CTRL_MEM_ALLOC_HOST)))) {
+	if ((p_ctrl->mem_moves && (p_task->flags & CTRL_MEM_ALLOC_DEV || !(p_task->flags & CTRL_MEM_ALLOC_HOST))) ||
+		(!p_ctrl->mem_moves && (p_task->flags & CTRL_MEM_ALLOC_DEV) && !(p_task->flags & CTRL_MEM_ALLOC_HOST) && p_tile_data->host_status == CTRL_TILE_UNALLOC)) {
 
-		if (p_tile_data->device_status != CTRL_TILE_UNALLOC) {
+		if (p_tile_data_impl->device_status != CTRL_TILE_UNALLOC) {
 			fprintf(stderr, "[Ctrl_Cpu] Warning: Device memory already allocated for this tile, ignoring this call.\n");
 			fflush(stderr);
-			Ctrl_Cpu_Sync(p_ctrl);
 			return;
 		}
-		p_tile_data->p_device_data = (void *)hwloc_alloc_membind(p_ctrl->topo, (size_t)p_tile->acumCard * p_tile->baseExtent, p_ctrl->device_cpuset, HWLOC_MEMBIND_BIND, 0);
-		p_tile_data->device_status = CTRL_TILE_INVALID;
-		if (!p_ctrl->mem_moves) {
-			p_tile->data = p_tile_data->p_device_data;
+		p_tile_data_cpu->p_device_data = (void *)hwloc_alloc_membind(p_ctrl->topo, (size_t)p_tile->acumCard * p_tile->baseExtent, p_ctrl->device_cpuset, HWLOC_MEMBIND_BIND, 0);
+
+		if (p_ctrl->mem_moves) {
+			p_tile_data_impl->device_status = CTRL_TILE_INVALID;
+		} else {
+			p_tile_data->host_status = CTRL_TILE_INVALID;
+			p_tile_data->pinned      = CTRL_TYPE_CPU;
+			p_tile->data             = p_tile_data_cpu->p_device_data;
 		}
 	}
-
-	Ctrl_Cpu_Sync(p_ctrl);
 }
 
 void Ctrl_Cpu_EvalTaskSelectTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	Ctrl_Cpu_CreateTile(p_ctrl, p_task);
+	HitTile *p_tile = p_task->p_tile;
 
-	HitTile *p_tile = (HitTile *)(p_task->p_tile);
+	Ctrl_Cpu_InitTile(p_ctrl, p_task);
 
-	if (hit_tileIsNull(*p_tile)) {
-		Ctrl_Cpu_Sync(p_ctrl);
-		return;
-	}
-
-	HitTile       *p_parent      = p_tile->ref;
-	Ctrl_Cpu_Tile *p_tile_data   = (Ctrl_Cpu_Tile *)(p_tile->ext);
-	p_tile_data->p_parent_ext    = ((Ctrl_Cpu_Tile *)(p_tile->ref->ext));
-	Ctrl_Cpu_Tile *p_parent_data = p_tile_data->p_parent_ext;
-
-	if ((p_task->flags & CTRL_SELECT_INIT) == CTRL_SELECT_INIT) {
-		Ctrl_Cpu_InitTile(p_ctrl, p_task);
-	}
+	HitTile        *p_parent           = p_tile->ref;
+	Ctrl_Tile      *p_tile_data        = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl   = &p_tile_data->p_impls[p_ctrl->global_id];
+	Ctrl_Cpu_Tile  *p_tile_data_cpu    = p_tile_data_impl->tile.p_cpu;
+	Ctrl_Tile      *p_parent_data      = ((Ctrl_Tile *)(p_tile->ref->ext));
+	Ctrl_Tile_Impl *p_parent_data_impl = &p_parent_data->p_impls[p_ctrl->global_id];
+	Ctrl_Cpu_Tile  *p_parent_data_cpu  = p_parent_data_impl->tile.p_cpu;
 
 	if (p_tile->memStatus == HIT_MS_NOT_OWNER) {
-		p_tile_data->host_status   = p_tile_data->p_parent_ext->host_status;
-		p_tile_data->device_status = p_tile_data->p_parent_ext->device_status;
+		p_tile_data_impl->device_status = p_parent_data_impl->device_status;
 
-		p_tile_data->p_device_data = p_parent_data->p_device_data + (p_tile->data - p_parent->data);
+		p_tile_data_cpu->p_device_data = p_parent_data_cpu->p_device_data + (p_tile->data - p_parent->data);
 	}
-
-	Ctrl_Cpu_Sync(p_ctrl);
 }
 
 void Ctrl_Cpu_EvalTaskFreeTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+	HitTile        *p_tile           = p_task->p_tile;
+	Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
+	Ctrl_Cpu_Tile  *p_tile_data_cpu  = p_tile_data_impl->tile.p_cpu;
 
-	if (p_tile_data->is_initialized) {
-		// wait for the work related to the tile to finish
-		Ctrl_CpuEvent_Wait(p_tile_data->host_last_write_event);
-		Ctrl_CpuEvent_Wait(p_tile_data->host_last_read_event);
-		if (p_ctrl->mem_moves) {
-			Ctrl_CpuEvent_Wait(p_tile_data->kernel_last_read_event);
-			Ctrl_CpuEvent_Wait(p_tile_data->kernel_last_write_event);
-
-			Ctrl_CpuEvent_Wait(p_tile_data->offloading_last_read_event);
-			Ctrl_CpuEvent_Wait(p_tile_data->offloading_last_write_event);
-		}
-
-		// Destroy events of this tile
-		Ctrl_CpuEvent_Destroy(&p_tile_data->host_last_write_event);
-		Ctrl_CpuEvent_Destroy(&p_tile_data->host_last_read_event);
-		if (p_ctrl->mem_moves) {
-			Ctrl_CpuEvent_Destroy(&p_tile_data->kernel_last_read_event);
-			Ctrl_CpuEvent_Destroy(&p_tile_data->kernel_last_write_event);
-
-			Ctrl_CpuEvent_Destroy(&p_tile_data->offloading_last_read_event);
-			Ctrl_CpuEvent_Destroy(&p_tile_data->offloading_last_write_event);
-		}
-
-		// Remove tle from tile linked list
-		if (p_tile_data->p_tile_elem->p_prev != NULL) {
-			if (p_tile_data->p_tile_elem->p_next == NULL) {
-				p_tile_data->p_tile_elem->p_prev->p_next = NULL;
-				p_ctrl->p_tile_list_tail                 = p_tile_data->p_tile_elem->p_prev;
-			} else {
-				p_tile_data->p_tile_elem->p_prev->p_next = p_tile_data->p_tile_elem->p_next;
-			}
-		}
-
-		if (p_tile_data->p_tile_elem->p_next != NULL) {
-			if (p_tile_data->p_tile_elem->p_prev == NULL) {
-				p_tile_data->p_tile_elem->p_next->p_prev = NULL;
-				p_ctrl->p_tile_list_head                 = p_tile_data->p_tile_elem->p_next;
-			} else {
-				p_tile_data->p_tile_elem->p_next->p_prev = p_tile_data->p_tile_elem->p_prev;
-			}
-		}
-
-		// Clear node fields
-		p_tile_data->p_tile_elem->p_tile_ext = NULL;
-		p_tile_data->p_tile_elem->p_next     = NULL;
-		p_tile_data->p_tile_elem->p_prev     = NULL;
-
-		// Free node
-		free(p_tile_data->p_tile_elem);
+	// tile not initialized
+	if (p_tile_data_impl->type == CTRL_TYPE_NULL) {
+		fprintf(stderr, "[Ctrl_Cpu] Warning: Free from tile not attached to ctrl.\n");
+		return;
 	}
 
+	p_tile_data->valid_impls--;
+
+	// TODO @sergioalo if host stuff is not freed, should we wait for host task events?
+	// wait for the work related to the tile to finish
+	Ctrl_GenericEvent_Wait(p_tile_data->last_host_read_event);
+	Ctrl_GenericEvent_Wait(p_tile_data->last_host_write_event);
+	if (p_ctrl->mem_moves) {
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_kernel_read_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_kernel_write_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_dth_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_htd_event);
+	}
+
+	// Destroy events of this tile
+	Ctrl_GenericEvent_Release(p_tile_data_cpu->last_kernel_read_event);
+	Ctrl_GenericEvent_Release(p_tile_data_cpu->last_kernel_write_event);
+	Ctrl_GenericEvent_Release(p_tile_data_cpu->last_dth_event);
+	Ctrl_GenericEvent_Release(p_tile_data_cpu->last_htd_event);
+
+	// Remove tle from tile linked list
+	if (p_tile_data_cpu->p_tile_elem->p_prev != NULL) {
+		p_tile_data_cpu->p_tile_elem->p_prev->p_next = p_tile_data_cpu->p_tile_elem->p_next;
+	} else {
+		p_ctrl->p_tile_list_head = p_tile_data_cpu->p_tile_elem->p_next;
+	}
+
+	if (p_tile_data_cpu->p_tile_elem->p_next != NULL) {
+		p_tile_data_cpu->p_tile_elem->p_next->p_prev = p_tile_data_cpu->p_tile_elem->p_prev;
+	} else {
+		p_ctrl->p_tile_list_tail = p_tile_data_cpu->p_tile_elem->p_prev;
+	}
+
+	// Clear node fields
+	p_tile_data_cpu->p_tile_elem->p_tile_ext = NULL;
+	p_tile_data_cpu->p_tile_elem->p_next     = NULL;
+	p_tile_data_cpu->p_tile_elem->p_prev     = NULL;
+
+	// Free node
+	free(p_tile_data_cpu->p_tile_elem);
+
 	if (p_tile->memStatus == HIT_MS_OWNER) {
-		if (p_tile_data->host_status != CTRL_TILE_UNALLOC) {
-			// Free host image of the tile, equivalent to hit_tileFree(*p_tile);
-			free(p_tile->data);
+		// Free device image of the tile
+		if (p_tile_data_impl->device_status != CTRL_TILE_UNALLOC) {
+			hwloc_free(p_ctrl->topo, p_tile_data_cpu->p_device_data, (size_t)p_tile->acumCard * p_tile->baseExtent);
 		}
-
-		if (p_tile_data->device_status != CTRL_TILE_UNALLOC) {
-			// Free device image of the tile
-			hwloc_free(p_ctrl->topo, p_tile_data->p_device_data, (size_t)p_tile->acumCard * p_tile->baseExtent);
-		}
-
-		p_tile->memPtr    = NULL;
-		p_tile->data      = NULL;
-		p_tile->memStatus = HIT_MS_NOMEM;
 	}
 
 	// Clear tile fields
-	p_tile->ext         = NULL;
-	p_tile_data->p_ctrl = NULL;
+	p_tile_data_cpu->p_ctrl = NULL;
 
 	// Free tile
-	free(p_tile_data);
+	free(p_tile_data_cpu);
 
-	Ctrl_Cpu_Sync(p_ctrl);
+	// if this was the last ctrl the tile was attached to free the host stuff as well
+	if (p_tile_data->valid_impls == 0) {
+		Ctrl_FreeHostInner(p_tile);
+	}
 }
 
 void Ctrl_Cpu_EvalTaskMoveTo(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+	HitTile        *p_tile           = p_task->p_tile;
+	Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
 
 	if (hit_tileIsNull(*p_tile)) return;
 
@@ -1068,7 +1008,7 @@ void Ctrl_Cpu_EvalTaskMoveTo(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 			exit(EXIT_FAILURE);
 		}
 
-		if (p_tile_data->device_status == CTRL_TILE_UNALLOC) {
+		if (p_tile_data_impl->device_status == CTRL_TILE_UNALLOC) {
 			fprintf(stderr, "[Ctrl_Cpu] Internal Error: Tryinng to move tile from host to device but device memory was not allocated\n");
 			fflush(stderr);
 			exit(EXIT_FAILURE);
@@ -1080,21 +1020,16 @@ void Ctrl_Cpu_EvalTaskMoveTo(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 		}
 
 		// If tile is not updated perform the transfer
-		if (!(p_tile_data->host_status == CTRL_TILE_VALID && p_tile_data->device_status == CTRL_TILE_VALID) || p_ctrl->dependance_mode == CTRL_MODE_EXPLICIT) {
+		if (!(p_tile_data->host_status == CTRL_TILE_VALID && p_tile_data_impl->device_status == CTRL_TILE_VALID) || p_ctrl->dependance_mode == CTRL_MODE_EXPLICIT) {
 			Ctrl_Cpu_EvalTaskMoveToInner(p_ctrl, p_tile);
 		}
-	}
-
-	// If policy is sync wait for transfer to finish
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_CpuEvent_Wait(p_ctrl->event_seq);
-		Ctrl_Cpu_Sync(p_ctrl);
 	}
 }
 
 void Ctrl_Cpu_EvalTaskMoveFrom(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+	HitTile        *p_tile           = p_task->p_tile;
+	Ctrl_Tile      *p_tile_data      = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Tile_Impl *p_tile_data_impl = &p_tile_data->p_impls[p_ctrl->global_id];
 
 	if (hit_tileIsNull(*p_tile)) return;
 
@@ -1106,52 +1041,43 @@ void Ctrl_Cpu_EvalTaskMoveFrom(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 			exit(EXIT_FAILURE);
 		}
 
-		if (p_tile_data->device_status == CTRL_TILE_UNALLOC) {
+		if (p_tile_data_impl->device_status == CTRL_TILE_UNALLOC) {
 			fprintf(stderr, "[Ctrl_Cpu] Internal Error: Trying to move tile from device to host but device memory was not allocated\n");
 			fflush(stderr);
 			exit(EXIT_FAILURE);
 		}
 
-		if (p_tile_data->device_status == CTRL_TILE_INVALID) {
+		if (p_tile_data_impl->device_status == CTRL_TILE_INVALID) {
 			fprintf(stderr, "[Ctrl_Cpu] Warning: Moving a tile from device to host with invalid data on device memory\n");
 			fflush(stderr);
 		}
 
-		if (!(p_tile_data->host_status == CTRL_TILE_VALID && p_tile_data->device_status == CTRL_TILE_VALID) || p_ctrl->dependance_mode == CTRL_MODE_EXPLICIT) {
+		if (!(p_tile_data->host_status == CTRL_TILE_VALID && p_tile_data_impl->device_status == CTRL_TILE_VALID) || p_ctrl->dependance_mode == CTRL_MODE_EXPLICIT) {
 			Ctrl_Cpu_EvalTaskMoveFromInner(p_ctrl, p_tile);
 		}
-	}
-
-	// If policy is sync wait for transfer to finish
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_CpuEvent_Wait(p_ctrl->event_seq);
-		Ctrl_Cpu_Sync(p_ctrl);
 	}
 }
 
 void Ctrl_Cpu_EvalTaskWaitTile(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
-	HitTile       *p_tile      = (HitTile *)(p_task->p_tile);
-	Ctrl_Cpu_Tile *p_tile_data = (Ctrl_Cpu_Tile *)(p_tile->ext);
+	HitTile       *p_tile          = p_task->p_tile;
+	Ctrl_Tile     *p_tile_data     = (Ctrl_Tile *)(p_tile->ext);
+	Ctrl_Cpu_Tile *p_tile_data_cpu = p_tile_data->p_impls[p_ctrl->global_id].tile.p_cpu;
 
 	if (hit_tileIsNull(*p_tile)) return;
 
 	// Wait for all work related to this tile to finish
-	Ctrl_CpuEvent_Wait(p_tile_data->host_last_write_event);
-	Ctrl_CpuEvent_Wait(p_tile_data->host_last_read_event);
+	Ctrl_GenericEvent_Wait(p_tile_data->last_host_read_event);
+	Ctrl_GenericEvent_Wait(p_tile_data->last_host_write_event);
 	if (p_ctrl->mem_moves) {
-		Ctrl_CpuEvent_Wait(p_tile_data->kernel_last_read_event);
-		Ctrl_CpuEvent_Wait(p_tile_data->kernel_last_write_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_kernel_read_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_kernel_write_event);
 
-		Ctrl_CpuEvent_Wait(p_tile_data->offloading_last_read_event);
-		Ctrl_CpuEvent_Wait(p_tile_data->offloading_last_write_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_dth_event);
+		Ctrl_GenericEvent_Wait(p_tile_data_cpu->last_htd_event);
 	}
-	Ctrl_Cpu_Sync(p_ctrl);
 }
 
 void Ctrl_Cpu_EvalTaskSetDependanceMode(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 	p_ctrl->dependance_mode = p_task->flags;
-	if (p_ctrl->policy == CTRL_POLICY_SYNC) {
-		Ctrl_Cpu_Sync(p_ctrl);
-	}
 }
 ///@endcond

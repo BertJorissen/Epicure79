@@ -1,5 +1,5 @@
 #
-# Hit v1.3
+# Hitmap v1.4
 #
 # Makefile Rev.6
 #
@@ -36,7 +36,7 @@
 # </license>
 
 
-VERSION=v1.3
+VERSION=v1.4
 
 all:
 	if [ ! -d "lib" ] ; then mkdir lib ; fi

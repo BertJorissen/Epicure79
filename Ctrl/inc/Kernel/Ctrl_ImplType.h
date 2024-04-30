@@ -5,7 +5,7 @@
  * @author Trasgo Group
  * @brief Definitions for kernel implementations, and masks to identify the implementations
  * that fit in a device/launching requirement.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -70,12 +70,14 @@ typedef enum {
 	CUDA_VOLTA,
 	CUDA_TURING,
 	CUDA_AMPERE,
-	CUDALIB_MAGMA = CTRL_IMPL_RANGE_SIZE * 4,
+	CUDALIB_DEFAULT = CTRL_IMPL_RANGE_SIZE * 4,
+	CUDALIB_MAGMA,
 	CUDALIB_CUBLAS,
-	OPENCLGPU_DEFAULT    = CTRL_IMPL_RANGE_SIZE * 5,
-	OPENCLGPULIB_DEFAULT = CTRL_IMPL_RANGE_SIZE * 6,
-	FPGA_DEFAULT         = CTRL_IMPL_RANGE_SIZE * 7,
-	FPGALIB_DEFAULT      = CTRL_IMPL_RANGE_SIZE * 8,
+	HIP_DEFAULT          = CTRL_IMPL_RANGE_SIZE * 5,
+	OPENCLGPU_DEFAULT    = CTRL_IMPL_RANGE_SIZE * 6,
+	OPENCLGPULIB_DEFAULT = CTRL_IMPL_RANGE_SIZE * 7,
+	FPGA_DEFAULT         = CTRL_IMPL_RANGE_SIZE * 8,
+	FPGALIB_DEFAULT      = CTRL_IMPL_RANGE_SIZE * 9,
 } Ctrl_ImplType;
 
 #endif // _CTRL_KERNEL_IMPLTYPE_H_

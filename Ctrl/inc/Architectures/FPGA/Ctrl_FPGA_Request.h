@@ -5,7 +5,7 @@
  * @file Ctrl_FPGA_Request.h
  * @author Gabriel Rodriguez-Canal
  * @brief Specific FPGA implementation for a request.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -44,12 +44,10 @@
  * This is used to preload kernels when the ctrl is created.
  */
 typedef struct Ctrl_FPGA_KernelParams {
-	cl_kernel     *p_kernel;      /**< Pointer to the kernel */
-	cl_program    *p_program;     /**< Pointer to the program */
-	const char    *p_kernel_name; /**< String containing the kernel's name */
-	unsigned char *p_binary_str;  /**< @gabriel document this*/
-	size_t         binary_length; /**< @gabriel document this*/
-	char          *p_binary_name; /**< @gabriel document this*/
+	cl_kernel  *p_kernel;      /**< Pointer to the kernel. Of size num ctrls of type FPGA. */
+	cl_program *p_program;     /**< Pointer to the program. Of size num ctrls of type FPGA. */
+	const char *p_kernel_name; /**< String containing the kernel's name */
+	char       *p_binary_name; /**< Path to kernel binary*/
 
 	struct Ctrl_FPGA_KernelParams *p_next; /**< Pointer to the next element in the list */
 } Ctrl_FPGA_KernelParams;
@@ -58,9 +56,8 @@ typedef struct Ctrl_FPGA_KernelParams {
  * Null value for \e Ctrl_FPGA_KernelParams
  * @hideinitializer
  */
-#define CTRL_FPGA_KERNELPARAMS_NULL                                                                         \
-	{ .p_kernel = NULL, .p_program = NULL, .p_kernel_name = NULL, .p_binary_str = NULL, .binary_length = 0, \
-	  .p_binary_name = NULL, .p_next = NULL }
+#define CTRL_FPGA_KERNELPARAMS_NULL \
+	{ .p_kernel = NULL, .p_program = NULL, .p_kernel_name = NULL, .p_binary_name = NULL, .p_next = NULL }
 
 /**
  * initial node of the kernel info.
@@ -71,15 +68,13 @@ extern Ctrl_FPGA_KernelParams FPGA_initial_kp;
  * \brief FPGA specific info needed to execute a kernel.
  */
 typedef struct {
-	cl_context       *context;             /**< OpenCl context */
 	cl_command_queue *queue;               /**< Queue to launch the kernel to */
 	cl_device_id     *device_id;           /**< Id of the device to execute the kernel*/
 	cl_event         *p_last_kernel_event; /**< Event to record this kernel into */
-	cl_event         *p_event_wait_list;   /**< List of events to wait to before executing this kernel */
-	int               n_event_wait;        /**< Number of events on the list of events to wait */
 	int               n_arguments;         /**< Number of arguments passed to the user defined kernel */
 	char             *p_roles;             /**< List of roles of the arguments passed to the kernel */
 	uint16_t         *p_displacements;     /**< Displacement of parameter over arguments array */
+	int               type_id;             /**< Id of the ctrl respect to other FPGA ctrls */
 } Ctrl_FPGA_Request;
 ///@endcond
 #endif // _CTRL_FPGA_REQUEST_H_

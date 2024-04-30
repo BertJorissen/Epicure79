@@ -5,18 +5,20 @@
 set terminal postscript eps enhanced color font "Helvetica,18"
 set datafile separator ","
 
-# Get path to this script
-working_directory = system("dirname ".ARG0)."/"
-
 if(arch eq "cpu"){
 	titlearch="CPU"
 
 	# Set default params
 	if(machine eq "manticore"){
 		params="0_2048_48" 
+		numa_range="1-2"
 	}else{ if(machine eq "medusa"){
 		params="0_2048_16" 
-	}}
+		numa_range="1-2"
+	}else{ if(machine eq "gorgon"){
+		params="1_2048_32" 
+		numa_range="2-3"
+	}}}
 }else{ if(arch eq "cuda"){
 	titlearch="CUDA"
 
@@ -27,7 +29,9 @@ if(arch eq "cpu"){
 		set ytic add (.25, 5)
 	}else { if(machine eq "medusa"){
 		params="1_2048_NVIDIA-GeForce-GTX-TITAN-X" 
-	}}
+	}else { if(machine eq "gorgon"){
+		params="1_2048_NVIDIA-Graphics-Device" 
+	}}}
 }else{ if(arch eq "opencl"){
 	titlearch="OpenCL"
 
@@ -38,7 +42,9 @@ if(arch eq "cpu"){
 		set ytic add (.25, 5)
 	}else { if(machine eq "medusa"){
 		params="1_2048_NVIDIA-GeForce-GTX-TITAN-X_NVIDIA-CUDA" 
-	}}
+	}else { if(machine eq "gorgon"){
+		params="1_2048_NVIDIA-Graphics-Device_NVIDIA-CUDA" 
+	}}}
 }else{ if(arch eq "openclamd"){
 	titlearch="OpenCL Amd"
 
@@ -47,16 +53,24 @@ if(arch eq "cpu"){
 
 	# Set default params
 	params="0_2048_gfx900:xnack-_AMD-Accelerated-Parallel-Processing" 
+}else{ if(arch eq "hip"){
+	titlearch="HIP"
+
+	set yrange [0.25:7.5]
+	set ytic add (.25, 5, 7.5)
+
+	# Set default params
+	params="0_2048_Radeon-Pro-WX-9100" 
 }else{
 	print "invalid arch"
 	exit
-}}}}#thx gnuplot for the shitty formatting :D
+}}}}}#thx gnuplot for the shitty formatting :D
 
 # Set titles
 basetitle="Matrix Pow (".machine." + ".titlearch.")"
 set title basetitle
 
-outfile = working_directory."../../results/".machine."/plots/matrix_pow/plot_".arch."_matpow_iter.eps"
+outfile = result_dir.machine."/plots/matrix_pow/plot_".arch."_matpow_iter.eps"
 set output outfile
 
 # Set labels
@@ -77,53 +91,24 @@ set style line 4 lt 4 lc rgb "black" pt 2
 set style line 5 lt 5 lc rgb "black" pt 6
 
 # plot columns to show from results' csv 
-data_dir=working_directory."../../results/".machine."/stats/matrix_pow/".arch."/iter/"
-#TODO @sergioalo add check for queues
+data_dir=result_dir.machine."/stats/matrix_pow/".arch."/iter/"
 if(arch eq "cpu"){
 	# offset for x axis (set offsets doesn't work )’
-	stats data_dir."cpu_ref_sync_null_".params."_null_null.csv" using 1:2 name "ref" nooutput
+	stats data_dir."cpu_ref_sync_".params."_null_null.csv" using 1:2 name "ref" nooutput
 	set xrange [ref_min_x*0.9 : ref_max_x*1.1]
 
-	plot data_dir."cpu_ref_sync_null_".params."_null_null.csv" using 1:2:xtic(1) with linespoints ls 1 ps 2 lw 2 title "Ref. Sync.", \
-			data_dir."cpu_ctrl_sync_off_".params."_1_off.csv" using 1:2 with linespoints ls 2 ps 2 lw 2 title "Ctrl. Sync. No Copy. Queue Off.", \
-			data_dir."cpu_ctrl_sync_off_".params."_1_on.csv" using 1:2 with linespoints ls 3 ps 2 lw 2 title "Ctrl. Sync. Copy. Queue Off.", \
-			data_dir."cpu_ctrl_async_off_".params."_1_off.csv" using 1:2 with linespoints ls 4 ps 2 lw 2 title "Ctrl. Async. No Copy. Queue Off.", \
-			data_dir."cpu_ctrl_async_off_".params."_1_on.csv" using 1:2 with linespoints ls 5 ps 2 lw 2 title "Ctrl. Async. Copy. Queue Off."
+	plot data_dir."cpu_ref_sync_".params."_null_null.csv" using 1:2:xtic(1) with linespoints ls 1 ps 2 lw 2 title "Ref. Sync.", \
+			data_dir."cpu_ctrl_sync_".params."_".numa_range."_off.csv" using 1:2 with linespoints ls 2 ps 2 lw 2 title "Ctrl. Sync. No Copy.", \
+			data_dir."cpu_ctrl_sync_".params."_".numa_range."_on.csv" using 1:2 with linespoints ls 3 ps 2 lw 2 title "Ctrl. Sync. Copy.", \
+			data_dir."cpu_ctrl_async_".params."_".numa_range."_off.csv" using 1:2 with linespoints ls 4 ps 2 lw 2 title "Ctrl. Async. No Copy.", \
+			data_dir."cpu_ctrl_async_".params."_".numa_range."_on.csv" using 1:2 with linespoints ls 5 ps 2 lw 2 title "Ctrl. Async. Copy."
 }else{
 	# offset for x axis (set offsets doesn't work )’
-	stats data_dir.arch."_ref_sync_null_".params.".csv" using 1:2 name "ref" nooutput
+	stats data_dir.arch."_ref_sync_".params.".csv" using 1:2 name "ref" nooutput
 	set xrange [ref_min_x*0.9 : ref_max_x*1.1]
 
-	plot data_dir.arch."_ref_sync_null_".params.".csv" using 1:2:xtic(1) with linespoints ls 1 ps 2 lw 2 title "Ref. Sync.", \
-		data_dir.arch."_ref_async_null_".params.".csv" using 1:2 with linespoints ls 2 ps 2 lw 2 title "Ref. Async.", \
-		data_dir.arch."_ctrl_sync_off_".params.".csv" using 1:2 with linespoints ls 3 ps 2 lw 2 title "Ctrl. Sync. Queue Off.", \
-		data_dir.arch."_ctrl_async_off_".params.".csv" using 1:2 with linespoints ls 4 ps 2 lw 2 title "Ctrl. Async. Queue Off."
-
-	# comparisons with sycl
-	if(machine eq "manticore"){
-		outfile = working_directory."../../results/".machine."/plots/matrix_pow/plot_".arch."_matrix_pow_iter_comp.eps"
-		set output outfile
-
-		set key spacing 1 font ",14"
-		set yrange [*:*]
-
-		sycl_dir=working_directory."../../fran/graficas/plotMmIter/"
-		if((arch eq "cuda") || (arch eq "opencl")){
-			plot data_dir.arch."_ref_sync_null_".params.".csv" using 1:2:xtic(1) with linespoints ls 1 ps 2 lw 2 title "Ref. Sync.", \
-				data_dir.arch."_ref_async_null_".params.".csv" using 1:2 with linespoints ls 2 ps 2 lw 2 title "Ref. Async.", \
-				data_dir.arch."_ctrl_sync_off_".params.".csv" using 1:2 with linespoints ls 3 ps 2 lw 2 title "Ctrl. Sync. Queue Off.", \
-				data_dir.arch."_ctrl_async_off_".params.".csv" using 1:2 with linespoints ls 4 ps 2 lw 2 title "Ctrl. Async. Queue Off.", \
-				sycl_dir."CUDA_HIP_SY" using 1:2 title "HIP-CUDA-S" with linespoints lw 02 lc rgb "black" ,\
-				sycl_dir."CUDA_HIP_ASY" using 1:2 title "HIP-CUDA-AS" with linespoints lw 02 lc rgb "black" ,\
-				sycl_dir."CUDA_INTEL_SY" using 1:2 title "INTEL-CUDA-S" with linespoints lw 02 lc rgb "black" ,\
-				sycl_dir."CUDA_INTEL_ASY" using 1:2 title "INTEL-CUDA-AS" with linespoints lw 02 lc rgb "black"
-
-		}else{ if(arch eq "openclamd"){
-			plot data_dir.arch."_ref_sync_null_".params.".csv" using 1:2:xtic(1) with linespoints ls 1 ps 2 lw 2 title "Ref. Sync.", \
-				data_dir.arch."_ref_async_null_".params.".csv" using 1:2 with linespoints ls 2 ps 2 lw 2 title "Ref. Async.", \
-				data_dir.arch."_ctrl_sync_off_".params.".csv" using 1:2 with linespoints ls 3 ps 2 lw 2 title "Ctrl. Sync. Queue Off.", \
-				data_dir.arch."_ctrl_async_off_".params.".csv" using 1:2 with linespoints ls 4 ps 2 lw 2 title "Ctrl. Async. Queue Off.", \
-				sycl_dir."AMD_HIP_SY" title "HIP-ROCM-S" with linespoints lw 02 lc rgb "black" ,\
-				sycl_dir."AMD_HIP_ASY" title "HIP-ROCM-AS" with linespoints lw 02 lc rgb "black"
-	}}}
+	plot data_dir.arch."_ref_sync_".params.".csv" using 1:2:xtic(1) with linespoints ls 1 ps 2 lw 2 title "Ref. Sync.", \
+		data_dir.arch."_ref_async_".params.".csv" using 1:2 with linespoints ls 2 ps 2 lw 2 title "Ref. Async.", \
+		data_dir.arch."_ctrl_sync_".params.".csv" using 1:2 with linespoints ls 3 ps 2 lw 2 title "Ctrl. Sync.", \
+		data_dir.arch."_ctrl_async_".params.".csv" using 1:2 with linespoints ls 4 ps 2 lw 2 title "Ctrl. Async."
 }

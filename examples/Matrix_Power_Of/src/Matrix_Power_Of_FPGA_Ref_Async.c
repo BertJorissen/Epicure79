@@ -1,9 +1,11 @@
-/*
- * <license>
+/**
+ * @file Matrix_Power_Of_FPGA_Ref_Async.c
+ * @author Trasgo Group
+ * @brief MatrixPow: Asynchronous native FPGA version
+ * @version 4.0
+ * @date 2021-07-31
  *
- * Controller v2.1
- *
- * This software is provided to enhance knowledge and encourage progress in the scientific
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
  * or use for commercial purpose, public redistribution, in source or binary forms, with or
  * without modifications, is NOT ALLOWED without the previous authorization of the copyright
@@ -11,7 +13,7 @@
  * wrote the original software. If you use this software for any purpose (e.g. publication),
  * a reference to the software package and the authors must be included.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
  * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
@@ -21,13 +23,12 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  *
- * More information on http://trasgo.infor.uva.es/
- *
- * </license>
+ * @copyright More information on http://trasgo.infor.uva.es/
  */
+
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #define FPGA_EMULATION 1
@@ -94,13 +95,6 @@ void computeNorm(float *p_matrix, float *p_matrix_res, int SIZE, double *p_sum, 
 			p_matrix_res[j * SIZE + k] = p_matrix[j * SIZE + k] / p_res[i];
 		}
 	}
-}
-
-float RandomFloat(float min, float max) {
-	assert(max > min);
-	float random = ((float)rand()) / (float)RAND_MAX;
-	float range  = max - min;
-	return (random * range) + min;
 }
 
 int main(int argc, char *argv[]) {
@@ -238,6 +232,8 @@ int main(int argc, char *argv[]) {
 				strcat(kernel_path, "_emu");
 			#ifdef _INTEL_KERNELS
 			strcat(kernel_path, "_Ref.aocx");
+			#elif _XILINX_KERNELS
+			strcat(kernel_path, "_Ref.xclbin");
 			#endif
 			if (!(binary_file = fopen(kernel_path, "rb"))) {
 				printf("Kernel file not found.\n");
@@ -290,16 +286,18 @@ int main(int argc, char *argv[]) {
 			srand(SEED);
 			for (int j = 0; j < SIZE; j++) {
 				float col_sum_a = 0;
-				float col_sum_b = 0;
 				for (int i = 0; i < SIZE; i++) {
-					float a = RandomFloat(-(1 - col_sum_a) + EPSILON, 1 - col_sum_a - EPSILON);
-					float b = RandomFloat(-(1 - col_sum_b) + EPSILON, 1 - col_sum_b - EPSILON);
+					// generate random floats in a way matrixes don't turn into NaN
+					float min    = -(1 - col_sum_a) + EPSILON;
+					float max    = 1 - col_sum_a - EPSILON;
+					float random = ((float)rand()) / (float)RAND_MAX;
+					float range  = max - min;
+					float value  = (random * range) + min;
 
-					p_pinned_matrix[0][i * SIZE + j] = a;
-					p_pinned_matrix[1][i * SIZE + j] = b;
+					p_pinned_matrix[0][i * SIZE + j] = value;
+					p_pinned_matrix[1][i * SIZE + j] = value;
 					p_pinned_matrix[2][i * SIZE + j] = 0;
-					col_sum_a += fabsf(a);
-					col_sum_b += fabsf(b);
+					col_sum_a += fabsf(value);
 				}
 			}
 
@@ -435,7 +433,6 @@ int main(int argc, char *argv[]) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
 	printf("\n ---------------------- TIMERS ---------------------- \n");
 	printf("Clock main: %lf\n", main_clock);
@@ -443,5 +440,5 @@ int main(int argc, char *argv[]) {
 	printf("\n\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	return EXIT_SUCCESS;
 }

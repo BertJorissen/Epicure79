@@ -172,21 +172,7 @@ hit_tileNewTypeInternal(HitTile);
 #define HIT_MULTILEVEL_UNDEFINED_SIZES	{ 1, 1, 1, 1 }
 #define HIT_MULTILEVEL_UNDEFINED_BEGINS	{ 0, 0, 0, 0 }
 
-/* 2c. CONSTANTS FOR READING/WRITING TILES IN FILES */
-/* 2.c.1. FILE FORMAT: BINARY vs. TEXT */
-/** Flag for read/write operations on binary files */
-#define HIT_FILE_BINARY		0
-/** Flag for read/write operations on text files */
-#define HIT_FILE_TEXT		1
-
-/* 2.c.2. MODE OF FILE OPERATIONS */
-#define HIT_FILE_READ		0
-#define HIT_FILE_WRITE		1
-
-/* 2.c.3. TEXT FILES: ELEMENTS TYPE */
-#define HIT_FILE_UNKNOWN	-1
-
-/* 2d. CONSTANTS FOR MODE IN DATA UPDATE FROM/TO PARENT TILE */
+/* 2c. CONSTANTS FOR MODE IN DATA UPDATE FROM/TO PARENT TILE */
 #define HIT_UPDATE_FROM		0
 #define HIT_UPDATE_TO		1
 
@@ -247,9 +233,6 @@ void hit_tileFreeRecInternal(void * var);
 void hit_tileFillInternal(void * var, void * value, const char *name, const char *file, int numLine);
 void hit_tileCloneInternal(void *newVar, const void *oldVar, const char *name, const char *file, int numLine);
 void hit_tileUpdateFromToAncestorInternal(void *shadow, int fromTo, const char *name, const char *file, int numLine);
-
-// FILE OPERATIONS
-int hit_tileFileInternal( void * varP, const int fileFormat, const int fileMode, const int tileMode, const int type, const int formatSize1, const int formatSize2, const char *fileName, const char *debugVarName, const char *debugCodeFile, int debugCodeNumLine);
 
 /**
  * Initialize a hierarchical subselection.

@@ -1,0 +1,33 @@
+cmake_minimum_required (VERSION 3.17)
+
+set(CTRL_EXAMPLES_BLOCKSIZE_0 "16") # Block Size 0
+set(CTRL_EXAMPLES_BLOCKSIZE_1 "16") # Block Size 1
+set(CTRL_EXAMPLES_BLOCKSIZE_2 "0") # Block Size 1
+
+# Apply options
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBLOCKSIZE_0=${CTRL_EXAMPLES_BLOCKSIZE_0} -DBLOCKSIZE_1=${CTRL_EXAMPLES_BLOCKSIZE_1} -DBLOCKSIZE_2=${CTRL_EXAMPLES_BLOCKSIZE_2} ")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DBLOCKSIZE_0=${CTRL_EXAMPLES_BLOCKSIZE_0} -DBLOCKSIZE_1=${CTRL_EXAMPLES_BLOCKSIZE_1} -DBLOCKSIZE_2=${CTRL_EXAMPLES_BLOCKSIZE_2} ")
+
+# Verbose
+if (CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD)
+	message(STATUS "MATRIX_ADD_INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
+	message(STATUS "MATRIX_ADD_LIBS = ${CTRL_LIBS}")
+	message(STATUS "MATRIX_ADD_CTRL_C vars = ${CMAKE_C_FLAGS}")
+	message(STATUS "MATRIX_ADD_CTRL_CUDA vars = ${CMAKE_CUDA_FLAGS}")
+endif(CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD)
+
+# Include directories
+include_directories(${CTRL_INCLUDE_DIRS})
+
+# Compilation dependences
+# Main code
+set(CTRL_SOURCE_FILES src/Matrix_Add_Ctrl.c)
+# Generic kernel/s
+if (SUPPORT_CUDA)
+	set(CTRL_SOURCE_FILES ${CTRL_SOURCE_FILES} src/Matrix_Add_Ctrl_Kernels.cu)
+else (SUPPORT_CUDA)
+	set(CTRL_SOURCE_FILES ${CTRL_SOURCE_FILES} src/Matrix_Add_Ctrl_Kernels.c)
+endif(SUPPORT_CUDA)
+
+add_executable(Matrix_Add_Ctrl ${CTRL_SOURCE_FILES})
+target_link_libraries(Matrix_Add_Ctrl ${CTRL_LIBS})

@@ -1,0 +1,16 @@
+BasedOnStyle: LLVM
+UseTab: ForContinuationAndIndentation
+IndentWidth: 4
+TabWidth: 4
+AllowShortIfStatementsOnASingleLine: true
+IndentCaseLabels: true
+ColumnLimit: 0
+NamespaceIndentation: All
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments: true
+PointerAlignment: Right
+AlignConsecutiveMacros: Consecutive
+AlignAfterOpenBracket: Align
+IndentPPDirectives: BeforeHash
+AllowShortCaseLabelsOnASingleLine: true
+StatementMacros: ["_Pragma"]

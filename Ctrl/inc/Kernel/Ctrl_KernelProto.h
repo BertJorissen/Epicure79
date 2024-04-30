@@ -6,7 +6,7 @@
  * Macros to generate the code, from the prototype declaration of a kernel,
  * of the enqueue/dequeue(launching) functions. The launching function is a
  * wrapper to invocate the actual kernel implementations
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  * @note Macros to support up to 7 different implementations, and up to 20 different parameters
  *		in a kernel call.
@@ -35,8 +35,12 @@
  * @copyright More information on http://trasgo.infor.uva.es/
  */
 
-// @sergioalo formatter does not respect ifdef indentation so turning it off in includes section
-// clang-format on
+/* New types declared by the user before including Controllers headers */
+#ifndef CTRL_USER_TYPES
+#define CTRL_USER_TYPES
+#endif
+CTRL_USER_TYPES
+
 #ifdef CTRL_HOST_COMPILE
 #define MODEL_TASK    0
 #define MODEL_NDRANGE 1
@@ -48,6 +52,8 @@
 
 #include "Core/Ctrl_TaskQueue.h"
 #endif // CTRL_FPGA_KERNEL_FILE
+
+#include "Core/Ctrl_Profiler_Helper.h"
 
 #ifdef _CTRL_ARCH_CPU_
 #include "Kernel/Architectures/Cpu/Ctrl_Cpu_KernelProto.h"
@@ -63,7 +69,7 @@
 #define CTRL_KERNEL_DECLARATION_CPULIB(...)
 #endif // _CTRL_ARCH_CPU_
 
-#ifdef _CTRL_ARCH_CUDA_
+#ifdef  _CTRL_ARCH_CUDA_
 #include "Kernel/Architectures/Cuda/Ctrl_Cuda_KernelProto.h"
 #else // _CTRL_ARCH_CUDA_
 #define CTRL_KERNEL_CUDA(...)
@@ -77,6 +83,17 @@
 #define CTRL_KERNEL_DECLARATION_CUDA(...)
 #define CTRL_KERNEL_DECLARATION_CUDALIB(...)
 #endif // _CTRL_ARCH_CUDA_
+
+#ifdef  _CTRL_ARCH_HIP_
+#include "Kernel/Architectures/Hip/Ctrl_Hip_KernelProto.h"
+#else // _CTRL_ARCH_HIP_
+#define CTRL_KERNEL_HIP(...)
+#define CTRL_KERNEL_FUNCTION_HIP(...)
+#define CTRL_KERNEL_WRAP_HIP(...)
+#define CTRL_KERNEL_HIP_GENERIC(...)
+#define CTRL_KERNEL_WRAP_HIP_GENERIC(...)
+#define CTRL_KERNEL_DECLARATION_HIP(...)
+#endif // _CTRL_ARCH_HIP_
 
 #ifdef _CTRL_ARCH_OPENCL_GPU_
 #include "Kernel/Architectures/OpenCL/Ctrl_OpenCL_KernelProto.h"
@@ -101,7 +118,6 @@
 #define CTRL_KERNEL_DECLARATION_FPGA(...)
 #define CTRL_KERNEL_DECLARATION_FPGALIB(...)
 #endif // _CTRL_ARCH_FPGA_
-// clang-format on
 
 /*
  *******************************************************************************************
@@ -114,18 +130,19 @@
  * Expands to implementation for generic kernel definition for every architecture active.
  * @hideinitializer
  *
- * @see CTRL_KERNEL_CPU_GENERIC, CTRL_KERNEL_CUDA_GENERIC, CTRL_KERNEL_OPENCLGPU_GENERIC
+ * @see CTRL_KERNEL_CPU_GENERIC, CTRL_KERNEL_CUDA_GENERIC, CTRL_KERNEL_OPENCLGPU_GENERIC, CTRL_KERNEL_HIP_GENERIC
  */
 #define CTRL_KERNEL_GENERIC(...)          \
 	CTRL_KERNEL_CPU_GENERIC(__VA_ARGS__)  \
 	CTRL_KERNEL_CUDA_GENERIC(__VA_ARGS__) \
+	CTRL_KERNEL_HIP_GENERIC(__VA_ARGS__)  \
 	CTRL_KERNEL_OPENCLGPU_GENERIC(__VA_ARGS__)
 
 /**
  * Expands to implementation for generic kernel wrapper for every architecture active.
  * @hideinitializer
  *
- * @see CTRL_KERNEL_WRAP_CPU_GENERIC, CTRL_KERNEL_WRAP_CUDA_GENERIC, CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC
+ * @see CTRL_KERNEL_WRAP_CPU_GENERIC, CTRL_KERNEL_WRAP_CUDA_GENERIC, CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC, CTRL_KERNEL_WRAP_HIP_GENERIC
  */
 #define CTRL_KERNEL_WRAP_GENERIC(name, ...)                                                                                        \
 	switch (ctrl_type) {                                                                                                           \
@@ -134,6 +151,9 @@
 			break;                                                                                                                 \
 		case CTRL_TYPE_CUDA:                                                                                                       \
 			CTRL_KERNEL_WRAP_CUDA_GENERIC(name, __VA_ARGS__)                                                                       \
+			break;                                                                                                                 \
+		case CTRL_TYPE_HIP:                                                                                                        \
+			CTRL_KERNEL_WRAP_HIP_GENERIC(name, __VA_ARGS__)                                                                        \
 			break;                                                                                                                 \
 		case CTRL_TYPE_OPENCL_GPU:                                                                                                 \
 			CTRL_KERNEL_WRAP_OPENCLGPU_GENERIC(name, __VA_ARGS__)                                                                  \
@@ -147,19 +167,22 @@
 
 /**
  * Macro used to define a kernel. Expands to type (and architecture) specific kernel definition.
+ *
+ * By default all available dimensions in the thread space provided are parallelized, however this behaviour can be changed
+ * for CPU kernels via defining a macro named CTRL_KERNEL_PARALLEL_DIMS_<name> (where name is the name of the kernel in
+ * question) with the amount of dimensions to be parallelized.
  * @hideinitializer
  *
  * @param name Kernel's name.
  * @param type Type of the kernel.
  * @param subtype Subtype of the kernel.
- * @param subtype Kernel subtype (Ctrl_ImplSubType).
  * @param ... Parameters to the kernel and kernel body.
  *
  * @pre \p type must not be FPGA. FPGA type kernels must use \e CTRL_KERNEL_FUNCTION instead.
  * @see Ctrl_ImplType, CTRL_KERNEL_PROTO
  * @if INTERNAL
- * @see CTRL_KERNEL_CPU_GENERIC, CTRL_KERNEL_CUDA_GENERIC, CTRL_KERNEL_OPENCLGPU_GENERIC,
- * CTRL_KERNEL_CPU, CTRL_KERNEL_CUDA, CTRL_KERNEL_OPENCLGPU,
+ * @see CTRL_KERNEL_CPU_GENERIC, CTRL_KERNEL_CUDA_GENERIC, CTRL_KERNEL_OPENCLGPU_GENERIC, CTRL_KERNEL_HIP_GENERIC
+ * CTRL_KERNEL_CPU, CTRL_KERNEL_CUDA, CTRL_KERNEL_OPENCLGPU, CTRL_KERNEL_HIP
  * CTRL_KERNEL_CPULIB, CTRL_KERNEL_CUDALIB, CTRL_KERNEL_OPENCLGPULIB
  * @endif
  */
@@ -177,13 +200,12 @@
  * @param name Kernel's name.
  * @param type Type of the kernel.
  * @param subtype Subtype of the kernel.
- * @param subtype Kernel subtype (Ctrl_ImplSubType).
  * @param ... Parameters to the kernel.
  *
- * @pre \p type must be CUDA, FPGA or a lib type. Other types must use \e CTRL_KERNEL instead.
+ * @pre \p type must be CUDA, FPGA, HIP or a lib type. Other types must use \e CTRL_KERNEL instead.
  * @see Ctrl_ImplType, CTRL_KERNEL_PROTO
  * @if INTERNAL
- * @see CTRL_KERNEL_FUNCTION_CUDA, CTRL_KERNEL_FUNCTION_FPGA
+ * @see CTRL_KERNEL_FUNCTION_CUDA, CTRL_KERNEL_FUNCTION_FPGA, CTRL_KERNEL_FUNCTION_HIP
  * @endif
  */
 #define CTRL_KERNEL_FUNCTION(name, type, subtype, ...) \
@@ -261,12 +283,9 @@
 	CTRL_KERNEL_WRAP_##type(name, type, subtype, __VA_ARGS__)
 #endif
 
-#define _STRINGIFY(x) #x
-#define STRINGIFY(x)  _STRINGIFY(x)
-
 /**
  * Kernel declaration for host code or header files.
- * Used in Cuda implementations to declare the kernel prototype in included
+ * Used in Cuda and Hip implementations to declare the kernel prototype in included
  * header files, as the kernel defintions may be written in a separate file from the host code.
  * Also used for OpenCL GPU to define constructor function to preload kernels, and on FPGA to declare variables related to the kernel.
  * @hideinitializer
@@ -310,6 +329,7 @@
 	CTRL_KERNEL_DECLARATION_FPGA(name, type, subtype, __VA_ARGS__) \
 	CTRL_KERNEL_DECLARATION_CPU(name, type, subtype, __VA_ARGS__)  \
 	CTRL_KERNEL_DECLARATION_CUDA(name, type, subtype, __VA_ARGS__) \
+	CTRL_KERNEL_DECLARATION_HIP(name, type, subtype, __VA_ARGS__)  \
 	CTRL_KERNEL_DECLARATION_OPENCLGPU(name, type, subtype, __VA_ARGS__)
 
 /*
@@ -395,38 +415,39 @@
  * 2nd: define kernel wrapper function. This is a switch block to expand to the appropiate implementation wrapper macro.
  * 3rd: define task creation function. This creates and returns a \e Ctrl_Task to launch this kernel
  *
- * @see CTRL_KERNEL_WRAP_GENERIC, CTRL_KERNEL_WRAP_CPU, CTRL_KERNEL_WRAP_CUDA, CTRL_KERNEL_WRAP_OPENCLGPU, Ctrl_Task,
+ * @see CTRL_KERNEL_WRAP_GENERIC, CTRL_KERNEL_WRAP_CPU, CTRL_KERNEL_WRAP_CUDA, CTRL_KERNEL_WRAP_HIP, CTRL_KERNEL_WRAP_OPENCLGPU, Ctrl_Task,
  * CTRL_KERNEL_DECLARATION
  * @endif
  */
-#define CTRL_KERNEL_PROTO(name, n_implementations, ...)                                                                                                                                               \
-	CTRL_KERNEL_DECLARATION_##n_implementations(name, __VA_ARGS__)                                                                                                                                    \
-                                                                                                                                                                                                      \
-		void Ctrl_KernelWrapper_##name(Ctrl_Request request, int device_id, Ctrl_Type ctrl_type, Ctrl_Thread threads, Ctrl_Thread blocksize, void *args_list) {                                       \
-		switch (device_id) {                                                                                                                                                                          \
-			CTRL_KERNEL_WRAP_LAUNCH_##n_implementations(name, args_list, __VA_ARGS__);                                                                                                                \
-			default:                                                                                                                                                                                  \
-				fprintf(stderr, "Ctrl Internal error: Wrong implementation type on launching wrapper: %s, %s[%d]\n", #name, __FILE__, __LINE__);                                                      \
-		}                                                                                                                                                                                             \
-	}                                                                                                                                                                                                 \
-                                                                                                                                                                                                      \
-	Ctrl_Task Ctrl_KernelTaskCreate_##name(Ctrl_Type ctrl_type, Ctrl_Thread threads, Ctrl_Thread blocksize, int stream, CTRL_KERNEL_SKIP_IMPL(TYPED_POINTER, NULL, n_implementations, __VA_ARGS__)) { \
-		Ctrl_Task task          = CTRL_TASK_NULL;                                                                                                                                                     \
-		task.threads            = threads;                                                                                                                                                            \
-		task.blocksize          = blocksize;                                                                                                                                                          \
-		task.stream             = stream;                                                                                                                                                             \
-		task.task_type          = CTRL_TASK_TYPE_KERNEL;                                                                                                                                              \
-		task.n_arguments        = CTRL_KERNEL_SKIP_IMPL(ARG_COUNT_LIST_ELEMENTS, NULL, n_implementations, __VA_ARGS__);                                                                               \
-		task.pfn_kernel_wrapper = Ctrl_KernelWrapper_##name;                                                                                                                                          \
-		CTRL_KERNEL_SKIP_IMPL(ARG_LIST_CREATE_KTILE, task.p_arguments, n_implementations, __VA_ARGS__);                                                                                               \
-		CTRL_KERNEL_SKIP_IMPL(ROLES, task.p_roles, n_implementations, __VA_ARGS__);                                                                                                                   \
-		CTRL_KERNEL_SKIP_IMPL(POINTERS, task.pp_pointers, n_implementations, __VA_ARGS__);                                                                                                            \
-		CTRL_KERNEL_SKIP_IMPL(DISPLACEMENTS, task.p_displacements, n_implementations, __VA_ARGS__);                                                                                                   \
-		int avail_impl[n_implementations];                                                                                                                                                            \
-		CTRL_KERNEL_MASK_##n_implementations(avail_impl, __VA_ARGS__);                                                                                                                                \
-		int dev        = Ctrl_Dev(ctrl_type, avail_impl, n_implementations);                                                                                                                          \
-		task.device_id = dev;                                                                                                                                                                         \
-		return task;                                                                                                                                                                                  \
+#define CTRL_KERNEL_PROTO(name, n_implementations, ...)                                                                                                                                        \
+	CTRL_KERNEL_DECLARATION_##n_implementations(name, __VA_ARGS__)                                                                                                                             \
+                                                                                                                                                                                               \
+		void Ctrl_KernelWrapper_##name(Ctrl_Request request, int device_id, Ctrl_Type ctrl_type, Ctrl_Thread threads, Ctrl_Thread blocksize, void *args_list) {                                \
+		switch (device_id) {                                                                                                                                                                   \
+			CTRL_KERNEL_WRAP_LAUNCH_##n_implementations(name, args_list, __VA_ARGS__);                                                                                                         \
+			default:                                                                                                                                                                           \
+				fprintf(stderr, "Ctrl Internal error: Wrong implementation type on launching wrapper: %s, %s[%d]\n", #name, __FILE__, __LINE__);                                               \
+		}                                                                                                                                                                                      \
+	}                                                                                                                                                                                          \
+                                                                                                                                                                                               \
+	Ctrl_Task Ctrl_KernelTaskCreate_##name(Ctrl *p_ctrl, Ctrl_Thread threads, Ctrl_Thread blocksize, int stream, CTRL_KERNEL_SKIP_IMPL(TYPED_POINTER, NULL, n_implementations, __VA_ARGS__)) { \
+		Ctrl_Task task          = CTRL_TASK_NULL;                                                                                                                                              \
+		task.p_func_name        = #name;                                                                                                                                                       \
+		task.threads            = threads;                                                                                                                                                     \
+		task.blocksize          = blocksize;                                                                                                                                                   \
+		task.stream             = stream;                                                                                                                                                      \
+		task.task_type          = CTRL_TASK_TYPE_KERNEL;                                                                                                                                       \
+		task.n_arguments        = CTRL_KERNEL_SKIP_IMPL(ARG_COUNT_LIST_ELEMENTS, NULL, n_implementations, __VA_ARGS__);                                                                        \
+		task.pfn_kernel_wrapper = Ctrl_KernelWrapper_##name;                                                                                                                                   \
+		CTRL_KERNEL_SKIP_IMPL(ARG_LIST_CREATE_KTILE, task.p_arguments, n_implementations, __VA_ARGS__);                                                                                        \
+		CTRL_KERNEL_SKIP_IMPL(ROLES, task.p_roles, n_implementations, __VA_ARGS__);                                                                                                            \
+		CTRL_KERNEL_SKIP_IMPL(POINTERS, task.pp_pointers, n_implementations, __VA_ARGS__);                                                                                                     \
+		CTRL_KERNEL_SKIP_IMPL(DISPLACEMENTS, task.p_displacements, n_implementations, __VA_ARGS__);                                                                                            \
+		int avail_impl[n_implementations];                                                                                                                                                     \
+		CTRL_KERNEL_MASK_##n_implementations(avail_impl, __VA_ARGS__);                                                                                                                         \
+		int dev        = Ctrl_Dev(p_ctrl->type, avail_impl, n_implementations);                                                                                                                \
+		task.device_id = dev;                                                                                                                                                                  \
+		return task;                                                                                                                                                                           \
 	}
 #else // CTRL_FPGA_KERNEL_FILE
 #define CTRL_KERNEL_PROTO(name, n_implementations, ...) \
@@ -469,14 +490,19 @@
  * @see Ctrl_Task
  * @endif
  */
-#define CTRL_HOST_TASK_PROTO(name, n_args, ...)                                                  \
+#define CTRL_HOST_TASK_PROTO(name, ...) CTRL_HOST_TASK_PROTO2(name, __VA_ARGS__)
+
+#define CTRL_HOST_TASK_PROTO2(name, n_args, ...)                                                 \
 	void Ctrl_HostWrapper_##name(void *args_list) {                                              \
+		CTRL_PROF_RANGEPUSH(#name);                                                              \
 		Ctrl_Host_Task_##name(CTRL_KERNEL_ARG_LIST_ACCESS_TILE(args_list, n_args, __VA_ARGS__)); \
+		CTRL_PROF_RANGEPOP();                                                                    \
 	}                                                                                            \
                                                                                                  \
 	Ctrl_Task Ctrl_HostTaskCreate_##name(CTRL_KERNEL_TYPED_POINTER(NULL, n_args, __VA_ARGS__)) { \
 		Ctrl_Task task            = CTRL_TASK_NULL;                                              \
 		task.task_type            = CTRL_TASK_TYPE_HOST;                                         \
+		task.p_func_name          = #name;                                                       \
 		task.n_arguments          = n_args;                                                      \
 		task.pfn_hostTask_wrapper = Ctrl_HostWrapper_##name;                                     \
 		CTRL_KERNEL_ARG_LIST_CREATE_TILE(task.p_arguments, n_args, __VA_ARGS__);                 \

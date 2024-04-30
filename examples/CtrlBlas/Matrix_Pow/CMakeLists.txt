@@ -1,6 +1,6 @@
 # <license>
 # 
-# Controller v2.1
+# Controller v4.0
 # 
 # This software is provided to enhance knowledge and encourage progress in the scientific
 # community. It should be used only for research and educational purposes. Any reproduction
@@ -27,39 +27,6 @@
 # 
 # </license>
 cmake_minimum_required (VERSION 3.17)
-
-# Common options
-if (SUPPORT_CUDA)
-	set(CTRL_EXAMPLES_CUDA_ERROR_CHECK OFF) # Check errors with this
-	set(CTRL_EXAMPLES_CUDA_DEBUG OFF) # Debug whit this
-	set(CTRL_EXAMPLES_CUDA_BLOCKSIZE "16") # Block Size
-endif(SUPPORT_CUDA)
-
-if (SUPPORT_CPU)
-	set(CTRL_EXAMPLES_CPU_BLOCKSIZE "16") # Block Size
-endif(SUPPORT_CPU)
-
-# Apply options
-if (CTRL_EXAMPLES_CUDA_ERROR_CHECK)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_EXAMPLES_CUDA_ERROR_CHECK_ ")
-	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_EXAMPLES_CUDA_ERROR_CHECK_ ")
-endif (CTRL_EXAMPLES_CUDA_ERROR_CHECK)
-
-if (CTRL_EXAMPLES_CUDA_DEBUG)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CTRL_EXAMPLES_CUDA_DEBUG_ ")
-	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_CTRL_EXAMPLES_CUDA_DEBUG_ ")
-endif (CTRL_EXAMPLES_CUDA_DEBUG)
-
-if (SUPPORT_CUDA)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBLOCKSIZE=${CTRL_EXAMPLES_CUDA_BLOCKSIZE} ")
-	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DBLOCKSIZE=${CTRL_EXAMPLES_CUDA_BLOCKSIZE} ")
-	set(CUDA_PROPAGATE_HOST_FLAGS ON)
-endif(SUPPORT_CUDA)
-
-if (SUPPORT_CPU)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBLOCKSIZE=${CTRL_EXAMPLES_CPU_BLOCKSIZE} ")
-	set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DBLOCKSIZE=${CTRL_EXAMPLES_CPU_BLOCKSIZE} ")
-endif(SUPPORT_CPU)
 
 # Verbose
 if (CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_POWER_OF)

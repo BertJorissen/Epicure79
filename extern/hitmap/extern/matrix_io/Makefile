@@ -1,6 +1,6 @@
 
 IOLIB = matrix_io.o
-CFLAGS = -O3
+CFLAGS += -O3
 
 all: $(IOLIB)
 	ar rcs libmatrix_io.a matrix_io.o

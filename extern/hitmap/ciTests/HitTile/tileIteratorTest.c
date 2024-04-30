@@ -20,6 +20,7 @@ int main() {
 
     printf("Check hit_tileForDimDomain: ");
     for(i=0; i<10; i++) tile[i] = i;
+    for(i=0; i<10; i++) tileIt[i] = -1;
 
     j = 0;
     ok = 1;
@@ -36,6 +37,7 @@ int main() {
 
     //
     printf("Check hit_tileForDimDomainArray: ");
+    for(i=0; i<10; i++) tileIt[i] = -1;
     for(i=sig.begin, j=0; i<sig.end && j<10; i+=sig.stride, j++) array[j] = i;
     j = 0;
     ok = 1;

@@ -4,8 +4,8 @@
 /**
  * @file Ctrl_OpenCL_KernelArgs.h
  * @author Trasgo Group
- * @brief Macros to cast Ctrl OpenCl GPU tiles to KHitTiles for their use in kernels.
- * @version 2.1
+ * @brief Macros to cast Ctrl OpenCL GPU tiles to KHitTiles for their use in kernels.
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -32,7 +32,7 @@
  * @copyright More information on http://trasgo.infor.uva.es/
  */
 
-#include "Architectures/OpenCL/Ctrl_OpenCL_Tile.h"
+#include "Core/Ctrl_Tile.h"
 #include "Kernel/Ctrl_ImplType.h"
 
 /**
@@ -43,11 +43,13 @@
  *
  * @see KHitTile
  */
-#define CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA(name)                             \
-	case CTRL_TYPE_OPENCL_GPU: {                                               \
-		Ctrl_OpenCL_Tile *p_tile_data = (Ctrl_OpenCL_Tile *)(name->ext);       \
-		k_##name##_void.data          = (void *)(&(p_tile_data->device_data)); \
-		break;                                                                 \
+#define CTRL_KERNEL_OPENCL_KTILE_DEVICE_DATA(name)                                                                         \
+	case CTRL_TYPE_OPENCL_GPU: {                                                                                           \
+		Ctrl_OpenCL_Tile *p_tile_data = (Ctrl_OpenCL_Tile *)(((Ctrl_Tile *)name->ext)->p_impls[p_ctrl->id].tile.p_opencl); \
+		k_##name##_void.data          = (void *)(&(p_tile_data->device_data));                                             \
+		k_##name##_void.ext.ocl.tex   = p_tile_data->texture;                                                              \
+		k_##name##_void.ext.ocl.smp   = p_tile_data->sampler;                                                              \
+		break;                                                                                                             \
 	}
 
 ///@endcond

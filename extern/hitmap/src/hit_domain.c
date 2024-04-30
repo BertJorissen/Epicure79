@@ -255,7 +255,7 @@ printf("DEBUG: Post-overlapped \n");
 
 		/* New: Restrict previous dimensions to the intersection */
 		add = in_new;
-		for ( pre_dim=0; pre_dim<dim; pre_dim++ ) {
+		for ( pre_dim=0; pre_dim<dim && pre_dim < HIT_MAXDIMS; pre_dim++ ) {
 			add.sig[pre_dim] = intersection->sig[pre_dim];
 		}
 		/* New: Substract the intersection at the current dimension */
@@ -283,7 +283,7 @@ printf("DEBUG: Add new right\n");
 
 		/* Old: Restrict previous dimensions to the intersection */
 		add = in_old;
-		for ( pre_dim=0; pre_dim<dim; pre_dim++ ) {
+		for ( pre_dim=0; pre_dim<dim && pre_dim < HIT_MAXDIMS; pre_dim++ ) {
 			add.sig[pre_dim] = intersection->sig[pre_dim];
 		}
 		/* Old: Substract the intersection at the current dimension */
@@ -314,7 +314,7 @@ printf("DEBUG: Post-new, cut old \n");
 
 		/* Old: Restrict previous dimensions to the intersection */
 		add = in_old;
-		for ( pre_dim=0; pre_dim<dim; pre_dim++ ) {
+		for ( pre_dim=0; pre_dim<dim && pre_dim < HIT_MAXDIMS; pre_dim++ ) {
 			add.sig[pre_dim] = intersection->sig[pre_dim];
 		}
 		/* Old: Substract the intersection at the current dimension */
@@ -343,7 +343,7 @@ printf("DEBUG: Post-old, cut new \n");
 
 		/* New: Restrict previous dimensions to the intersection */
 		add = in_new;
-		for ( pre_dim=0; pre_dim<dim; pre_dim++ ) {
+		for ( pre_dim=0; pre_dim<dim && pre_dim < HIT_MAXDIMS; pre_dim++ ) {
 			add.sig[pre_dim] = intersection->sig[pre_dim];
 		}
 		/* New: Substract the intersection at the current dimension */

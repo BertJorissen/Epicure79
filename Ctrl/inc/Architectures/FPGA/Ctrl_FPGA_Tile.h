@@ -2,7 +2,7 @@
  * @file Ctrl_FPGA_Tile.h
  * @author Gabriel Rodriguez-Canal
  * @brief Ctrl tile implentation for FPGA devices.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -39,37 +39,24 @@
 
 #include <CL/cl.h>
 
-#include "Architectures/FPGA/Ctrl_FPGA.h"
+#include "Core/Ctrl_TaskQueue.h"
 
 ///@cond INTERNAL
 /**
  * \brief Metadata from a tile associated to a FPGA ctrl
  */
 typedef struct Ctrl_FPGA_Tile {
-	struct Ctrl_FPGA           *p_ctrl;                      /**< Pointer to the ctrl to which this tile is associated */
-	struct Ctrl_FPGA_Tile_List *p_tile_elem;                 /**< Node of the linked list containing all tiles of the ctrl to which this tile is associated */
-	cl_command_queue            queue;                       /**< OpenCL command queue used for memory transfers related to this tile */
-	cl_mem                      device_data;                 /**< OpenCL buffer for device image of this tile */
-	cl_event                    kernel_last_read_event;      /**< Event to sincronyze tasks, represents last write operation on device*/
-	cl_event                    kernel_last_write_event;     /**< Event to sincronyze tasks, represents last read operation on device*/
-	cl_event                    offloading_last_read_event;  /**< Event to sincronyze tasks, represents last DTH comunication*/
-	cl_event                    offloading_last_write_event; /**< Event to sincronyze tasks, represents last HTD comunication*/
-	cl_event                    host_last_read_event;        /**< Event to sincronyze tasks, represents last write operation on host*/
-	cl_event                    host_last_write_event;       /**< Event to sincronyze tasks, represents last read operation on host*/
-	int                         host_status;                 /**< Information about the status of the host memory of this tile (unallocated, invalid or valid) */
-	int                         device_status;               /**< Information about the status of the device memory of this tile (unallocated, invalid or valid) */
-	bool                        is_initialized;              /**< Flag to check if tile has been initialized */
-	struct Ctrl_FPGA_Tile      *p_parent_ext;                /**< Pointer to parent's ext field in hierarchical subselections */
+	struct Ctrl_FPGA      *p_ctrl;                       /**< Pointer to the ctrl to which this tile is associated */
+	struct Ctrl_Tile_List *p_tile_elem;                  /**< Node of the linked list containing all tiles of the ctrl to which this tile is associated */
+	cl_mem                 device_data;                  /**< OpenCL buffer for device image of this tile */
+	Ctrl_GenericEvent      host_last_kernel_read_event;  /**< Host event to sincronyze tasks, represents last write operation on device*/
+	Ctrl_GenericEvent      host_last_kernel_write_event; /**< Host event to sincronyze tasks, represents last read operation on device*/
+	Ctrl_GenericEvent      host_last_dth_event;          /**< Host event to sincronyze tasks, represents last DTH comunication*/
+	Ctrl_GenericEvent      host_last_htd_event;          /**< Host event to sincronyze tasks, represents last HTD comunication*/
+	Ctrl_GenericEvent      dev_last_kernel_read_event;   /**< Driver event to sincronyze tasks, represents last write operation on device*/
+	Ctrl_GenericEvent      dev_last_kernel_write_event;  /**< Driver event to sincronyze tasks, represents last read operation on device*/
+	Ctrl_GenericEvent      dev_last_dth_event;           /**< Driver event to sincronyze tasks, represents last DTH comunication*/
+	Ctrl_GenericEvent      dev_last_htd_event;           /**< Driver event to sincronyze tasks, represents last HTD comunication*/
 } Ctrl_FPGA_Tile;
-
-/**
- * \brief List af all FPGA tiles associated to a ctrl
- */
-typedef struct Ctrl_FPGA_Tile_List {
-	Ctrl_FPGA_Tile             *p_tile_ext;
-	struct Ctrl_FPGA_Tile_List *p_prev;
-	struct Ctrl_FPGA_Tile_List *p_next;
-} Ctrl_FPGA_Tile_List;
-
 ///@endcond
 #endif // _CTRL_FPGA_TILE_H_

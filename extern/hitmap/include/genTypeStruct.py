@@ -37,7 +37,7 @@ import itertools
 
 # Number of generated macros, we are using the A,B,...,Z,AA,..ZY,ZZ
 # names for the variables so the current limit is 26 + 26 * 26 = 702 macros.
-NUM_MACROS = 100 
+NUM_MACROS = 100
 
 
 ##############################################################
@@ -64,7 +64,7 @@ def big_comment(text):
 # Print a line with a tab and the continue sysmbol
 def macro_line(text):
 	sys.stdout.write("\t" + text + " \\\n")
-   
+
 # Prints a struct macro for the given number of variables
 def print_struct_macro(nvars):
 
@@ -103,7 +103,7 @@ def print_struct_macro(nvars):
 	macro_line("for(ivarloop=" + str(nvars-1) + "; ivarloop>=0; ivarloop--){")
 	macro_line("\tdispls[ivarloop] -= displs[0];")
 	macro_line("}")
-	
+
 	# MPI functions
 	macro_line("MPI_Type_create_struct(" + str(nvars) + ", blockcounts, displs, types, new_type);")
 	macro_line("MPI_Type_commit(new_type);")
@@ -124,7 +124,7 @@ big_comment("Macros to create the MPI Struct Datatypes.\n"
 print
 
 for i in range(1,NUM_MACROS+1):
-	print_struct_macro(i)	
+	print_struct_macro(i)
 
 # Inlude the file in the .h
 big_comment("Python script to generate this file")
@@ -136,7 +136,3 @@ for l in lines:
 f.close()
 print "#endif"
 print
-
-
-
-

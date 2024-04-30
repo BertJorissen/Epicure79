@@ -1,3 +1,34 @@
+/**
+ * @file Matrix_Power_Of_Cpu_Ctrl.c
+ * @author Trasgo Group
+ * @brief MatrixPow: Ctrl CPU version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -8,6 +39,8 @@
 #define SEED    6834723
 #define EPSILON 0.0001
 
+int SIZE;
+
 Ctrl_NewType(float);
 
 double main_clock;
@@ -16,147 +49,97 @@ double exec_clock;
 CTRL_KERNEL_CHAR(Mult, MANUAL, BLOCKSIZE, BLOCKSIZE, BLOCKSIZE);
 CTRL_KERNEL_CHAR(Reset, MANUAL, BLOCKSIZE, BLOCKSIZE);
 
-CTRL_KERNEL(Mult, CPU, DEFAULT, KHitTile_float matrix_result, KHitTile_float matrix_a, KHitTile_float matrix_b, {
+#define mult_params      3, OUT, HitTile_float, matrix_result, IN, HitTile_float, matrix_a, IN, HitTile_float, matrix_b
+#define reset_params     1, OUT, HitTile_float, matrix
+#define init_params      3, OUT, HitTile_float, matrix_a, OUT, HitTile_float, matrix_b, OUT, HitTile_float, matrix_c
+#define host_task_params 5, INVAL, int, ITER, INVAL, double *, p_sum, INVAL, double *, p_res, IN, HitTile_float, matrix, INVAL, HitTile_float, matrix_res
+
+// This kernel can only be parallelized on the first dimension
+#define CTRL_KERNEL_PARALLEL_DIMS_Mult 1
+CTRL_KERNEL(Mult, CPU, DEFAULT, CTRL_KPARAMS(mult_params), {
 	// using the same size to address all matrixes for compiler optimization issues
-	int size = hit_tileDimCard(matrix_result, 0);
-	matrix_result.data[thread_id_x * size + thread_id_z] += matrix_a.data[thread_id_x * size + thread_id_y] * matrix_b.data[thread_id_y * size + thread_id_z];
+	hit(matrix_result, thr_i, thr_k) += hit_as(matrix_a, matrix_result, thr_i, thr_j) * hit_as(matrix_b, matrix_result, thr_j, thr_k);
 });
 
-CTRL_KERNEL(Reset, CPU, DEFAULT, KHitTile_float matrix, {
-	hit(matrix, thread_id_x, thread_id_y) = 0;
+CTRL_KERNEL(Reset, CPU, DEFAULT, CTRL_KPARAMS(reset_params), {
+	hit(matrix, thr_i, thr_j) = 0;
 });
 
-float RandomFloat(float min, float max) {
-	assert(max > min);
-	float random = ((float)rand()) / (float)RAND_MAX;
-	float range  = max - min;
-	return (random * range) + min;
-}
-
-CTRL_HOST_TASK(Init_Tiles, HitTile_float matrix_a, HitTile_float matrix_b, HitTile_float matrix_c) {
+CTRL_HOST_TASK(Init_Tiles, CTRL_HPARAMS(init_params)) {
 	srand(SEED);
-	for (int j = 0; j < hit_tileDimCard(matrix_a, 1); j++) {
+	for (int j = 0; j < SIZE; j++) {
 		float col_sum_a = 0;
-		float col_sum_b = 0;
-		for (int i = 0; i < hit_tileDimCard(matrix_a, 0); i++) {
-			float a = RandomFloat(-(1 - col_sum_a) + EPSILON, 1 - col_sum_a - EPSILON);
-			float b = RandomFloat(-(1 - col_sum_b) + EPSILON, 1 - col_sum_b - EPSILON);
+		for (int i = 0; i < SIZE; i++) {
+			// generate random floats in a way matrixes don't turn into NaN
+			float min    = -(1 - col_sum_a) + EPSILON;
+			float max    = 1 - col_sum_a - EPSILON;
+			float random = ((float)rand()) / (float)RAND_MAX;
+			float range  = max - min;
+			float value  = (random * range) + min;
 
-			hit(matrix_a, i, j) = a;
-			hit(matrix_b, i, j) = b;
+			hit(matrix_a, i, j) = value;
+			hit(matrix_b, i, j) = value;
 			hit(matrix_c, i, j) = 0;
-			col_sum_a += fabsf(a);
-			col_sum_b += fabsf(b);
+			col_sum_a += fabsf(value);
 		}
 	}
 }
 
-CTRL_HOST_TASK(Host_Compute, int ITER, double *p_sum, double *p_res, HitTile_float matrix, HitTile_float matrix_res) {
-	double minimum = hit(matrix, 0, 0);
-	double maximum = hit(matrix, 0, 0);
+CTRL_HOST_TASK(Host_Compute, CTRL_HPARAMS(host_task_params)) {
+	double minimum = hit(matrix, 0);
+	double maximum = hit(matrix, 0);
 
-	for (int j = 0; j < hit_tileDimCard(matrix, 0); j++) {
-		for (int k = 0; k < hit_tileDimCard(matrix, 1); k++) {
-			if (minimum > hit(matrix, j, k)) {
-				minimum = hit(matrix, j, k);
-			}
-			if (maximum < hit(matrix, j, k)) {
-				maximum = hit(matrix, j, k);
-			}
+	for (int i = 0; i < SIZE * SIZE; i++) {
+		if (minimum > hit(matrix, i)) {
+			minimum = hit(matrix, i);
+		}
+		if (maximum < hit(matrix, i)) {
+			maximum = hit(matrix, i);
 		}
 	}
 
-	for (int j = 0; j < hit_tileDimCard(matrix, 0); j++) {
-		for (int k = 0; k < hit_tileDimCard(matrix, 1); k++) {
-			hit(matrix_res, j, k) = hit(matrix, j, k) - minimum;
-			hit(matrix_res, j, k) = hit(matrix_res, j, k) / maximum;
-		}
+	for (int i = 0; i < SIZE * SIZE; i++) {
+		hit(matrix_res, i) = hit_as(matrix, matrix_res, i) - minimum;
+		hit(matrix_res, i) /= maximum;
 	}
 
 	p_sum[ITER] = 0;
-	for (int j = 0; j < hit_tileDimCard(matrix, 0); j++) {
-		for (int k = 0; k < hit_tileDimCard(matrix, 1); k++) {
-			p_sum[ITER] += pow(hit(matrix_res, j, k), 2);
-		}
+	for (int i = 0; i < SIZE * SIZE; i++) {
+		p_sum[ITER] += pow(hit(matrix_res, i), 2);
 	}
 	p_res[ITER] = sqrt(p_sum[ITER]);
 
-	for (int j = 0; j < hit_tileDimCard(matrix, 0); j++) {
-		for (int k = 0; k < hit_tileDimCard(matrix, 1); k++) {
-			hit(matrix_res, j, k) = hit(matrix_res, j, k) / p_res[ITER];
-		}
+	for (int i = 0; i < SIZE * SIZE; i++) {
+		hit(matrix_res, i) = hit(matrix_res, i) / p_res[ITER];
 	}
 }
 
-CTRL_KERNEL_PROTO(Mult,
-				  1, CPU, DEFAULT, 3,
-				  OUT, HitTile_float, matrix_result,
-				  IN, HitTile_float, matrix_a,
-				  IN, HitTile_float, matrix_b);
-
-CTRL_KERNEL_PROTO(Reset,
-				  1, CPU, DEFAULT, 1,
-				  OUT, HitTile_float, matrix);
-
-CTRL_HOST_TASK_PROTO(Init_Tiles, 3,
-					 OUT, HitTile_float, matrix_a,
-					 OUT, HitTile_float, matrix_b,
-					 OUT, HitTile_float, matrix_c);
-
-CTRL_HOST_TASK_PROTO(Host_Compute, 5,
-					 INVAL, int, ITER,
-					 INVAL, double *, p_sum,
-					 INVAL, double *, p_res,
-					 IN, HitTile_float, matrix,
-					 OUT, HitTile_float, matrix_res);
+CTRL_KERNEL_PROTO(Mult, 1, CPU, DEFAULT, mult_params);
+CTRL_KERNEL_PROTO(Reset, 1, CPU, DEFAULT, reset_params);
+CTRL_HOST_TASK_PROTO(Init_Tiles, init_params);
+CTRL_HOST_TASK_PROTO(Host_Compute, host_task_params);
 
 void usage(int argc, char **argv) {
 	fprintf(stderr, "\nUsage: %s <size> <n_iter> <n_threads> <device> <mem_transfers> <policy> <host>\n", argv[0]);
 	fprintf(stderr, "\t<size> - number of rows/cols in the grid (positive integer)\n");
 	fprintf(stderr, "\t<n_iter> - number of iterations\n");
-	fprintf(stderr, "\t<n_threads> - number of threads\n");
-	fprintf(stderr, "\t<device> - numa node for the device \n");
-	fprintf(stderr, "\t<mem_transfers> - 0 for no mem transfers 1 for mem transfers\n");
 	fprintf(stderr, "\t<policy> - 0 for sync or 1 for async\n");
-	fprintf(stderr, "\t<host> - numa node for the host\n");
-	fflush(stdout);
+	fprintf(stderr, "\t<config_file> - path to ctrl config file\n");
 	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
+	Ctrl_Init(&argc, &argv);
 	main_clock = omp_get_wtime();
 
-	if (argc != 8) {
+	if (argc != 5) {
 		usage(argc, argv);
 	}
-	int SIZE    = atoi(argv[1]);
-	int N_ITER  = atoi(argv[2]);
-	int THREADS = atoi(argv[3]);
-	int p_numanodes[1];
-	int n_numanodes           = 1;
-	p_numanodes[0]            = atoi(argv[4]);
-	bool        mem_transfers = atoi(argv[5]);
-	Ctrl_Policy policy        = atoi(argv[6]);
-	int         host_aff      = atoi(argv[7]);
-	Ctrl_SetHostAffinity(host_aff);
-
-	#ifndef _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ----------------------- ARGS ----------------------- \n");
-	printf("\n SIZE: %d", SIZE);
-	printf("\n N_ITER: %d", N_ITER);
-	printf("\n N_THREADS: %d", THREADS);
-	printf("\n POLICY %s", policy ? "Async" : "Sync");
-	printf("\n MEM_TRANSFERS: %s", mem_transfers ? "ON" : "OFF");
-	printf("\n HOST AFFINITY: %d", host_aff);
-	printf("\n DEVICE: %s", n_numanodes != 0 ? argv[4] : "NULL");
-	#ifdef _CTRL_QUEUE_
-	printf("\n QUEUES: ON");
-	#else
-	printf("\n QUEUES: OFF");
-	#endif // _CTRL_QUEUE_
-	printf("\n\n ---------------------------------------------------- \n");
-	fflush(stdout);
-	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	SIZE               = atoi(argv[1]);
+	int         N_ITER = atoi(argv[2]);
+	Ctrl_Policy policy = atoi(argv[3]);
+	Ctrl_SetPolicy(policy);
+	char *ctrl_conf_file = argv[4];
 
 	double *p_res = (double *)malloc(N_ITER * sizeof(double));
 	double *p_sum = (double *)malloc(N_ITER * sizeof(double));
@@ -166,33 +149,47 @@ int main(int argc, char *argv[]) {
 	Ctrl_Thread threads2D;
 	Ctrl_ThreadInit(threads2D, SIZE, SIZE);
 
-	__ctrl_block__(1, 1) {
-		PCtrl ctrl = Ctrl_Create(CTRL_TYPE_CPU, policy, THREADS, p_numanodes, n_numanodes, mem_transfers);
+	__ctrl_block__(ctrl_conf_file) {
+		PCtrl ctrl = Ctrl_Get(0);
 
-		HitTile_float matrix_a = Ctrl_DomainAlloc(ctrl, float, hitShapeSize(SIZE, SIZE));
-		HitTile_float matrix_b = Ctrl_DomainAlloc(ctrl, float, hitShapeSize(SIZE, SIZE));
-		HitTile_float matrix_c = Ctrl_DomainAlloc(ctrl, float, hitShapeSize(SIZE, SIZE));
+		// Extra information for collecting results
+		Ctrl_Info info = Ctrl_GetInfo(ctrl);
+		#ifdef _CTRL_EXAMPLES_EXP_MODE_
+		printf("%d, %d-%d, %s, ", info.n_threads, info.numa_range_min, info.numa_range_max, info.mem_transfers ? "ON" : "OFF");
+		#else
+		printf("\n ----------------------- ARGS ----------------------- \n");
+		printf("\n SIZE: %d", SIZE);
+		printf("\n N_ITER: %d", N_ITER);
+		printf("\n N_THREADS: %d", info.n_threads);
+		printf("\n POLICY %s", policy ? "Async" : "Sync");
+		printf("\n MEM_TRANSFERS: %s", info.mem_transfers ? "ON" : "OFF");
+		printf("\n HOST AFFINITY: %d", info.host_affinity);
+		printf("\n DEVICE: %d-%d", info.numa_range_min, info.numa_range_max);
+		printf("\n\n ---------------------------------------------------- \n");
+		fflush(stdout);
+		#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-		HitTile_float matrix_tmp = Ctrl_DomainAlloc(ctrl, float, hitShapeSize(SIZE, SIZE));
+		HitShape      shape    = hitShapeSize(SIZE, SIZE);
+		HitTile_float matrix_a = Ctrl_DomainAlloc(ctrl, float, shape);
+		HitTile_float matrix_b = Ctrl_DomainAlloc(ctrl, float, shape);
+		HitTile_float matrix_c = Ctrl_DomainAlloc(ctrl, float, shape);
 
-		Ctrl_HostTask(ctrl, Init_Tiles, matrix_a, matrix_b, matrix_c);
+		HitTile_float matrix_tmp = hitTile(float, shape);
+
+		Ctrl_HostTask(Init_Tiles, matrix_a, matrix_b, matrix_c);
 
 		Ctrl_GlobalSync(ctrl);
 		exec_clock = omp_get_wtime();
-
-		// Ctrl_MoveTo(ctrl, matrix_a, matrix_b, matrix_c);
 
 		for (int i = 0; i < N_ITER; i++) {
 			if ((i % 2) == 0) {
 				Ctrl_Launch(ctrl, Reset, threads2D, CTRL_THREAD_NULL, matrix_c);
 				Ctrl_Launch(ctrl, Mult, threads, CTRL_THREAD_NULL, matrix_c, matrix_a, matrix_b);
-				// Ctrl_MoveFrom(ctrl, matrix_c);
-				Ctrl_HostTask(ctrl, Host_Compute, i, p_sum, p_res, matrix_c, matrix_tmp);
+				Ctrl_HostTask(Host_Compute, i, p_sum, p_res, matrix_c, matrix_tmp);
 			} else {
 				Ctrl_Launch(ctrl, Reset, threads2D, CTRL_THREAD_NULL, matrix_b);
 				Ctrl_Launch(ctrl, Mult, threads, CTRL_THREAD_NULL, matrix_b, matrix_a, matrix_c);
-				// Ctrl_MoveFrom(ctrl, matrix_b);
-				Ctrl_HostTask(ctrl, Host_Compute, i, p_sum, p_res, matrix_b, matrix_tmp);
+				Ctrl_HostTask(Host_Compute, i, p_sum, p_res, matrix_b, matrix_tmp);
 			}
 		}
 
@@ -200,27 +197,20 @@ int main(int argc, char *argv[]) {
 		exec_clock = omp_get_wtime() - exec_clock;
 
 		/* PRINT RESULTS */
-		#ifdef _CTRL_EXAMPLES_TEST_MODE_
-		for (int i = 0; i < N_ITER; i++) {
-			printf("%lf, %lf, ", p_sum[i], p_res[i]);
-		}
-		fflush(stdout);
-		#elif _CTRL_EXAMPLES_EXP_MODE_
+		#ifdef _CTRL_EXAMPLES_EXP_MODE_
 		printf("%lf, %lf, ", p_sum[N_ITER - 1], p_res[N_ITER - 1]);
-		fflush(stdout);
-		#else
+		#else // _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n ----------------------- NORM ----------------------- \n\n");
-		fflush(stdout);
 		for (int i = 0; i < N_ITER; i++) {
 			printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]);
-			fflush(stdout);
 		}
 		printf("\n ---------------------------------------------------- \n");
+		#endif //_CTRL_EXAMPLES_EXP_MODE_
 		fflush(stdout);
-		#endif
 
-		Ctrl_Free(ctrl, matrix_a, matrix_b, matrix_c, matrix_tmp);
-		Ctrl_Destroy(ctrl);
+		Ctrl_Free(ctrl, matrix_a, matrix_b, matrix_c);
+		hit_tileFree(matrix_tmp);
+		Ctrl_EndBlock();
 	}
 
 	free(p_sum);
@@ -230,13 +220,13 @@ int main(int argc, char *argv[]) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
-	#else
-	printf("\n ----------------------- TIME ----------------------- \n\n");
-	printf(" Clock main: %lf\n", main_clock);
-	printf(" Clock exec: %lf\n", exec_clock);
-	printf("\n ---------------------------------------------------- \n");
-	#endif
+	#else // _CTRL_EXAMPLES_EXP_MODE_
+	printf("\n ---------------------- TIMERS ---------------------- \n");
+	printf("Clock main: %lf\n", main_clock);
+	printf("Clock exec: %lf\n", exec_clock);
+	printf("\n\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	Ctrl_Finalize();
+	return EXIT_SUCCESS;
 }

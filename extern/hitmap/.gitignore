@@ -1,3 +1,6 @@
+# Ignore vscode settings folder
+.vscode
+
 # Ignore object files
 src/*.o
 

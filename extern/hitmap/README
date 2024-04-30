@@ -1,5 +1,5 @@
 =============================================================================
-			    Hitmap Release 1.3
+			    Hitmap Release 1.4
 =============================================================================
 			
 Hitmap is a highly-efficient library for hierarchical tiling and mapping of
@@ -36,7 +36,7 @@ compile the library.
 
 (a) You will need the following prerequisites.
 
-- A C compiler.
+- A C99 compiler.
 - An MPI implementation.
 - The GNU make utility.
 
@@ -89,16 +89,16 @@ LICENSE:	License for this software product
 Doxyfile:	Configuration file to generate the documentation with doxygen
 doc:		Documentation directory
 
-Makefile:	Main makefile of the whole Hitmap package
 config:		Configuration files to adapt the Makefiles to your platform
+Makefile:	Main makefile of the whole Hitmap package
 include:	Header files for the Hitmap library
 src:		Source codes of the Hitmap library
-lib:		Where the Hitmap library is located after building
-cutest:		Examples for the CUDA support extension
-libcuda:	CUDA support extension: Using Nvidia GPUs with Hitmap 
+lib:		The Hitmap library is located here after building
+utils:		Extra tools including a program to convert hitmap array/tiles format
 
 examples:	Examples of the use of the Hitmap library
 
-iohb1.0:	External library for Harwell-Boeing matrix format input/output v1.0
-metis:		External library for sparse data structures partition: Metis 4.0.1
+extern:		External libraries integrated into Hitmap
+   iohb1.0:	Input/Output of Harwell-Boeing matrix format v1.0
+   metis:	Sparse data structures partition: Metis 4.0.1
 

@@ -1,3 +1,34 @@
+/**
+ * @file Mandelbrot_Animation.cu
+ * @author Trasgo Group
+ * @brief Mandelbrot: Ctrl CUDA version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 #include <assert.h>
 #include <math.h>
 #include <omp.h>
@@ -58,8 +89,8 @@ void plot(HitTile_int mat) {
 CTRL_KERNEL_CHAR(Mandelbrot, MANUAL, BLOCKSIZE, BLOCKSIZE);
 
 CTRL_KERNEL(Mandelbrot, GENERIC, DEFAULT, KHitTile_int mat, int threshold, float x1, float x2, float y1, float y2, {
-	float x0 = x1 + (x2 - x1) / hit_tileDimCard(mat, 0) * thread_id_x;
-	float y0 = y1 + (y2 - y1) / hit_tileDimCard(mat, 1) * thread_id_y;
+	float x0 = x1 + (x2 - x1) / hit_tileDimCard(mat, 0) * thr_i;
+	float y0 = y1 + (y2 - y1) / hit_tileDimCard(mat, 1) * thr_j;
 
 	float x         = 0.0;
 	float y         = 0.0;
@@ -70,7 +101,7 @@ CTRL_KERNEL(Mandelbrot, GENERIC, DEFAULT, KHitTile_int mat, int threshold, float
 		x           = xtemp;
 		iteration++;
 	}
-	hit(mat, thread_id_x, thread_id_y) = iteration;
+	hit(mat, thr_i, thr_j) = iteration;
 });
 
 CTRL_HOST_TASK(Count_And_Paint, HitTile_int mat, int *result) {
@@ -97,9 +128,10 @@ CTRL_HOST_TASK_PROTO(Count_And_Paint, 2,
 
 int main(int argc, char *argv[]) {
 	main_clock = omp_get_wtime();
+	Ctrl_Init(&argc, &argv);
 
-	if (argc != 13) {
-		fprintf(stderr, "\nUsage: %s <sizeX> <sizeY> <x1> <x2> <y1> <y2> <step> <threshold> <iters> <device_id> <policy> <affinity>\n", argv[0]);
+	if (argc != 12) {
+		fprintf(stderr, "\nUsage: %s <sizeX> <sizeY> <x1> <x2> <y1> <y2> <step> <threshold> <iters> <policy> <config_file>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -112,23 +144,17 @@ int main(int argc, char *argv[]) {
 	float       step       = atof(argv[7]);
 	int         threshold  = atoi(argv[8]);
 	int         iterations = atoi(argv[9]);
-	int         device     = atoi(argv[10]);
-	Ctrl_Policy policy     = (Ctrl_Policy)atoi(argv[11]);
-	int         host_aff   = atoi(argv[12]);
-	Ctrl_SetHostAffinity(host_aff);
+	Ctrl_Policy policy     = (Ctrl_Policy)atoi(argv[10]);
+	Ctrl_SetPolicy(policy);
+	char *ctrl_conf_file = argv[11];
 
 	int *p_results = (int *)malloc(iterations * sizeof(int));
 
 	Ctrl_Thread threads;
 	Ctrl_ThreadInit(threads, size_x, size_y);
 
-	#ifdef _CTRL_QUEUE_
-	__ctrl_block__(1, 1)
-		#else
-		__ctrl_block__(1, 0)
-	#endif //_CTRL_QUEUE_
-	{
-		PCtrl ctrl = Ctrl_Create(CTRL_TYPE_CUDA, policy, device);
+	__ctrl_block__(ctrl_conf_file) {
+		PCtrl ctrl = Ctrl_Get(0);
 
 		HitTile_int mat  = Ctrl_DomainAlloc(ctrl, int, hitShapeSize(size_x, size_y));
 		HitTile_int mat2 = Ctrl_DomainAlloc(ctrl, int, hitShapeSize(size_x, size_y));
@@ -151,7 +177,7 @@ int main(int argc, char *argv[]) {
 
 			// PROCESS RESULT IMAGE
 			int *result = &p_results[i];
-			Ctrl_HostTask(ctrl, Count_And_Paint, mat2, result);
+			Ctrl_HostTask(Count_And_Paint, mat2, result);
 			x1 += step * size_x;
 			x2 -= step * size_x;
 			y1 += step * size_y;
@@ -174,22 +200,22 @@ int main(int argc, char *argv[]) {
 		#endif
 
 		Ctrl_Free(ctrl, mat, mat2);
-		Ctrl_Destroy(ctrl);
+		Ctrl_EndBlock();
 	}
 
 	free(p_results);
 
+	Ctrl_Finalize();
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
-	#else
-	printf("\n ----------------------- TIME ----------------------- \n\n");
-	printf(" Clock main: %lf\n", main_clock);
-	printf(" Clock exec: %lf\n", exec_clock);
-	printf("\n ---------------------------------------------------- \n");
-	#endif
+	#else // _CTRL_EXAMPLES_EXP_MODE_
+	printf("\n ---------------------- TIMERS ---------------------- \n");
+	printf("Clock main: %lf\n", main_clock);
+	printf("Clock exec: %lf\n", exec_clock);
+	printf("\n\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	return EXIT_SUCCESS;
 }

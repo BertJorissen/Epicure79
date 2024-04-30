@@ -4,7 +4,7 @@
  * @file Ctrl_Thread.h
  * @author Trasgo Group
  * @brief Thread block structs and macros.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -36,18 +36,18 @@
  */
 typedef struct {
 	unsigned int dims; /**< Number of dims for this thread */
-	unsigned int x;    /**< Identifier of this thread in the 1st */
-	unsigned int y;    /**< Identifier of this thread in the 2nd */
-	unsigned int z;    /**< Identifier of this thread in the 3rd */
+	unsigned int i;    /**< Identifier of this thread in the 1st */
+	unsigned int j;    /**< Identifier of this thread in the 2nd */
+	unsigned int k;    /**< Identifier of this thread in the 3rd */
 } Ctrl_Thread;
 
-#define CTRL_THREAD_STRINGIFY " typedef struct { unsigned int dims; unsigned int x; unsigned int y; unsigned int z; } Ctrl_Thread; "
+#define CTRL_THREAD_STRINGIFY " typedef struct { unsigned int dims; unsigned int i; unsigned int j; unsigned int k; } Ctrl_Thread; "
 
 /**
  * Null value for \e Ctrl_Thread
  * @hideinitializer
  */
-#define CTRL_THREAD_NULL ((Ctrl_Thread){.dims = 0, .x = 0, .y = 0, .z = 0})
+#define CTRL_THREAD_NULL ((Ctrl_Thread){.dims = 0, .i = 0, .j = 0, .k = 0})
 
 /**
  * Initialize thread block \p name
@@ -72,8 +72,8 @@ typedef struct {
 #define Ctrl_Thread2(threads, ndims, param1, param2) Ctrl_Thread3(threads, ndims, param1, param2, 1)
 #define Ctrl_Thread3(threads, ndims, param1, param2, param3) \
 	threads.dims = ndims;                                    \
-	threads.x    = param1;                                   \
-	threads.y    = param2;                                   \
-	threads.z    = param3;
+	threads.i    = param1;                                   \
+	threads.j    = param2;                                   \
+	threads.k    = param3;
 
 #endif // _CTRL_KERNEL_THREAD_H_

@@ -1,4 +1,3 @@
-
 ### C ###
 # Prerequisites
 *.d
@@ -112,10 +111,17 @@ workspace.code-workspace
 
 # Experimentation folder
 experimentation
+exp/GenericStencil/*.err
+exp/GenericStencil/profile*
 
-results
+exp/*res*
+exp/*test*
 Ctrl/doc/html
 Ctrl/doc/latex
+
+# Hitmap
+extern/hitmap/ciTests/
+extern/hitmap/examples/
 
 doxygenWarnings
 

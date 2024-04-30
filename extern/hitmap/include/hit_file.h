@@ -48,22 +48,6 @@
 #include "hit_tile.h"
 #include "hit_error.h"
 
-#ifndef INCLUDE_IOHB__H
-	#define INCLUDE_IOHB__H
-    #include "iohb.h"
-#endif
-
-#ifndef INCLUDE_MATRIX_IO__H
-	#define INCLUDE_MATRIX_IO__H
-	#include "matrix_io.h"
-#endif
-
-#ifndef INCLUDE_METIS__H
-    #define INCLUDE_METIS__H
-    #include "metis.h"
-#endif
-
-
 
 /**
  * Reads the structure of an Harwell-Boeing graph.

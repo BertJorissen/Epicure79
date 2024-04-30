@@ -47,7 +47,7 @@ APP_TESTING=
 # 2. DECLARE APPLICATION TARGETS,
 # 	 AND OTHER FILES TO BE AUTOMATICALLY REMOVED WHEN CLEANING
 #
-APP_TARGETS=mg_classA
+APP_TARGETS=mg_classB
 APP_CLEAN=mg_classS mg_classA mg_classB mg_classC mg_classD mg_classE
 
 #

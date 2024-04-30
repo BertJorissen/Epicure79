@@ -41,6 +41,11 @@
  * </license>
 */
 
+#ifndef INCLUDE_METIS__H
+	#define INCLUDE_METIS__H
+	#include "metis.h"
+#endif
+
 #include <stdio.h>
 #include <math.h>
 
@@ -54,6 +59,11 @@
 #include <hit_cshape.h>
 #include <hit_bshape.h>
 
+
+#ifndef INCLUDE_METIS__H
+	#define INCLUDE_METIS__H
+	#include "metis.h"
+#endif
 
 
 

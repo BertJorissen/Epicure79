@@ -1,0 +1,9 @@
+node manticore
+	proc 0 0
+		opencl 2 0 4
+	proc 1 0
+		opencl 2 1 4
+	proc 2 0
+		opencl 3 0 4
+	proc 3 0
+		opencl 3 1 4

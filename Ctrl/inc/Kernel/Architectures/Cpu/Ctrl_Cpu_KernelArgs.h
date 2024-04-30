@@ -5,7 +5,7 @@
  * @file Ctrl_Cpu_KernelArgs.h
  * @author Trasgo Group
  * @brief Macros to cast Ctrl Cpu tiles to KHitTiles for their use in kernels.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -32,8 +32,7 @@
  * @copyright More information on http://trasgo.infor.uva.es/
  */
 
-#include "Architectures/Cpu/Ctrl_Cpu_Tile.h"
-#include "Kernel/Ctrl_ImplType.h"
+#include "Core/Ctrl_Tile.h"
 
 /**
  * Macro used to convert tiles into \e KHitTiles for kernel execution.
@@ -43,9 +42,9 @@
  *
  * @see KHitTile
  */
-#define CTRL_KERNEL_CPU_KTILE_DEVICE_DATA(name)                               \
-	case CTRL_TYPE_CPU:                                                       \
-		k_##name##_void.data = (((Ctrl_Cpu_Tile *)name->ext)->p_device_data); \
+#define CTRL_KERNEL_CPU_KTILE_DEVICE_DATA(name)                                                           \
+	case CTRL_TYPE_CPU:                                                                                   \
+		k_##name##_void.data = (((Ctrl_Tile *)name->ext)->p_impls[p_ctrl->id].tile.p_cpu->p_device_data); \
 		break;
 
 ///@endcond

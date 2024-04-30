@@ -4,7 +4,7 @@
  * @file Ctrl_Type.h
  * @author Trasgo Group
  * @brief Ctrl types.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -38,8 +38,10 @@ extern "C" {
  * @brief Tipos de dispositivos que pueden gestionar los controladores.
  */
 typedef enum {
+	CTRL_TYPE_NULL = 0,
 	CTRL_TYPE_CPU,
 	CTRL_TYPE_CUDA,
+	CTRL_TYPE_HIP,
 	CTRL_TYPE_OPENCL_GPU,
 	CTRL_TYPE_FPGA
 } Ctrl_Type;

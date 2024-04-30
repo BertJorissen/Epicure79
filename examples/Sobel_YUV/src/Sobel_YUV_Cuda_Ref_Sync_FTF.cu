@@ -1,3 +1,34 @@
+/**
+ * @file Sobel_YUV_Cuda_Ref_Sync_FTF.cu
+ * @author Trasgo Group
+ * @brief SobelYUV: Syncronous native CUDA file to file version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
@@ -67,7 +98,7 @@ void Load_Frame(BYTE *Input_Img[N_IMG], FILE *File_reader, size_t sizes[N_IMG]) 
 }
 
 __global__ void Sobel_Operation(BYTE *Input, BYTE *Output, int Width, int Height) {
-	// Variable for Gradient in X and Y direction and Final one
+
 	float Gradient_h, Gradient_v, Gradient_mod;
 
 	// Calculating index id
@@ -114,10 +145,7 @@ int main(int argc, char **argv) {
 
 	/*********************************** Argument Parse *************************************/
 	if (argc < 7) {
-		printf(
-			"Usage: %s <width> <height> <num_frames> <input_yuv_file> "
-			"<output_yuv_file> <device>",
-			argv[0]);
+		printf("Usage: %s <width> <height> <num_frames> <input_yuv_file> <output_yuv_file> <device>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -141,6 +169,7 @@ int main(int argc, char **argv) {
 
 	int DEVICE = atoi(argv[6]);
 
+	// Extra information for collecting results
 	cudaDeviceProp cu_dev_prop;
 	cudaGetDeviceProperties(&cu_dev_prop, DEVICE);
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
@@ -153,8 +182,8 @@ int main(int argc, char **argv) {
 	printf("\n DEVICE: %s", cu_dev_prop.name);
 	printf("\n POLICY SYNC");
 	printf("\n\n ---------------------------------------------------- \n");
-	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 
 	int Frame_num = 0;
 
@@ -172,8 +201,8 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < N_IMG; i++) {
 		dimBlock[i] = dim3(BLOCKSIZE_0, BLOCKSIZE_1);
 		dimGrid[i]  = dim3(
-			 (Width[i] + BLOCKSIZE_0 - 1) / BLOCKSIZE_0,
-			 (Height[i] + BLOCKSIZE_1 - 1) / BLOCKSIZE_1);
+            (Width[i] + BLOCKSIZE_0 - 1) / BLOCKSIZE_0,
+            (Height[i] + BLOCKSIZE_1 - 1) / BLOCKSIZE_1);
 	}
 
 	if (!(File_reader = fopen(Input_Filename, "rb"))) {
@@ -225,13 +254,12 @@ int main(int argc, char **argv) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
-	#else
-	printf("\n ----------------------- TIME ----------------------- \n\n");
-	printf(" Clock main: %lf\n", main_clock);
-	printf(" Clock exec: %lf\n", exec_clock);
-	printf("\n ---------------------------------------------------- \n");
-	#endif
+	#else // _CTRL_EXAMPLES_EXP_MODE_
+	printf("\n ---------------------- TIMERS ---------------------- \n");
+	printf("Clock main: %lf\n", main_clock);
+	printf("Clock exec: %lf\n", exec_clock);
+	printf("\n\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	return EXIT_SUCCESS;
 }

@@ -7,10 +7,10 @@
  * 
  * @file hit_topology.h
  * @ingroup Com
- * @version 1.4
+ * @version 1.5
  * @author Arturo Gonzalez-Escribano
  * @author Javier Fresno Bausela
- * @date Mar 2019
+ * @date Jul 2023
  *
  */
 
@@ -533,6 +533,7 @@ HitRanks hit_topRanksInternal( HitTopology topo, int linealRank );
 			hit_warning( message, __FILE__, __LINE__ );	\
 		}	\
 	}
+
 
 #ifdef __cplusplus
 }

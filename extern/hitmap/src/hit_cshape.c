@@ -38,6 +38,7 @@
  * </license>
 */
 
+#include <string.h>
 #include <limits.h>
 #include <hit_allocP.h>
 #include <hit_cshape.h>

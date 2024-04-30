@@ -5,7 +5,7 @@
  * @file Ctrl_FPGA_KernelProto.h
  * @author Gabriel Rodriguez-Canal
  * @brief Macros to generate the code and manage FPGA kernels.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -141,7 +141,7 @@
 
 			#define CTRL_KERNEL_FUNCTION_FPGA(name, type, subtype, pipeline, roles, ...)                   \
 				CTRL_EXTRACT_PIPELINE_N(CTRL_COUNTPARAM(CTRL_EXTRACT_##pipeline), CTRL_EXTRACT_##pipeline) \
-				__kernel void CTRL_KERNEL_##type##_##subtype##_##name(CTRL_KERNEL_SIGNATURE(CTRL_COUNTPARAM(__VA_ARGS__), EXTRACT_##roles, __VA_ARGS__))
+				__kernel void ctrl_kernel_fpga_##type##_##subtype##_##name(CTRL_KERNEL_SIGNATURE(CTRL_COUNTPARAM(__VA_ARGS__), EXTRACT_##roles, __VA_ARGS__))
 		#endif // CTRL_FPGA_BIN_NAME
 
 		#define CTRL_KERNEL_FPGA_PARSE_ARGS_1(role, type, name)       CTRL_KERNEL_FPGA_PARSE_ARGS_##role(type, name)
@@ -280,38 +280,31 @@
 		#define CTRL_KERNEL_MODE ""
 		#endif
 
-		#define CTRL_KERNEL_FUNCTION_FPGA(name, type, subtype, pipeline, ...)                                                            \
-			CTRL_EXTRACT_PIPELINE_N(CTRL_COUNTPARAM(CTRL_EXTRACT_##pipeline), CTRL_EXTRACT_##pipeline)                                   \
-			size_t      local_size[3];                                                                                                   \
-			cl_kernel  *p_kernel_##type##_##subtype##_##name           = NULL;                                                           \
-			cl_program *p_program_##type##_##subtype##_##name          = NULL;                                                           \
-			char       *p_kernel_raw_##type##_##subtype##_##name       = NULL;                                                           \
-			const char *p_ctrl_kernel_name_##type##_##subtype##_##name = CTRL_KERNEL_STRINGIFY(CTRL_KERNEL_##type##_##subtype##_##name); \
-																																		 \
-			__attribute__((constructor)) static void Ctrl_InitKernel_##type##_##subtype##_##name() {                                     \
-				p_kernel_##type##_##subtype##_##name  = (cl_kernel *)malloc(sizeof(cl_kernel));                                          \
-				p_program_##type##_##subtype##_##name = (cl_program *)malloc(sizeof(cl_program));                                        \
-				/* FILE *binary_file; */                                                                                                 \
-				static char *kernel_path = NULL;                                                                                         \
-				kernel_path              = (char *)malloc(CTRL_KERNEL_PATH_LENGTH * sizeof(char));                                       \
-				kernel_path[0]           = '\0';                                                                                         \
-				strcat(kernel_path, STRINGIFY(CTRL_KERNEL_PATH));                                                                        \
-				strcat(kernel_path, CTRL_KERNEL_STRINGIFY(name));                                                                        \
-				strcat(kernel_path, "/");                                                                                                \
-				strcat(kernel_path, #name);                                                                                              \
-				strcat(kernel_path, cpar_simd);                                                                                          \
-																																		 \
-				Ctrl_FPGA_KernelParams *curr_k_par = &FPGA_initial_kp;                                                                   \
-				while (curr_k_par->p_next != NULL)                                                                                       \
-					curr_k_par = curr_k_par->p_next;                                                                                     \
-																																		 \
-				curr_k_par->p_kernel      = p_kernel_##type##_##subtype##_##name;                                                        \
-				curr_k_par->p_program     = p_program_##type##_##subtype##_##name;                                                       \
-				curr_k_par->p_kernel_name = p_ctrl_kernel_name_##type##_##subtype##_##name;                                              \
-				curr_k_par->p_binary_name = (char *)malloc(200 * sizeof(char));                                                          \
-				strcpy(curr_k_par->p_binary_name, kernel_path);                                                                          \
-				static Ctrl_FPGA_KernelParams new_kernel_params;                                                                         \
-				curr_k_par->p_next = &new_kernel_params;                                                                                 \
+		#define CTRL_KERNEL_FUNCTION_FPGA(name, type, subtype, pipeline, ...)                          \
+			CTRL_EXTRACT_PIPELINE_N(CTRL_COUNTPARAM(CTRL_EXTRACT_##pipeline), CTRL_EXTRACT_##pipeline) \
+			Ctrl_FPGA_KernelParams ctrl_kernel_fpga_##type##_##subtype##_##name = (Ctrl_FPGA_KernelParams){ \
+				 .p_kernel      = NULL,                                                                \
+				 .p_program     = NULL,                                                                \
+				 .p_kernel_name = CTRL_MACRO_STRINGIFY(ctrl_kernel_fpga_##type##_##subtype##_##name),  \
+				 .p_binary_name = NULL,                                                                \
+				 .p_next        = NULL};                                                               \
+																									   \
+			__attribute__((constructor)) static void Ctrl_InitKernel_##type##_##subtype##_##name() {   \
+				/* FILE *binary_file; */                                                               \
+				char *kernel_path = (char *)malloc(CTRL_KERNEL_PATH_LENGTH * sizeof(char));;           \
+				kernel_path[0]    = '\0';                                                              \
+				strcat(kernel_path, CTRL_MACRO_STRINGIFY(CTRL_KERNEL_PATH));                           \
+				strcat(kernel_path, CTRL_MACRO_STRINGIFY(name));                                       \
+				strcat(kernel_path, "/");                                                              \
+				strcat(kernel_path, #name);                                                            \
+				strcat(kernel_path, cpar_simd);                                                        \
+																									   \
+				Ctrl_FPGA_KernelParams *curr_k_par = &FPGA_initial_kp;                                 \
+				while (curr_k_par->p_next != NULL)                                                     \
+					curr_k_par = curr_k_par->p_next;                                                   \
+																									   \
+				ctrl_kernel_fpga_##type##_##subtype##_##name.p_binary_name = kernel_path;              \
+				curr_k_par->p_next = &ctrl_kernel_fpga_##type##_##subtype##_##name;                    \
 			}
 	#endif // CTRL_HOST_COMPILE
 #else // CTRL_FPGA_KERNEL_FILE
@@ -346,54 +339,54 @@
 	Take into account the macro arguments type and name are referring to the type and the name of the kernel argument and not those of the kernel \
 	as in the case of CTRL_KERNEL_WRAP_FPGA. For that reason, the kernel name must also be passed. \
 	*/
-	#define CTRL_PARSE_ARGS(p_kernel, n_args, ...) CTRL_PARSE_ARGS_##n_args(p_kernel, 0, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS(kernel, n_args, ...) CTRL_PARSE_ARGS_##n_args(kernel, 0, __VA_ARGS__)
 
-	#define CTRL_PARSE_ARGS_1(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name)
-	#define CTRL_PARSE_ARGS_2(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_1(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_3(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_2(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_4(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_3(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_5(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_4(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_6(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_5(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_7(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_6(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_8(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_7(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_9(p_kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_8(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_10(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_9(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_11(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_10(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_12(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_11(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_13(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_12(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_14(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_13(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_15(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_14(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_16(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_15(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_17(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_16(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_18(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_17(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_19(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_18(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_20(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_19(p_kernel, arg_idx + 1, __VA_ARGS__)
-	#define CTRL_PARSE_ARGS_21(p_kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(p_kernel, arg_idx, type, name) CTRL_PARSE_ARGS_20(p_kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_1(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name)
+	#define CTRL_PARSE_ARGS_2(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_1(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_3(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_2(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_4(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_3(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_5(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_4(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_6(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_5(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_7(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_6(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_8(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_7(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_9(kernel, arg_idx, role, type, name, ...)  CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_8(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_10(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_9(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_11(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_10(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_12(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_11(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_13(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_12(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_14(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_13(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_15(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_14(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_16(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_15(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_17(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_16(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_18(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_17(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_19(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_18(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_20(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_19(kernel, arg_idx + 1, __VA_ARGS__)
+	#define CTRL_PARSE_ARGS_21(kernel, arg_idx, role, type, name, ...) CTRL_PARSE_ARGS_##role(kernel, arg_idx, type, name) CTRL_PARSE_ARGS_20(kernel, arg_idx + 1, __VA_ARGS__)
 
-	#define CTRL_PARSE_ARGS_IN(p_kernel, arg_idx, type, name)                                                                                            \
-		KHitTile            *p_ktile_##type##_##subtype##_##name            = (KHitTile *)((uint8_t *)args_list + request.fpga.p_displacements[arg_idx]);\
-		fpga_wrapper_K##type ktile_fpga_wrapper_##type##_##subtype##_##name = {                                                                          \
-			.origAcumCard = {p_ktile_##type##_##subtype##_##name->origAcumCard[0],                                                                       \
-							p_ktile_##type##_##subtype##_##name->origAcumCard[1],                                                                        \
-							p_ktile_##type##_##subtype##_##name->origAcumCard[2],                                                                        \
-							p_ktile_##type##_##subtype##_##name->origAcumCard[3]},                                                                       \
-			.card         = {p_ktile_##type##_##subtype##_##name->card[0],                                                                               \
-							p_ktile_##type##_##subtype##_##name->card[1],                                                                                \
-							p_ktile_##type##_##subtype##_##name->card[2]},                                                                               \
-			.offset       = p_ktile_##type##_##subtype##_##name->offset};                                                                                \
-		err |= clSetKernelArg(*p_kernel, arg_pos, sizeof(fpga_wrapper_K##type), &ktile_fpga_wrapper_##type##_##subtype##_##name);                        \
-		arg_pos++;                                                                                                                                       \
-		err |= clSetKernelArg(*p_kernel, arg_pos, sizeof(cl_mem), (cl_mem *)(p_ktile_##type##_##subtype##_##name->data));                                \
+	#define CTRL_PARSE_ARGS_IN(kernel, arg_idx, type, name)                                                                                               \
+		KHitTile            *p_ktile_##type##_##subtype##_##name            = (KHitTile *)((uint8_t *)args_list + request.fpga.p_displacements[arg_idx]); \
+		fpga_wrapper_K##type ktile_fpga_wrapper_##type##_##subtype##_##name = {                                                                           \
+			.origAcumCard = {p_ktile_##type##_##subtype##_##name->origAcumCard[0],                                                                        \
+							p_ktile_##type##_##subtype##_##name->origAcumCard[1],                                                                         \
+							p_ktile_##type##_##subtype##_##name->origAcumCard[2],                                                                         \
+							p_ktile_##type##_##subtype##_##name->origAcumCard[3]},                                                                        \
+			.card         = {p_ktile_##type##_##subtype##_##name->card[0],                                                                                \
+							p_ktile_##type##_##subtype##_##name->card[1],                                                                                 \
+							p_ktile_##type##_##subtype##_##name->card[2]},                                                                                \
+			.offset       = p_ktile_##type##_##subtype##_##name->offset};                                                                                 \
+		err |= clSetKernelArg(kernel, arg_pos, sizeof(fpga_wrapper_K##type), &ktile_fpga_wrapper_##type##_##subtype##_##name);                            \
+		arg_pos++;                                                                                                                                        \
+		err |= clSetKernelArg(kernel, arg_pos, sizeof(cl_mem), (cl_mem *)(p_ktile_##type##_##subtype##_##name->data));                                    \
 		arg_pos++;
 
-	#define CTRL_PARSE_ARGS_OUT(p_kernel, arg_idx, type, name) \
-		CTRL_PARSE_ARGS_IN(p_kernel, arg_idx, type, name)
+	#define CTRL_PARSE_ARGS_OUT(kernel, arg_idx, type, name) \
+		CTRL_PARSE_ARGS_IN(kernel, arg_idx, type, name)
 
-	#define CTRL_PARSE_ARGS_IO(p_kernel, arg_idx, type, name) \
-		CTRL_PARSE_ARGS_IN(p_kernel, arg_idx, type, name)
+	#define CTRL_PARSE_ARGS_IO(kernel, arg_idx, type, name) \
+		CTRL_PARSE_ARGS_IN(kernel, arg_idx, type, name)
 
-	#define CTRL_PARSE_ARGS_INVAL(p_kernel, arg_idx, type, name)                                               \
-		err |= clSetKernelArg(*p_kernel, arg_pos,                                                              \
+	#define CTRL_PARSE_ARGS_INVAL(kernel, arg_idx, type, name)                                                 \
+		err |= clSetKernelArg(kernel, arg_pos,                                                                 \
 							request.fpga.p_displacements[arg_idx + 1] - request.fpga.p_displacements[arg_idx], \
 							((uint8_t *)args_list + request.fpga.p_displacements[arg_idx]));                   \
 		arg_pos++;
@@ -417,49 +410,49 @@
 	}
 
 #ifndef CTRL_FPGA_KERNEL_FILE
-#define CTRL_KERNEL_WRAP_FPGA(name, args_list, type, subtype, n_args, ...)                                                       \
-	{                                                                                                                            \
-		cl_int err     = 0;                                                                                                      \
-		int    arg_pos = 0;                                                                                                      \
-		CTRL_PARSE_ARGS(p_kernel_##type##_##subtype##_##name, n_args, __VA_ARGS__)                                               \
-		if (kernel_model == MODEL_NDRANGE) {                                                                                     \
-			size_t global_size[3];                                                                                               \
-			if (threads.dims == 1) {                                                                                             \
-				global_size[0] = threads.x;                                                                                      \
-				global_size[1] = threads.y;                                                                                      \
-				global_size[2] = threads.z;                                                                                      \
-			} else {                                                                                                             \
-				global_size[0] = threads.y;                                                                                      \
-				global_size[1] = threads.x;                                                                                      \
-				global_size[2] = threads.z;                                                                                      \
-			}                                                                                                                    \
-			size_t local_size[3];                                                                                                \
-			local_size[0] = blocksize.x;                                                                                         \
-			local_size[1] = blocksize.y;                                                                                         \
-			local_size[2] = blocksize.z;                                                                                         \
-			if (threads.dims >= 1) {                                                                                             \
-				if ((global_size[0] % local_size[0]) != 0) {                                                                     \
-					global_size[0] += (local_size[0] - (global_size[0] % local_size[0]));                                        \
-				}                                                                                                                \
-			}                                                                                                                    \
-			if (threads.dims >= 2) {                                                                                             \
-				if ((global_size[1] % local_size[1]) != 0) {                                                                     \
-					global_size[1] += (local_size[1] - (global_size[1] % local_size[1]));                                        \
-				}                                                                                                                \
-			}                                                                                                                    \
-			if (threads.dims == 3) {                                                                                             \
-				if ((global_size[2] % local_size[2]) != 0) {                                                                     \
-					global_size[2] += (local_size[2] - (global_size[2] % local_size[2]));                                        \
-				}                                                                                                                \
-			}                                                                                                                    \
-			clEnqueueNDRangeKernel(*(request.fpga.queue), *p_kernel_##type##_##subtype##_##name,                                 \
-								   threads.dims, 0, global_size, local_size,                                                     \
-								   request.fpga.n_event_wait, request.fpga.p_event_wait_list, request.fpga.p_last_kernel_event); \
-			OPENCL_ASSERT_OP(clFlush(*(request.fpga.queue)));                                                                    \
-		} else if (kernel_model == MODEL_TASK) {                                                                                 \
-			clEnqueueTask(*(request.fpga.queue), *p_kernel_##type##_##subtype##_##name, request.fpga.n_event_wait,               \
-						  request.fpga.p_event_wait_list, request.fpga.p_last_kernel_event);                                     \
-		}                                                                                                                        \
+#define CTRL_KERNEL_WRAP_FPGA(name, args_list, type, subtype, n_args, ...)                                                          \
+	{                                                                                                                               \
+		cl_int err     = 0;                                                                                                         \
+		int    arg_pos = 0;                                                                                                         \
+		CTRL_PARSE_ARGS(ctrl_kernel_fpga_##type##_##subtype##_##name.p_kernel[request.fpga.type_id], n_args, __VA_ARGS__)                \
+		if (kernel_model == MODEL_NDRANGE) {                                                                                        \
+			size_t global_size[3];                                                                                                  \
+			if (threads.dims == 1) {                                                                                                \
+				global_size[0] = threads.x;                                                                                         \
+				global_size[1] = threads.y;                                                                                         \
+				global_size[2] = threads.z;                                                                                         \
+			} else {                                                                                                                \
+				global_size[0] = threads.y;                                                                                         \
+				global_size[1] = threads.x;                                                                                         \
+				global_size[2] = threads.z;                                                                                         \
+			}                                                                                                                       \
+			size_t local_size[3];                                                                                                   \
+			local_size[0] = blocksize.x;                                                                                            \
+			local_size[1] = blocksize.y;                                                                                            \
+			local_size[2] = blocksize.z;                                                                                            \
+			if (threads.dims >= 1) {                                                                                                \
+				if ((global_size[0] % local_size[0]) != 0) {                                                                        \
+					global_size[0] += (local_size[0] - (global_size[0] % local_size[0]));                                           \
+				}                                                                                                                   \
+			}                                                                                                                       \
+			if (threads.dims >= 2) {                                                                                                \
+				if ((global_size[1] % local_size[1]) != 0) {                                                                        \
+					global_size[1] += (local_size[1] - (global_size[1] % local_size[1]));                                           \
+				}                                                                                                                   \
+			}                                                                                                                       \
+			if (threads.dims == 3) {                                                                                                \
+				if ((global_size[2] % local_size[2]) != 0) {                                                                        \
+					global_size[2] += (local_size[2] - (global_size[2] % local_size[2]));                                           \
+				}                                                                                                                   \
+			}                                                                                                                       \
+			clEnqueueNDRangeKernel(*(request.fpga.queue), ctrl_kernel_fpga_##type##_##subtype##_##name.p_kernel[request.fpga.type_id],   \
+								   threads.dims, 0, global_size, local_size,                                                        \
+								   0, NULL, request.fpga.p_last_kernel_event);    \
+			OPENCL_ASSERT_OP(clFlush(*(request.fpga.queue)));                                                                       \
+		} else if (kernel_model == MODEL_TASK) {                                                                                    \
+			clEnqueueTask(*(request.fpga.queue), ctrl_kernel_fpga_##type##_##subtype##_##name.p_kernel[request.fpga.type_id],            \
+						  0, NULL, request.fpga.p_last_kernel_event);             \
+		}                                                                                                                           \
 	}
 #else
 	#define CTRL_KERNEL_WRAP_FPGA(name, type, subtype, n_args, ...)
@@ -493,13 +486,9 @@
  * @param subtype Subtype of this implementation.
  * @param ... Arguments recieved by the kernel (with roles).
  */
-#define CTRL_KERNEL_DECLARATION_FPGA(name, type, subtype, ...)         \
-	extern cl_kernel  *p_kernel_##type##_##subtype##_##name;           \
-	extern cl_program *p_program_##type##_##subtype##_##name;          \
-	extern char       *p_kernel_raw_##type##_##subtype##_##name;       \
-	extern const char *p_ctrl_kernel_name_##type##_##subtype##_##name; \
-	extern int         kernel_model;                                   \
-	extern Ctrl_Thread local_size_FPGA_##name;
+#define CTRL_KERNEL_DECLARATION_FPGA(name, type, subtype, ...)             \
+	extern Ctrl_FPGA_KernelParams ctrl_kernel_fpga_##type##_##subtype##_##name; \
+	extern int                    kernel_model;                            \
 
 /**
  * Kernel function prototype for \e FPGALIB type kernels to allow moving kernel definitions to another file.

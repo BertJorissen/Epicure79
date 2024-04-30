@@ -1,3 +1,34 @@
+/**
+ * @file Matrix_Power_Of_OpenCL_Gpu_Ref_Async.c
+ * @author Trasgo Group
+ * @brief MatrixPow: Asynchronous native OpenCLGPU version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #include <CL/cl.h>
@@ -14,8 +45,6 @@
 
 #define SEED    6834723
 #define EPSILON 0.0001
-
-#define _CTRL_EXAMPLES_OPENCL_GPU_ERROR_CHECK_
 
 #ifdef _CTRL_EXAMPLES_OPENCL_GPU_DEBUG_
 #define OPENCL_ASSERT_OP(operation)      \
@@ -123,11 +152,24 @@ void computeNorm(float *p_matrix, float *p_matrix_res, int SIZE, double *p_sum, 
 	#endif //_PROFILING_ENABLED_
 }
 
-float RandomFloat(float min, float max) {
-	assert(max > min);
-	float random = ((float)rand()) / (float)RAND_MAX;
-	float range  = max - min;
-	return (random * range) + min;
+void Init_Tiles(cl_float *matrix_a, cl_float *matrix_b, cl_float *matrix_c, int rows, int columns) {
+	srand(SEED);
+	for (int j = 0; j < columns; j++) {
+		float col_sum_a = 0;
+		for (int i = 0; i < rows; i++) {
+			// generate random floats in a way matrixes don't turn into NaN
+			float min    = -(1 - col_sum_a) + EPSILON;
+			float max    = 1 - col_sum_a - EPSILON;
+			float random = ((float)rand()) / (float)RAND_MAX;
+			float range  = max - min;
+			float value  = (random * range) + min;
+
+			matrix_a[i * columns + j] = value;
+			matrix_b[i * columns + j] = value;
+			matrix_c[i * columns + j] = 0;
+			col_sum_a += fabsf(value);
+		}
+	}
 }
 
 int main(int argc, char *argv[]) {
@@ -154,16 +196,13 @@ int main(int argc, char *argv[]) {
 	char *kernel_raw_mult = CELL_AUTOM_KERNEL_MULT;
 
 	char *kernel_raw = (char *)malloc((strlen(kernel_raw_mult) + 300) * sizeof(char));
-	sprintf(&kernel_raw[0], " #define LOCAL_SIZE  %d \n", LOCAL_SIZE);
+	sprintf(&kernel_raw[0], " #define LOCAL_SIZE %d \n", LOCAL_SIZE);
 	strcat(kernel_raw, kernel_raw_mult);
 
 	size_t kernel_size = strlen(kernel_raw);
 
 	size_t local_size[2];
 	size_t global_size[2];
-
-	cl_platform_id platform_id;
-	cl_device_id   device_id;
 
 	cl_context context;
 	cl_program program;
@@ -209,14 +248,15 @@ int main(int argc, char *argv[]) {
 
 	cl_platform_id *p_platforms = (cl_platform_id *)malloc((PLATFORM + 1) * sizeof(cl_platform_id));
 	OPENCL_ASSERT_OP(clGetPlatformIDs(PLATFORM + 1, p_platforms, NULL));
-	platform_id = p_platforms[PLATFORM];
+	cl_platform_id platform_id = p_platforms[PLATFORM];
 	free(p_platforms);
 
 	cl_device_id *p_devices = (cl_device_id *)malloc((DEVICE + 1) * sizeof(cl_device_id));
 	OPENCL_ASSERT_OP(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, DEVICE + 1, p_devices, NULL));
-	device_id = p_devices[DEVICE];
+	cl_device_id device_id = p_devices[DEVICE];
 	free(p_devices);
 
+	// Extra information for collecting results
 	size_t platform_name_size;
 	OPENCL_ASSERT_OP(clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size));
 	char *platform_name = (char *)malloc(sizeof(char) * platform_name_size);
@@ -238,6 +278,7 @@ int main(int argc, char *argv[]) {
 	printf("\n POLICY ASYNC");
 	printf("\n\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 	free(platform_name);
 	free(device_name);
 
@@ -322,21 +363,7 @@ int main(int argc, char *argv[]) {
 			OPENCL_ASSERT_OP(clRetainEvent(event_host_par));
 			OPENCL_ASSERT_OP(clRetainEvent(event_host_impar));
 
-			srand(SEED);
-			for (int j = 0; j < SIZE; j++) {
-				float col_sum_a = 0;
-				float col_sum_b = 0;
-				for (int i = 0; i < SIZE; i++) {
-					float a = RandomFloat(-(1 - col_sum_a) + EPSILON, 1 - col_sum_a - EPSILON);
-					float b = RandomFloat(-(1 - col_sum_b) + EPSILON, 1 - col_sum_b - EPSILON);
-
-					p_pinned_matrix_a[i * SIZE + j] = a;
-					p_pinned_matrix_b[i * SIZE + j] = b;
-					p_pinned_matrix_c[i * SIZE + j] = 0;
-					col_sum_a += fabsf(a);
-					col_sum_b += fabsf(b);
-				}
-			}
+			Init_Tiles(p_pinned_matrix_a, p_pinned_matrix_b, p_pinned_matrix_c, SIZE, SIZE);
 
 			OPENCL_ASSERT_OP(clFlush(main_command_queue));
 			OPENCL_ASSERT_OP(clFlush(read_command_queue_b));
@@ -357,18 +384,16 @@ int main(int argc, char *argv[]) {
 
 				event_aux_release = event_kernel;
 				if ((i % 2) == 0) {
-					err = clSetKernelArg(kernel_mult, 0, sizeof(cl_int), &SIZE);
-					err |= clSetKernelArg(kernel_mult, 1, sizeof(cl_mem), &mem_matrix_c);
-					err |= clSetKernelArg(kernel_mult, 2, sizeof(cl_mem), &mem_matrix_a);
-					err |= clSetKernelArg(kernel_mult, 3, sizeof(cl_mem), &mem_matrix_b);
-					OPENCL_ASSERT_ERROR(err);
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 0, sizeof(cl_int), &SIZE));
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 1, sizeof(cl_mem), &mem_matrix_c));
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 2, sizeof(cl_mem), &mem_matrix_a));
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 3, sizeof(cl_mem), &mem_matrix_b));
 					OPENCL_ASSERT_OP(clEnqueueNDRangeKernel(main_command_queue, kernel_mult, 2, NULL, global_size, local_size, 1, &event_read_par, &event_kernel));
 				} else {
-					err = clSetKernelArg(kernel_mult, 0, sizeof(cl_int), &SIZE);
-					err |= clSetKernelArg(kernel_mult, 1, sizeof(cl_mem), &mem_matrix_b);
-					err |= clSetKernelArg(kernel_mult, 2, sizeof(cl_mem), &mem_matrix_a);
-					err |= clSetKernelArg(kernel_mult, 3, sizeof(cl_mem), &mem_matrix_c);
-					OPENCL_ASSERT_ERROR(err);
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 0, sizeof(cl_int), &SIZE));
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 1, sizeof(cl_mem), &mem_matrix_b));
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 2, sizeof(cl_mem), &mem_matrix_a));
+					OPENCL_ASSERT_OP(clSetKernelArg(kernel_mult, 3, sizeof(cl_mem), &mem_matrix_c));
 					OPENCL_ASSERT_OP(clEnqueueNDRangeKernel(main_command_queue, kernel_mult, 2, NULL, global_size, local_size, 1, &event_read_impar, &event_kernel));
 				}
 				OPENCL_ASSERT_OP(clFlush(main_command_queue));
@@ -407,13 +432,13 @@ int main(int argc, char *argv[]) {
 				{
 					OPENCL_ASSERT_OP(clWaitForEvents(1, &event_aux_read));
 					OPENCL_ASSERT_OP(clReleaseEvent(event_aux_read));
-
+					cl_float *matrix1;
 					if ((i % 2) == 0) {
-						computeNorm(p_pinned_matrix_c, p_matrix_tmp, SIZE, p_sum, p_res, i);
+						matrix1 = p_pinned_matrix_c;
 					} else {
-						computeNorm(p_pinned_matrix_b, p_matrix_tmp, SIZE, p_sum, p_res, i);
+						matrix1 = p_pinned_matrix_b;
 					}
-
+					computeNorm(matrix1, p_matrix_tmp, SIZE, p_sum, p_res, i);
 					OPENCL_ASSERT_OP(clSetUserEventStatus(event_aux_host, CL_COMPLETE));
 				}
 			}
@@ -431,14 +456,8 @@ int main(int argc, char *argv[]) {
 	}     // omp parallel
 
 	/* PRINT RESULTS */
-	#ifdef _CTRL_EXAMPLES_TEST_MODE_
-	for (int i = 0; i < N_ITER; i++) {
-		printf("%lf, %lf, ", p_sum[i], p_res[i]);
-	}
-	fflush(stdout);
-	#elif _CTRL_EXAMPLES_EXP_MODE_
+	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf, ", p_sum[N_ITER - 1], p_res[N_ITER - 1]);
-	fflush(stdout);
 	#else
 	printf("\n ---------------------- RESULT ---------------------- \n");
 	for (int i = 0; i < N_ITER; i++) {
@@ -446,6 +465,7 @@ int main(int argc, char *argv[]) {
 	}
 	printf("\n\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 
 	/* RELEASE ZONE */
 
@@ -486,7 +506,6 @@ int main(int argc, char *argv[]) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
 	printf("\n ---------------------- TIMERS ---------------------- \n");
 	printf("Clock main: %lf\n", main_clock);
@@ -494,5 +513,5 @@ int main(int argc, char *argv[]) {
 	printf("\n\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	return EXIT_SUCCESS;
 }

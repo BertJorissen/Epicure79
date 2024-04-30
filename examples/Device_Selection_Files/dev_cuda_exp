@@ -1,0 +1,9 @@
+node manticore
+	proc 0 1
+		cuda 0
+node gorgon
+	proc 0 0
+		cuda 0
+node medusa
+	proc 0 0
+		cuda 0

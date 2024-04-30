@@ -47,7 +47,7 @@ int main() {
     HitShape shEnd = hit_shape(2, sigTile, sigEnd);  //Should it be hit_sig(0, 10, 1) ¿? (==cardinality)
     HitShape shInverted = hit_shape(1, sigInv);
     HitShape shNoStride = hit_shape(2, sigNoStride, sigTile);
-    HitShape shStd = hit_shape(2, sig2, sig2);
+    //HitShape shStd = hit_shape(2, sig2, sig2);
     HitShape res;
     int ok = 1;
 

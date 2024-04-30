@@ -51,7 +51,8 @@
 /** @cond INTERNAL */
 #ifndef INCLUDE_METIS__H
 	#define INCLUDE_METIS__H
-	#include "metis.h"
+	#include "defs.h"
+	#include "struct.h"
 #endif
 
 #ifdef __cplusplus

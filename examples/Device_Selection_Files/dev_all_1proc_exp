@@ -1,0 +1,12 @@
+node manticore
+	proc 0 1
+		cuda 0
+		cuda 1
+		cpu 1 0-1 0
+node gorgon
+	proc 0 7
+		cuda 0
+		cuda 1
+		cuda 2
+		cuda 3
+		cpu 1 7-8 0

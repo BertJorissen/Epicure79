@@ -4,7 +4,7 @@
  * @file Ctrl_Core.h
  * @author Trasgo Group
  * @brief Prototypes for initializing ctrls and launching operations to ctrls.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -46,8 +46,11 @@
 #endif
 
 #ifndef CTRL_FPGA_KERNEL_FILE
+#include "Core/Ctrl_Info.h"
+#include "Core/Ctrl_KHParams.h"
 #include "Core/Ctrl_Policy.h"
 #include "Core/Ctrl_TaskQueue.h"
+#include "Core/Ctrl_TexDesc.h"
 #include "Core/Ctrl_Type.h"
 
 #include "Kernel/Ctrl_KernelArgs.h"
@@ -66,6 +69,13 @@
 #define CTRL_CUDA_LAUNCH(...)
 #define CTRL_CUDA_LAUNCH_STREAM(...)
 #endif // _CTRL_ARCH_CUDA_
+
+#ifdef _CTRL_ARCH_HIP_
+#include "Architectures/Hip/Ctrl_Hip.h"
+#else
+#define CTRL_HIP_LAUNCH(...)
+#define CTRL_HIP_LAUNCH_STREAM(...)
+#endif // _CTRL_ARCH_HIP_
 
 #ifdef _CTRL_ARCH_OPENCL_GPU_
 #include "Architectures/OpenCL/Ctrl_OpenCL_Gpu.h"
@@ -87,6 +97,18 @@
 extern "C" {
 #endif
 
+/**
+ * Ctrl initizalization to use Controllers in distributed environments
+ * @param int *argc	Pointer to the number of program arguments
+ * @param char **argv[]	Pointer to the list of program arguments
+ */
+#define Ctrl_Init(pargc, pargv) hit_comInit(pargc, pargv)
+
+/**
+ * Ctrl finalization to use Controllers in distributed environments
+ */
+#define Ctrl_Finalize() hit_comFinalize()
+
 #ifndef CTRL_FPGA_KERNEL_FILE
 #define MAX_BLOCK_SIZE 256
 /**
@@ -101,6 +123,10 @@ typedef union {
 	#ifdef _CTRL_ARCH_CUDA_
 	struct Ctrl_Cuda cuda;
 	#endif // _CTRL_ARCH_CUDA_
+
+	#ifdef _CTRL_ARCH_HIP_
+	struct Ctrl_Hip hip;
+	#endif // _CTRL_ARCH_HIP_
 
 	#ifdef _CTRL_ARCH_OPENCL_GPU_
 	struct Ctrl_OpenCLGpu opencl_gpu;
@@ -119,20 +145,7 @@ typedef struct {
 	int        id;     /**< Id of the ctrl */
 	Ctrl_Type  type;   /**< Type of the ctrl */
 	Ctrl_Impl *p_impl; /**< Specific implementation for this type of ctrl  */
-
-	#ifdef _CTRL_QUEUE_
-	omp_lock_t *p_lock_first_host; /**< Lock to sync with queue manager thread */
-	omp_lock_t *p_lock_first_ctrl; /**< Lock to sync with queue manager thread */
-	omp_lock_t *p_lock_host;       /**< Lock to sync with queue manager thread */
-	omp_lock_t *p_lock_ctrl;       /**< Lock to sync with queue manager thread */
-
-	Ctrl_TaskQueue *p_task_queue; /**< Task queue for this ctrl */
-	#endif //_CTRL_QUEUE_
-
-	Ctrl_Policy policy; /**< Policy to be used by this ctrl */
-	int         device; /**< Used to decide which kernel implementation is prefered */
-	void       *p_ext;  /**< IDK what this is for */
-
+	int        device; /**< Used to decide which kernel implementation is prefered */
 } Ctrl;
 
 typedef Ctrl *PCtrl;
@@ -146,7 +159,7 @@ typedef Ctrl *PCtrl;
  * @param p_ctrl ctrl to launch kernel.
  * @param name kernel to launch.
  * @param threads block of threads to execute the kernel with.
- * @param group block sizes for this kernel execution. .
+ * @param group block sizes for this kernel execution.
  * 		Optional, if a block with 0 dimensions is passed (such as CTRL_THREAD_NULL), default characterization is used instead.
  * @param ... arguments for the kernel.
  *
@@ -156,6 +169,7 @@ typedef Ctrl *PCtrl;
 	switch ((p_ctrl)->type) {                                                                                                           \
 		CTRL_CPU_LAUNCH(p_ctrl, name, threads, group, __VA_ARGS__)                                                                      \
 		CTRL_CUDA_LAUNCH(p_ctrl, name, threads, group, __VA_ARGS__)                                                                     \
+		CTRL_HIP_LAUNCH(p_ctrl, name, threads, group, __VA_ARGS__)                                                                      \
 		CTRL_OPENCL_GPU_LAUNCH(p_ctrl, name, threads, group, __VA_ARGS__)                                                               \
 		CTRL_FPGA_LAUNCH(p_ctrl, name, threads, group, __VA_ARGS__)                                                                     \
 		default:                                                                                                                        \
@@ -183,6 +197,7 @@ typedef Ctrl *PCtrl;
 	switch ((p_ctrl)->type) {                                                                                                           \
 		CTRL_CPU_LAUNCH_STREAM(p_ctrl, name, threads, group, stream, __VA_ARGS__)                                                       \
 		CTRL_CUDA_LAUNCH_STREAM(p_ctrl, name, threads, group, stream, __VA_ARGS__)                                                      \
+		CTRL_HIP_LAUNCH_STREAM(p_ctrl, name, threads, group, stream, __VA_ARGS__)                                                       \
 		CTRL_OPENCL_GPU_LAUNCH_STREAM(p_ctrl, name, threads, group, stream, __VA_ARGS__)                                                \
 		CTRL_FPGA_LAUNCH_STREAM(p_ctrl, name, threads, group, stream, __VA_ARGS__)                                                      \
 		default:                                                                                                                        \
@@ -191,53 +206,29 @@ typedef Ctrl *PCtrl;
 	}
 
 /**
- * Launch a host task to the ctrl queue.
- * This call is synchronous if \p p_ctrl policy is CTRL_POLICY_SYNC otherwise it is asynchronous.
+ * Launch a host task to the host queue.
+ * This call is synchronous if policy is CTRL_POLICY_SYNC otherwise it is asynchronous.
  *
  * @hideinitializer
  *
- * @param p_ctrl ctrl to launch host task.
  * @param name host task to launch.
  * @param ... arguments for the host task.
  *
  * @see CTRL_HOST_TASK, CTRL_HOST_TASK_PROTO
  */
-#define Ctrl_HostTask(p_ctrl, name, ...) \
-	Ctrl_LaunchHostTask(p_ctrl, Ctrl_HostTaskCreate_##name(CTRL_KERNEL_ARGS_TO_POINTERS(__VA_ARGS__)));
-
-/*
- * Queue thread errors and warnings. For everybody's safety :D
- */
-#ifdef _CTRL_QUEUE_
-#define _CTRL_QUEUE_WARN_1_
-#define _CTRL_QUEUE_WARN_0_                                                                    \
-	fprintf(stderr, "[Ctrl Core] Internal Error: not enough threads for the Ctrl Queue.\n\n"); \
-	fflush(stderr);                                                                            \
-	exit(EXIT_FAILURE);
-#else // !_CTRL_QUEUE_
-#define _CTRL_QUEUE_WARN_1_
-#if defined(_CTRL_ARCH_CPU_) && defined(_CTRL_DEBUG_)
-#define _CTRL_QUEUE_WARN_0_                                                                                                                                                                                                \
-	fprintf(stderr, "[Ctrl Core] Internal Warning: CPU support is enabled, but no spawner thread was provided. Use __ctrl_block__(1, 1) if using a CPU Ctrl; otherwise, the program will probably enter a deadlock.\n\n"); \
-	fflush(stderr);
-#else // !defined(_CTRL_ARCH_CPU_)
-#define _CTRL_QUEUE_WARN_0_
-#endif // defined(_CTRL_ARCH_CPU_)
-#endif // _CTRL_QUEUE_
+#define Ctrl_HostTask(name, ...) \
+	Ctrl_LaunchHostTask(Ctrl_HostTaskCreate_##name(CTRL_KERNEL_ARGS_TO_POINTERS(__VA_ARGS__)));
 
 /**
  * Iniciate a block where ctrls can be created and used
  *
  * @hideinitializer
  *
- * @param num_ctrl number of ctrls to be used in the block.
- * @param num_ctrl_threads number of ctrls that will need extra threads to work and will be used in the block (currently, its value must be the same as \p num_ctrl ).
- * @todo allow more than 1 ctrl
+ * @param config_file path to config file.
  */
-#define __ctrl_block__(num_ctrl, num_ctrl_threads) \
-	_CTRL_QUEUE_WARN_##num_ctrl_threads##_;        \
-	omp_set_nested(1);                             \
-	omp_set_num_threads(2 + num_ctrl_threads);     \
+#define __ctrl_block__(config_file) \
+	Ctrl_ParseConfig(config_file);  \
+	omp_set_nested(1);              \
 	_Pragma("omp parallel") if (Ctrl_Thread_Init() == 0)
 
 /**
@@ -250,41 +241,40 @@ typedef Ctrl *PCtrl;
  *
  * @param type Name of a valid native or derived C type.
  */
-#define Ctrl_NewType(type)                                                                                                               \
-	hitNewType(type);                                                                                                                    \
-	hit_ktileNewType(type);                                                                                                              \
-	static inline HitTile_##type Ctrl_Select_##type(Ctrl *p_ctrl, HitTile *p_parent, HitShape shape, int flags) __attribute__((unused)); \
-	static inline HitTile_##type Ctrl_DomainAlloc_##type(Ctrl *p_ctrl, HitShape shape, int flags) __attribute__((unused));               \
-	static inline HitTile_##type Ctrl_Domain_##type(Ctrl *p_ctrl, HitShape shape) __attribute__((unused));                               \
-	static inline HitTile_##type Ctrl_Domain_##type(Ctrl *p_ctrl, HitShape shape) {                                                      \
-		HitTile_##type new_tile = HIT_TILE_NULL_STATIC;                                                                                  \
-		hit_tileDomainShape(&new_tile, type, shape);                                                                                     \
-		Ctrl_DomainInner(p_ctrl, ((HitTile *)(&new_tile)));                                                                              \
-		return new_tile;                                                                                                                 \
-	}                                                                                                                                    \
-	static inline HitTile_##type Ctrl_DomainAlloc_##type(Ctrl *p_ctrl, HitShape shape, int flags) {                                      \
-		HitTile_##type new_tile = Ctrl_Domain_##type(p_ctrl, shape);                                                                     \
-		Ctrl_Alloc(p_ctrl, new_tile, flags);                                                                                             \
-		return new_tile;                                                                                                                 \
-	}                                                                                                                                    \
-	static inline HitTile_##type Ctrl_Select_##type(Ctrl *p_ctrl, HitTile *p_parent, HitShape shape, int flags) {                        \
-		HitTile_##type new_tile = HIT_TILE_NULL_STATIC;                                                                                  \
-		if (hit_shapeDims(shape) == -1) return *(HitTile_##type *)&HIT_TILE_NULL;                                                        \
-		if (!(flags & CTRL_SELECT_ARR_COORD) && !(flags & CTRL_SELECT_NO_BOUND)) {                                                       \
-			hit_tileSelect(&new_tile, p_parent, shape);                                                                                  \
-		} else if ((flags & CTRL_SELECT_ARR_COORD) && !(flags & CTRL_SELECT_NO_BOUND)) {                                                 \
-			hit_tileSelectArrayCoords(&new_tile, p_parent, shape);                                                                       \
-		} else if (!(flags & CTRL_SELECT_ARR_COORD) && (flags & CTRL_SELECT_NO_BOUND)) {                                                 \
-			hit_tileSelectNoBoundary(&new_tile, p_parent, shape);                                                                        \
-		} else if ((flags & CTRL_SELECT_ARR_COORD) && (flags & CTRL_SELECT_NO_BOUND)) {                                                  \
-			hit_tileSelectArrayCoordsNoBoundary(&new_tile, p_parent, shape);                                                             \
-		} else {                                                                                                                         \
-			fprintf(stderr, "Internal Error: Unknow flags in select\n");                                                                 \
-			fflush(stderr);                                                                                                              \
-			exit(EXIT_FAILURE);                                                                                                          \
-		}                                                                                                                                \
-		Ctrl_SelectInner(p_ctrl, ((HitTile *)(&new_tile)), flags);                                                                       \
-		return new_tile;                                                                                                                 \
+#define Ctrl_NewType(type)                                                                                                 \
+	hitNewType(type);                                                                                                      \
+	hit_ktileNewType(type);                                                                                                \
+	static inline HitTile_##type Ctrl_Select_##type(HitTile *p_parent, HitShape shape, int flags) __attribute__((unused)); \
+	static inline HitTile_##type Ctrl_DomainAlloc_##type(Ctrl *p_ctrl, HitShape shape, int flags) __attribute__((unused)); \
+	static inline HitTile_##type Ctrl_Domain_##type(HitShape shape) __attribute__((unused));                               \
+	static inline HitTile_##type Ctrl_Domain_##type(HitShape shape) {                                                      \
+		HitTile_##type new_tile = hitTileNoMem_##type(shape);                                                              \
+		Ctrl_DomainInner(((HitTile *)(&new_tile)));                                                                        \
+		return new_tile;                                                                                                   \
+	}                                                                                                                      \
+	static inline HitTile_##type Ctrl_DomainAlloc_##type(Ctrl *p_ctrl, HitShape shape, int flags) {                        \
+		HitTile_##type new_tile = Ctrl_Domain_##type(shape);                                                               \
+		Ctrl_Alloc(p_ctrl, new_tile, flags);                                                                               \
+		return new_tile;                                                                                                   \
+	}                                                                                                                      \
+	static inline HitTile_##type Ctrl_Select_##type(HitTile *p_parent, HitShape shape, int flags) {                        \
+		HitTile_##type new_tile = HIT_TILE_NULL_STATIC;                                                                    \
+		if (hit_shapeDims(shape) == -1) return *(HitTile_##type *)&HIT_TILE_NULL;                                          \
+		if (!(flags & CTRL_SELECT_ARR_COORD) && !(flags & CTRL_SELECT_NO_BOUND)) {                                         \
+			hit_tileSelect(&new_tile, p_parent, shape);                                                                    \
+		} else if ((flags & CTRL_SELECT_ARR_COORD) && !(flags & CTRL_SELECT_NO_BOUND)) {                                   \
+			hit_tileSelectArrayCoords(&new_tile, p_parent, shape);                                                         \
+		} else if (!(flags & CTRL_SELECT_ARR_COORD) && (flags & CTRL_SELECT_NO_BOUND)) {                                   \
+			hit_tileSelectNoBoundary(&new_tile, p_parent, shape);                                                          \
+		} else if ((flags & CTRL_SELECT_ARR_COORD) && (flags & CTRL_SELECT_NO_BOUND)) {                                    \
+			hit_tileSelectArrayCoordsNoBoundary(&new_tile, p_parent, shape);                                               \
+		} else {                                                                                                           \
+			fprintf(stderr, "Internal Error: Unknow flags in select\n");                                                   \
+			fflush(stderr);                                                                                                \
+			exit(EXIT_FAILURE);                                                                                            \
+		}                                                                                                                  \
+		Ctrl_SelectInner(((HitTile *)(&new_tile)), flags);                                                                 \
+		return new_tile;                                                                                                   \
 	}
 #else
 #ifndef CTRL_HOST_COMPILE
@@ -301,50 +291,6 @@ typedef Ctrl *PCtrl;
 
 #ifndef CTRL_FPGA_KERNEL_FILE
 
-/**
- * Create a Ctrl
- *
- * @hideinitializer
- *
- * @param type the type of ctrl.
- * @param policy policy for the ctrl to use.
- * @param ... extra parameters needed for specific types of ctrls.
- *
- * @returns a pointer to the ctrl
- *
- * @see Ctrl_CreateWrapper
- */
-#define Ctrl_Create(type, policy, ...) Ctrl_CreateWrapperMacro_##type(policy, __VA_ARGS__);
-
-#ifdef _CTRL_ARCH_FPGA_
-#define Ctrl_CreateWrapperMacro_CTRL_TYPE_FPGA(...)                                  Ctrl_CreateWrapperFPGA(__VA_ARGS__, streams, noStreams)(__VA_ARGS__)
-#define Ctrl_CreateWrapperFPGA(_1, _2, _3, _4, _5, type, ...)                        Ctrl_CreateWrapperFPGA_##type
-#define Ctrl_CreateWrapperFPGA_streams(policy, device, platform, exec_mode, streams) Ctrl_CreateWrapper_CTRL_TYPE_FPGA(policy, device, platform, exec_mode, streams)
-#define Ctrl_CreateWrapperFPGA_noStreams(policy, device, platform, exec_mode)        Ctrl_CreateWrapper_CTRL_TYPE_FPGA(policy, device, platform, exec_mode, 1)
-PCtrl Ctrl_CreateWrapper_CTRL_TYPE_FPGA(Ctrl_Policy policy, int device, int platform, int exec_mode, int streams);
-#endif
-
-#ifdef _CTRL_ARCH_OPENCL_GPU_
-#define Ctrl_CreateWrapperMacro_CTRL_TYPE_OPENCL_GPU(...)                   Ctrl_CreateWrapperCL_GPU(__VA_ARGS__, streams, noStreams)(__VA_ARGS__)
-#define Ctrl_CreateWrapperCL_GPU(_1, _2, _3, _4, type, ...)                 Ctrl_CreateWrapperCL_GPU_##type
-#define Ctrl_CreateWrapperCL_GPU_streams(policy, device, platform, streams) Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(policy, device, platform, streams)
-#define Ctrl_CreateWrapperCL_GPU_noStreams(policy, device, platform)        Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(policy, device, platform, 1)
-PCtrl Ctrl_CreateWrapper_CTRL_TYPE_OPENCL_GPU(Ctrl_Policy policy, int device, int platform, int streams);
-#endif
-
-#ifdef _CTRL_ARCH_CUDA_
-#define Ctrl_CreateWrapperMacro_CTRL_TYPE_CUDA(...)             Ctrl_CreateWrapperCUDA(__VA_ARGS__, streams, noStreams)(__VA_ARGS__)
-#define Ctrl_CreateWrapperCUDA(_1, _2, _3, type, ...)           Ctrl_CreateWrapperCUDA_##type
-#define Ctrl_CreateWrapperCUDA_streams(policy, device, streams) Ctrl_CreateWrapper_CTRL_TYPE_CUDA(policy, device, streams)
-#define Ctrl_CreateWrapperCUDA_noStreams(policy, device)        Ctrl_CreateWrapper_CTRL_TYPE_CUDA(policy, device, 1)
-PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CUDA(Ctrl_Policy policy, int device, int streams);
-#endif
-
-#ifdef _CTRL_ARCH_CPU_
-#define Ctrl_CreateWrapperMacro_CTRL_TYPE_CPU(...) Ctrl_CreateWrapper_CTRL_TYPE_CPU(__VA_ARGS__)
-PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CPU(Ctrl_Policy policy, int n_threads, int *p_numa_nodes, int n_numanodes, bool mem_moves);
-#endif
-
 #ifdef DOXYGEN
 /**
  * Allocate memory for a tile.
@@ -353,16 +299,15 @@ PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CPU(Ctrl_Policy policy, int n_threads, int *p
  *
  * @param ctrl pointer to ctrl to allocate memory with.
  * @param tile the tile to allocate memory to.
- * @param flags memory flags for the allocation. This parameter is optional and by default is CTRL_MEM_ALLOC_BOTH. .
+ * @param flags memory flags for the allocation. This parameter is optional and by default is 0.
  * 		Valid values include:
- * 			CTRL_MEM_ALLOC_BOTH: Allocate memory on both host and device.
  * 			CTRL_MEM_ALLOC_HOST: Allocate memory only on host.
  * 			CTRL_MEM_ALLOC_DEV: Allocate memory only on device.
  * 			CTRL_MEM_PINNED: Allocate pinned memory if possible.
  * 			CTRL_MEM_NOPINNED: Allocate non pinned memory.
- * 		Flags CTRL_MEM_ALLOC_BOTH, CTRL_MEM_ALLOC_HOST and CTRL_MEM_ALLOC_DEV are mutually exclusive and if multiple of
- * 		them are specified at the same time, CTRL_MEM_ALLOC_BOTH will have the most priority, then CTRL_MEM_ALLOC_HOST,
- * 		and finally CTRL_MEM_ALLOC_DEV. If none of them are specified the default value will apply (CTRL_MEM_ALLOC_BOTH).
+ * 			CTRL_MEM_ALIGNED: Try to allocate aligned memory on the device. Currently only works for cuda 2D.
+ * 		Flags CTRL_MEM_ALLOC_HOST and CTRL_MEM_ALLOC_DEV are mutually exclusive.
+ * 		If none of them or both are specified the default behaviour (allocating memory on host and device) will apply.
  * 		Similarly CTRL_MEM_PINNED and CTRL_MEM_NOPINNED are mutually exclusive, if both are specified CTRL_MEM_PINNED will
  * 		take priority. If neither of them are specified default behaviour based on \p ctrl type and possible more factors
  * 		will apply.
@@ -374,19 +319,34 @@ PCtrl Ctrl_CreateWrapper_CTRL_TYPE_CPU(Ctrl_Policy policy, int n_threads, int *p
 
 #define Ctrl_AllocMacro(_1, _2, _3, AllocType, ...) Ctrl_Alloc##AllocType
 #define Ctrl_AllocWithFlags(p_ctrl, tile, flags)    Ctrl_AllocInner(p_ctrl, (HitTile *)&tile, flags)
-#define Ctrl_AllocNoFlags(p_ctrl, tile)             Ctrl_AllocInner(p_ctrl, (HitTile *)&tile, CTRL_MEM_ALLOC_BOTH)
+#define Ctrl_AllocNoFlags(p_ctrl, tile)             Ctrl_AllocInner(p_ctrl, (HitTile *)&tile, 0)
 void Ctrl_AllocInner(Ctrl *p_ctrl, HitTile *p_tile, int flags);
+
+/**
+ * @brief Create a texture object asociated to tile \p tile and ctrl \p ctrl.
+ *
+ * \p tile must have memory already allocated on the device using a suitable alignment for the texture options.
+ * This is always a synchronous call.
+ *
+ * @note Currently only CUDA and OpenCL GPU backends supports this.
+ * @note Some descriptor options may have additional requirements depending on the backend used, refer to CUDA and OpenCL documentations.
+ * @hideinitializer
+ *
+ * @param ctrl pointer to ctrl to allocate memory with.
+ * @param tile the tile to allocate memory to.
+ * @param tex_desc texture desctriptor.
+ */
+#define Ctrl_CreateTex(p_ctrl, tile, tex_desc) Ctrl_CreateTexInner(p_ctrl, (HitTile *)&tile, tex_desc)
+void Ctrl_CreateTexInner(Ctrl *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_desc);
 
 /**
  * Create a tile.
  *
- * Create and initialize the shape and base type of a new multidimensional array tile,
- * and attach it to ctrl.
+ * Create and initialize the shape and base type of a new multidimensional array tile.
  * This is always a synchronous call.
  *
  * @hideinitializer
  *
- * @param ctrl pointer to ctrl to attach the tile to.
  * @param type type of data inside the tile.
  * @param shape hit_shape used to create the tile.
  *
@@ -394,8 +354,8 @@ void Ctrl_AllocInner(Ctrl *p_ctrl, HitTile *p_tile, int flags);
  *
  * @pre \p type must have been declared as a type with @see Ctrl_NewType
  */
-#define Ctrl_Domain(ctrl, type, shape) Ctrl_Domain_##type(ctrl, shape);
-void Ctrl_DomainInner(Ctrl *p_ctrl, HitTile *p_tile);
+#define Ctrl_Domain(type, shape) Ctrl_Domain_##type(shape);
+void Ctrl_DomainInner(HitTile *p_tile);
 
 #ifdef DOXYGEN
 /**
@@ -411,16 +371,15 @@ void Ctrl_DomainInner(Ctrl *p_ctrl, HitTile *p_tile);
  * @param ctrl pointer to ctrl to attach the tile to and allocate memory with.
  * @param type type of data inside the tile.
  * @param shape hit_shape used to create the tile.
- * @param flags memory flags for the allocation. This parameter is optional and by default is CTRL_MEM_ALLOC_BOTH. .
+ * @param flags memory flags for the allocation. This parameter is optional and by default is 0.
  * 		Valid values include:
- * 			CTRL_MEM_ALLOC_BOTH: Allocate memory on both host and device
- * 			CTRL_MEM_ALLOC_HOST: Allocate memory only on host
- * 			CTRL_MEM_ALLOC_DEV: Allocate memory only on device
- *			CTRL_MEM_PINNED: Allocate pinned memory if possible.
+ * 			CTRL_MEM_ALLOC_HOST: Allocate memory only on host.
+ * 			CTRL_MEM_ALLOC_DEV: Allocate memory only on device.
+ * 			CTRL_MEM_PINNED: Allocate pinned memory if possible.
  * 			CTRL_MEM_NOPINNED: Allocate non pinned memory.
- * 		Flags CTRL_MEM_ALLOC_BOTH, CTRL_MEM_ALLOC_HOST and CTRL_MEM_ALLOC_DEV are mutually exclusive and if multiple of
- * 		them are specified at the same time, CTRL_MEM_ALLOC_BOTH will have the most priority, then CTRL_MEM_ALLOC_HOST,
- * 		and finally CTRL_MEM_ALLOC_DEV. If none of them are specified the default value will apply (CTRL_MEM_ALLOC_BOTH).
+ * 			CTRL_MEM_ALIGNED: Try to allocate aligned memory on the device. Currently only works for cuda 2D.
+ * 		Flags CTRL_MEM_ALLOC_HOST and CTRL_MEM_ALLOC_DEV are mutually exclusive.
+ * 		If none of them or both are specified the default behaviour (allocating memory on host and device) will apply.
  * 		Similarly CTRL_MEM_PINNED and CTRL_MEM_NOPINNED are mutually exclusive, if both are specified CTRL_MEM_PINNED will
  * 		take priority. If neither of them are specified default behaviour based on \p ctrl type and possible more factors
  * 		will apply.
@@ -436,7 +395,7 @@ void Ctrl_DomainInner(Ctrl *p_ctrl, HitTile *p_tile);
 
 #define Ctrl_DomainAllocMacro(_1, _2, _3, _4, AllocType, ...) Ctrl_DomainAlloc##AllocType
 #define Ctrl_DomainAllocWithFlags(ctrl, type, shape, flags)   Ctrl_DomainAlloc_##type(ctrl, shape, flags)
-#define Ctrl_DomainAllocNoFlags(ctrl, type, shape)            Ctrl_DomainAlloc_##type(ctrl, shape, CTRL_MEM_ALLOC_BOTH)
+#define Ctrl_DomainAllocNoFlags(ctrl, type, shape)            Ctrl_DomainAlloc_##type(ctrl, shape, 0)
 
 /**
  * Create a tile subselection.
@@ -446,17 +405,16 @@ void Ctrl_DomainInner(Ctrl *p_ctrl, HitTile *p_tile);
  *
  * @hideinitializer
  *
- * @param ctrl: pointer to ctrl that the parent tile is attached to.
- * @param type: type of data inside the tiles.
- * @param p_parent: parent tile to make a subselection from.
- * @param flags: subselection flags.
+ * @param type Type of data inside the tiles.
+ * @param p_parent Parent tile to make a subselection from.
+ * @param flags Subselection flags.
  *
  * @returns HitTile_type, the subselection from p_tile.
  *
  * @pre \p type must have been declared as a type with @see Ctrl_NewType
  */
-#define Ctrl_Select(ctrl, type, p_parent, shape, flags) Ctrl_Select_##type(ctrl, ((HitTile *)(&p_parent)), shape, flags);
-void Ctrl_SelectInner(Ctrl *p_ctrl, HitTile *p_tile, int flags);
+#define Ctrl_Select(type, p_parent, shape, flags) Ctrl_Select_##type(((HitTile *)(&p_parent)), shape, flags);
+void Ctrl_SelectInner(HitTile *p_tile, int flags);
 
 /**
  * Free multiple tiles.
@@ -464,7 +422,7 @@ void Ctrl_SelectInner(Ctrl *p_ctrl, HitTile *p_tile, int flags);
  *
  * @hideinitializer
  *
- * @param ctrl pointer to ctrl that has the tiles attached.
+ * @param ctrl pointer to ctrl that has the tiles attached. If NULL is passed tiles are freed from any ctrls they are attached to.
  * @param ... tiles to free.
  *
  * @pre tiles have to be allocated and attached to \p ctrl.
@@ -477,7 +435,7 @@ void Ctrl_FreeInner(Ctrl *p_ctrl, HitTile *p_tile);
 
 /**
  * Move multiple tiles from host memory to device.
- * This call is synchronous if \p ctrl policy is CTRL_POLICY_SYNC otherwise it is asynchronous.
+ * This call is always asynchronous.
  *
  * @hideinitializer
  *
@@ -494,7 +452,7 @@ void Ctrl_MoveToInner(Ctrl *p_ctrl, HitTile *p_tile);
 
 /**
  * Move multiple tiles from device memory to host.
- * This call is synchronous if \p ctrl policy is CTRL_POLICY_SYNC otherwise it is asynchronous.
+ * This call is always asynchronous.
  *
  * @hideinitializer
  *
@@ -545,21 +503,33 @@ void Ctrl_Hosttask_Sync();
 void Ctrl_Synchronize();
 
 /**
- * Set the host affinity to \p node numa node.
- * This is useful to set the affinity on a node closer to the device for performance purpouses.
+ * Set the policy for ctrls to use.
+ * For this function to be effective it must be called before \e __Ctrl_block__.
+ * If this function is not called, the policy is determined by environment variable \e CTRL_POLICY_MODE.
+ * If the environment variable is not set and this function is not called, the policy used will be \e CTRL_POLICY_ASYNC.
  *
- * @param node Index of the numa node where host threads should be binded to.
+ * @param policy Policy to use.
  *
  * @pre This function must be called before calling __ctrl_block__
  */
-void Ctrl_SetHostAffinity(int node);
+void Ctrl_SetPolicy(Ctrl_Policy policy);
 
 /**
- * Destroy a ctrl.
+ * @brief Cleanup function for \e __ctrl_block__.
  *
- * @param p_ctrl pointer to ctrl to be destroyed.
+ * Destroys all ctrls and the host queue. Must be called at the end of a ctrl block
  */
-void Ctrl_Destroy(Ctrl *p_ctrl);
+void Ctrl_EndBlock();
+
+/**
+ * @brief Get \e PCtrl with id \p id
+ *
+ * @param id id of the ctrl returned
+ * @return PCtrl pointer to the ctrl
+ *
+ * @pre \p id must be a valid ctrl id: 0 <= \p id < Ctrl_GetNCtrls()
+ */
+PCtrl Ctrl_Get(int id);
 
 /**
  * @brief Change dependance mode for this ctrl.
@@ -574,6 +544,19 @@ void Ctrl_Destroy(Ctrl *p_ctrl);
  */
 void Ctrl_SetDependanceMode(Ctrl *p_ctrl, int mode);
 
+/**
+ * @return int Returns the total number of ctrls in the \e __ctrl_block__
+ */
+int Ctrl_GetNCtrls();
+
+/**
+ * Get information of the device asociated with \p p_ctrl.
+ * @param p_ctrl ctrl to get the info from.
+ *
+ * @return Ctrl_Info struct containing information of the device asociated with \p p_ctrl.
+ */
+Ctrl_Info Ctrl_GetInfo(Ctrl *p_ctrl);
+
 /// @cond INTERNAL
 /**
  * Push \p task to \p p_ctrl queue to execute.
@@ -586,20 +569,34 @@ void Ctrl_SetDependanceMode(Ctrl *p_ctrl, int mode);
 void Ctrl_LaunchKernel(Ctrl *p_ctrl, Ctrl_Task task);
 
 /**
- * Push \p task to \p p_ctrl queue to execute and wait for it if \p p_ctrl is CTRL_POLICY_SYNC.
+ * Push \p task host queue to execute and wait for it if policy is CTRL_POLICY_SYNC.
  *
- * @param p_ctrl Ctrl to launch the host task.
  * @param task Host task to be launched.
  *
  * @see Ctrl_HostTask
  */
-void Ctrl_LaunchHostTask(Ctrl *p_ctrl, Ctrl_Task task);
+void Ctrl_LaunchHostTask(Ctrl_Task task);
 
 /**
  * Set affinity of threads and send them to therir tasks
+ *
  * @returns 0 if master 1 otherwise
  */
 int Ctrl_Thread_Init();
+
+/**
+ * Parse device selection configuration file and create all ctrls specified in it.
+ *
+ * @param file path to config file.
+ * @note This function can only be called after Ctrl_Init and before Ctrl_Finalize
+ */
+void Ctrl_ParseConfig(const char *file);
+
+/**
+ * Return the weights for all active processes found in the device selection configuration file
+ * @note This function can only be called after ParseConfig
+ */
+HitWeights Ctrl_ConfigWeights();
 
 /**
  * Function to choose the best implementation for a given kernel.
@@ -610,6 +607,45 @@ int Ctrl_Thread_Init();
  * @return int Implementation chosen.
  */
 int Ctrl_Dev(Ctrl_Type type, int *avail_impls, int n_impl);
+
+/**
+ * Enqueue wait for seq events from all ctrls in \p p_queue if policy is sync.
+ *
+ * @param p_queue queue to wait for the events
+ */
+void Ctrl_SyncWait(Ctrl_TaskQueue *p_queue);
+
+/**
+ * If \p p_tile_impl is valid, enqueue wait for appropiate events for a MoveTo operation in \p p_queue.
+ *
+ * @param p_tile_impl tile implementation to wait for
+ * @param p_queue queue to enqueue the events on
+ */
+void Ctrl_MoveToWait(Ctrl_Tile_Impl *p_tile_impl, Ctrl_TaskQueue *p_queue);
+
+/**
+ * If \p p_tile_impl is valid, enqueue wait for appropiate events for a MoveFrom operation in \p p_queue.
+ *
+ * @param p_tile_impl tile implementation to wait for
+ * @param p_queue queue to enqueue the events on
+ */
+void Ctrl_MoveFromWait(Ctrl_Tile_Impl *p_tile_impl, Ctrl_TaskQueue *p_queue);
+
+/**
+ * If \p p_tile_impl is valid, enqueue wait for appropiate events for a HostTask operation in \p p_queue.
+ *
+ * @param p_tile_impl tile implementation to wait for
+ * @param rol rol of the tile in the host task operation
+ * @param p_queue queue to enqueue the events on
+ */
+void Ctrl_HostTaskWait(Ctrl_Tile_Impl *p_tile_impl, char rol, Ctrl_TaskQueue *p_queue);
+
+/**
+ * Free the host part of a hit tile.
+ *
+ * @param p_tile tile to be freed.
+ */
+void Ctrl_FreeHostInner(HitTile *p_tile);
 
 // clang-format off
 #define Ctrl_OP_1( op, ctrl, tile )       Ctrl_##op##Inner(ctrl, ((HitTile *)&(tile)));

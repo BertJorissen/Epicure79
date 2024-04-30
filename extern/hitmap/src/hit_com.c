@@ -115,8 +115,10 @@ static int hit_active = 0;
 /* Hit MPI INITIALIZATION */
 void hit_comInit(int *pargc, char **pargv[]) {
 	// 0. AVOID DOUBLE INITIALIZATION
-	if ( hit_active ) 
-		hit_error("hit_comInit: Already initialized", __FILE__, __LINE__);
+	if ( hit_active ) {
+		hit_warning_here("hit_comInit: Already initialized");
+		return;
+	}
 	hit_active = 1;
 
 	/* 1. INITIALIZE MPI */
@@ -171,7 +173,7 @@ void hit_comInit(int *pargc, char **pargv[]) {
 void hit_comFinalize() {
 	// 0. AVOID CALLING BEFORE INITIALIZATION
 	if ( ! hit_active ) 
-		hit_error("hit_comFinalize: Not initialized or already finalized", __FILE__, __LINE__);
+		hit_error_noinit("hit_comFinalize: Not initialized or already finalized");
 	hit_active = 0;
 
 	/* 1. FREE BASIC TOPOLOGY INFORMATION */
@@ -201,6 +203,78 @@ void hit_comFinalize() {
 	/* 3. FINALIZE MPI */
 	MPI_Finalize();
 	//pthread_exit(NULL);
+}
+
+/* MPI NODE NAME/PROC INFO */
+// @arturo 2023/07/04
+
+// PRIVATE VARIABLES FOR NODE GROUP INFO
+char hit_com_node_name[MPI_MAX_PROCESSOR_NAME];
+int  hit_com_nodegroup_rank = MPI_PROC_NULL;
+int  hit_com_nodegroup_size = -1;
+
+/* GET NODE NAME */
+char * hit_comNodeName() {
+	/* AVOID CALLING BEFORE INITIALIZATION */
+	if ( ! hit_active ) 
+		hit_error_noinit("hit_comNodeName: Hit not initialized or already finalized");
+
+	int length = 0;	
+	int ok = MPI_Get_processor_name( hit_com_node_name, &length );
+	hit_mpiTestError( ok, "MPI Getting processor name" );
+	return hit_com_node_name;
+}
+
+/* GET THE RANK id IN THE NODE GROUP */
+int hit_comNodeGroupRank() {
+	/* AVOID CALLING BEFORE INITIALIZATION */
+	if ( ! hit_active ) 
+		hit_error_noinit("hit_comNodeGroupRank: Hit not initialized or already finalized");
+
+	/* DO SPLIT ONLY ONCE, RETURN RANK IF ALREADY COMPUTED */
+	if ( hit_com_nodegroup_rank != MPI_PROC_NULL ) return hit_com_nodegroup_rank;
+
+	/* SPLIT PHYSICAL TOPOLOGY IN NODE GROUPS */
+	MPI_Info info;
+	MPI_Info_create( &info );
+
+	MPI_Comm new_comm;
+	int result = MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, info, &new_comm );
+	hit_mpiTestError( result, "Error using MPI_Comm_split" );
+	MPI_Comm_rank( new_comm, &hit_com_nodegroup_rank );
+	MPI_Comm_size( new_comm, &hit_com_nodegroup_size );
+	result = MPI_Comm_free( &new_comm );
+	hit_mpiTestError( result, "Error freeing NodeGroup communicator" );
+	result = MPI_Info_free( &info );
+	hit_mpiTestError( result, "Error freeing Info for NodeGroup communicator" );
+
+	return hit_com_nodegroup_rank;
+}
+
+/* GET THE SIZE OF THE NODE GROUP */
+int hit_comNodeGroupSize() {
+	/* AVOID CALLING BEFORE INITIALIZATION */
+	if ( ! hit_active ) 
+		hit_error_noinit("hit_comNodeGroupSize: Hit not initialized or already finalized");
+
+	/* SPLIT ONLY ONCE, RETURN RANK IF ALREADY COMPUTED */
+	if ( hit_com_nodegroup_size != -1 ) return hit_com_nodegroup_size;
+
+	/* SPLIT PHYSICAL TOPOLOGY IN NODE GROUPS */
+	MPI_Info info;
+	MPI_Info_create( &info );
+
+	MPI_Comm new_comm;
+	int result = MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, info, &new_comm );
+	hit_mpiTestError( result, "Error using MPI_Comm_split" );
+	MPI_Comm_rank( new_comm, &hit_com_nodegroup_rank );
+	MPI_Comm_size( new_comm, &hit_com_nodegroup_size );
+	result = MPI_Comm_free( &new_comm );
+	hit_mpiTestError( result, "Error freeing NodeGroup communicator" );
+	result = MPI_Info_free( &info );
+	hit_mpiTestError( result, "Error freeing Info for NodeGroup communicator" );
+
+	return hit_com_nodegroup_size;
 }
 
 

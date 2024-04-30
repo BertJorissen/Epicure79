@@ -41,6 +41,7 @@
  * </license>
 */
 
+#include <math.h>
 #include "hit_blockTile.h"
 
 /* A. INITIALIZE DOMAIN */

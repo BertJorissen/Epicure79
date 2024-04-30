@@ -9,7 +9,7 @@ Controllers currently supports 4 different backends for different accelerator ar
  * CUDA (for NVIDIA's GPUs)
  * OpenCL (for other GPUs, such as AMD)
  * CPU (for subsets of CPU cores using OpenMP)
- * FPGA (for Intel FPGAs using OpenCL and the Intel AOC compiler)
+ * FPGA (for Intel and Xilinx FPGAs using OpenCL and the Intel AOC compiler)
 
 The backend for Intel XeonPhi devices has been discontinued in the latest version of Controller.
 
@@ -48,8 +48,7 @@ When compiling Controllers, the supported architectures for which you have the p
 # Architectures
 option(SUPPORT_CPU "SUPPORT_CPU" OFF)
 option(SUPPORT_CUDA "SUPPORT_CUDA" OFF)
-option(SUPPORT_OPENCL_GPU "SUPPORT_OPENCL_GPU" OFF)
-option(SUPPORT_OPENCL_GPU_AMD "Use AMD platform" OFF)
+option(SUPPORT_OPENCL "SUPPORT_OPENCL" OFF)
 option(SUPPORT_FPGA "SUPPORT_FPGA" OFF)
 ```
 or by selecting them when running cmake like this:
@@ -67,8 +66,15 @@ cmake -LH ..
 Executing an example
 ----
 ```
-./build/examples/Matrix_Add/Matrix_Add_Cuda_Ctrl 100 1 0 0 1
+./build/examples/Matrix_Add/Matrix_Add_Cuda_Ctrl 100 1 0 0 1 <device_selection_file_name>
 ```
+The current Controllers version is prepared to execute in distributed environments. 
+```
+mpirun -n 4 ./build/examples/Matrix_Add/Matrix_Add_Cuda_Ctrl 100 1 0 0 1 <device_selection_file_name>
+
+srun -w node1,node2 -n 4 ./build/examples/Matrix_Add/Matrix_Add_Cuda_Ctrl 100 1 0 0 1 <device_selection_file_name>
+```
+The user controls which device/s are selected and used for each process on each node using a runtime configuration file. More information about the sintaxis and options of the device-selection configuration files can be found [here](./DEVICE_SELECTION.md).
 
 Generating documentation
 ----
@@ -85,36 +91,11 @@ Thanks for your interest in contributing! There are many ways to contribute to t
 Feel free to contact us at trasgo@infor.uva.es to share your experience with us or visit our page https://trasgo.infor.uva.es/ to learn more about us.
 If you find any bugs or problems, or want to request a new feature feel free to create an issue detailing it.
 
-If you want to contribute code to the project get started [here](./CONTRIBUTE.md).
 
-Citation
+Relevant publications
 ---
-Below are some of the more important publications about this project. If you use this software, please cite one or more of these publications.
+Here are some of the more important publications about this project:
 
- - [Efficient heterogeneous programming with FPGAs using the Controller model](https://link.springer.com/article/10.1007/s11227-021-03792-7). G. Rodriguez-Canal, Y. Torres, F.J. Andújar, A. Gonzalez-Escribano. The Journal of Supercomputing, Springer, 2021. DOI: 10.1007/s11227-021-03792-7
-```BibTeX
-@article{Rodriguez-Canal2021:FPGAsController,
-	author = {Rodriguez-Canal, Gabriel and Torres, Yuri and Andujar, Francisco J. and Gonzalez-Escribano, Arturo},
-	year = {2021},
-	month = {12},
-	pages = {1-16},
-	title = {Efficient heterogeneous programming with FPGAs using the Controller model},
-	volume = {77},
-	journal = {The Journal of Supercomputing},
-	doi = {10.1007/s11227-021-03792-7}
-}
-```
+ - Efficient heterogeneous programming with FPGAs using the Controller model. G. Rodriguez-Canal, Y. Torres, F.J. Andújar, A. Gonzalez-Escribano. The Journal of Supercomputing, Springer, 2021. DOI: 10.1007/s11227-021-03792-7
 
- - [Controllers: An abstraction to ease the use of hardware accelerators](https://journals.sagepub.com/doi/10.1177/1094342017702962). A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962
-```BibTeX
-@article{Moreton-Fernandez2018:Controllers,
-	author = {Ana Moreton–Fernandez and Hector Ortega–Arranz and Arturo Gonzalez–Escribano},
-	title ={Controllers: An abstraction to ease the use of hardware accelerators},
-	journal = {The International Journal of High Performance Computing Applications},
-	volume = {32},
-	number = {6},
-	pages = {838-853},
-	year = {2018},
-	doi = {10.1177/1094342017702962},
-}
-```
+ - Controllers: An abstraction to ease the use of hardware accelerators. A. Moretón-Fernández, H. Ortega-Arranz, A. Gonzalez-Escribano. The International Journal on High Performance Computing Aplications (IJHPCA), 32 (6), pag. 838-853, SAGE Journals, 2018. DOI: 10.1177/1094342017702962

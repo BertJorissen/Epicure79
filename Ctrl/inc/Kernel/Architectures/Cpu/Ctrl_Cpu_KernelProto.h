@@ -5,7 +5,7 @@
  * @file Ctrl_Cpu_KernelProto.h
  * @author Trasgo Group
  * @brief Macros to generate the code and manage Cpu kernels.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -37,8 +37,81 @@
 #include "Kernel/Ctrl_KernelArgs.h"
 #include "Kernel/Ctrl_Thread.h"
 
-// @seralpa turned off formater for this macro cause pragmas caused issues in kernel loops
-// clang-format off
+#include "Core/Ctrl_Profiler_Helper.h"
+
+#define CTRL_KERNEL_CPU_3D(collapse_dims, ...)                                                       \
+	if (blocksize.dims == 0) {                                                                       \
+		/* Executing in parallel the 3D threads */                                                   \
+		_Pragma(CTRL_MACRO_STRINGIFY(omp parallel for num_threads(n_cores) collapse(collapse_dims))) \
+		for (int thr_i = 0; thr_i < threads_i; thr_i++) {                                            \
+			for (int thr_j = 0; thr_j < threads_j; thr_j++) {                                        \
+				for (int thr_k = 0; thr_k < threads_k; thr_k++) {                                    \
+					CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                   \
+				}                                                                                    \
+			}                                                                                        \
+		}                                                                                            \
+	} else {                                                                                         \
+		/* Executing in parallel the 3D threads */                                                   \
+		_Pragma(CTRL_MACRO_STRINGIFY(omp parallel for num_threads(n_cores) collapse(collapse_dims))) \
+		for (int i_outer = 0; i_outer < threads_i; i_outer += block_i) {                             \
+			for (int j_outer = 0; j_outer < threads_j; j_outer += block_j) {                         \
+				for (int k_outer = 0; k_outer < threads_k; k_outer += block_k) {                     \
+					int i_max = ((i_outer + block_i) > threads_i) ? threads_i : (i_outer + block_i); \
+					int j_max = ((j_outer + block_j) > threads_j) ? threads_j : (j_outer + block_j); \
+					int k_max = ((k_outer + block_k) > threads_k) ? threads_k : (k_outer + block_k); \
+					for (int thr_i = i_outer; thr_i < i_max; thr_i++) {                              \
+						for (int thr_j = j_outer; thr_j < j_max; thr_j++) {                          \
+							for (int thr_k = k_outer; thr_k < k_max; thr_k++) {                      \
+								CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                       \
+							}                                                                        \
+						}                                                                            \
+					}                                                                                \
+				}                                                                                    \
+			}                                                                                        \
+		}                                                                                            \
+	}
+
+#define CTRL_KERNEL_CPU_2D(collapse_dims, ...)                                                                                                  \
+	if (blocksize.dims == 0) {                                                                                                                  \
+		/* Executing in parallel the 2D threads */                                                                                              \
+		_Pragma(CTRL_MACRO_STRINGIFY(omp parallel for num_threads(n_cores) collapse(collapse_dims)))                                            \
+		for (int thr_i = 0; thr_i < threads_i; thr_i++) {                                                                                       \
+			for (int thr_j = 0; thr_j < threads_j; thr_j++) {                                                                                   \
+				CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                                  \
+			}                                                                                                                                   \
+		}                                                                                                                                       \
+	} else {                                                                                                                                    \
+		_Pragma(CTRL_MACRO_STRINGIFY(omp parallel for num_threads(n_cores) collapse(collapse_dims))) /* Executing in parallel the 2D threads */ \
+		for (int i_outer = 0; i_outer < threads_i; i_outer += block_i) {                                                                        \
+			for (int j_outer = 0; j_outer < threads_j; j_outer += block_j) {                                                                    \
+				int i_max = ((i_outer + block_i) > threads_i) ? threads_i : (i_outer + block_i);                                                \
+				int j_max = ((j_outer + block_j) > threads_j) ? threads_j : (j_outer + block_j);                                                \
+				for (int thr_i = i_outer; thr_i < i_max; thr_i++) {                                                                             \
+					for (int thr_j = j_outer; thr_j < j_max; thr_j++) {                                                                         \
+						CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                          \
+					}                                                                                                                           \
+				}                                                                                                                               \
+			}                                                                                                                                   \
+		}                                                                                                                                       \
+	}
+
+#define CTRL_KERNEL_CPU_1D(...)                                                              \
+	if (blocksize.dims == 0) {                                                               \
+		/* Executing in parallel the 2D threads */                                           \
+		_Pragma("omp parallel for num_threads(n_cores)")                                     \
+		for (int thr_i = 0; thr_i < threads_i; thr_i++) {                                    \
+			CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                   \
+		}                                                                                    \
+	} else {                                                                                 \
+		/* Executing in parallel the 1D threads */                                           \
+		_Pragma("omp parallel for num_threads(n_cores)")                                     \
+		for (int i_outer = 0; i_outer < threads_i; i_outer += block_i) {                     \
+			int i_max = ((i_outer + block_i) > threads_i) ? threads_i : (i_outer + block_i); \
+			for (int thr_i = i_outer; thr_i < i_max; thr_i++) {                              \
+				CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                               \
+			}                                                                                \
+		}                                                                                    \
+	}
 
 /**
  * Defines the function containing the user provided code for a \e CPU type kernel
@@ -51,63 +124,58 @@
  *
  * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CPU
  */
-#define CTRL_KERNEL_CPU(name, type, subtype, ...)                                                                                                      \
-	C_GUARD                                                                                                                                            \
-	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name(Ctrl_Thread threads, Ctrl_Thread blocksize, int n_cores, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
-		/* Index space */                                                                                                                              \
-		int threads_x = threads.x;                                                                                                                     \
-		int threads_y = threads.y;                                                                                                                     \
-		int threads_z = threads.z;                                                                                                                     \
-		/* Block size */                                                                                                                               \
-		int block_x = blocksize.x;                                                                                                                     \
-		int block_y = blocksize.y;                                                                                                                     \
-		int block_z = blocksize.z;                                                                                                                     \
-		/* indexes */                                                                                                                                  \
-		int thread_id_x __attribute__((unused)) = 0;                                                                                                   \
-		int thread_id_y __attribute__((unused)) = 0;                                                                                                   \
-		int thread_id_z __attribute__((unused)) = 0;                                                                                                   \
-		if (threads.z > 1) {                                                                                                                           \
-			_Pragma("omp parallel for num_threads(n_cores)") /* Executing in parallel the 3D threads */                                                \
-			for (int i_outer = 0; i_outer < threads_x; i_outer += block_x) {                                                                           \
-				for (int j_outer = 0; j_outer < threads_y; j_outer += block_y) {                                                                       \
-					for (int k_outer = 0; k_outer < threads_z; k_outer += block_z) {                                                                   \
-						int i_max = ((i_outer + block_x) > threads_x) ? threads_x : (i_outer + block_x);                                               \
-						int j_max = ((j_outer + block_y) > threads_y) ? threads_y : (j_outer + block_y);                                               \
-						int k_max = ((k_outer + block_z) > threads_z) ? threads_z : (k_outer + block_z);                                               \
-						for (int thread_id_x = i_outer; thread_id_x < i_max; thread_id_x++) {                                                          \
-							for (int thread_id_y = j_outer; thread_id_y < j_max; thread_id_y++) {                                                      \
-								for (int thread_id_z = k_outer; thread_id_z < k_max; thread_id_z++) {                                                  \
-									CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                     \
-								}                                                                                                                      \
-							}                                                                                                                          \
-						}                                                                                                                              \
-					}                                                                                                                                  \
-				}                                                                                                                                      \
-			}                                                                                                                                          \
-		} else if (threads.y > 1) {                                                                                                                    \
-			_Pragma("omp parallel for num_threads(n_cores)") /* Executing in parallel the 2D threads */                                                \
-			for (int i_outer = 0; i_outer < threads_x; i_outer += block_x) {                                                                           \
-				for (int j_outer = 0; j_outer < threads_y; j_outer += block_y) {                                                                       \
-					int i_max = ((i_outer + block_x) > threads_x) ? threads_x : (i_outer + block_x);                                                   \
-					int j_max = ((j_outer + block_y) > threads_y) ? threads_y : (j_outer + block_y);                                                   \
-					for (int thread_id_x = i_outer; thread_id_x < i_max; thread_id_x++) {                                                              \
-						for (int thread_id_y = j_outer; thread_id_y < j_max; thread_id_y++) {                                                          \
-							CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                             \
-						}                                                                                                                              \
-					}                                                                                                                                  \
-				}                                                                                                                                      \
-			}                                                                                                                                          \
-		} else {                                                                                                                                       \
-			_Pragma("omp parallel for num_threads(n_cores)") /* Executing in parallel the 1D threads */                                                \
-			for (int i_outer = 0; i_outer < threads_x; i_outer += block_x) {                                                                           \
-				int i_max = ((i_outer + block_x) > threads_x) ? threads_x : (i_outer + block_x);                                                       \
-				for (int thread_id_x = i_outer; thread_id_x < i_max; thread_id_x++) {                                                                  \
-					CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                                     \
-				}                                                                                                                                      \
-			}                                                                                                                                          \
-		}                                                                                                                                              \
-	}                                                                                                                                                  \
-// clang-format on
+#define CTRL_KERNEL_CPU(name, type, subtype, ...)                                                                                                           \
+	C_GUARD                                                                                                                                                 \
+	void Ctrl_Kernel_Cpu_##type##_##subtype##_##name(Ctrl_Thread ctrl_threads, Ctrl_Thread blocksize, int n_cores, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
+		/* Index space */                                                                                                                                   \
+		int threads_i = ctrl_threads.i;                                                                                                                     \
+		int threads_j = ctrl_threads.j;                                                                                                                     \
+		int threads_k = ctrl_threads.k;                                                                                                                     \
+		/* Block size */                                                                                                                                    \
+		int block_i = blocksize.i;                                                                                                                          \
+		int block_j = blocksize.j;                                                                                                                          \
+		int block_k = blocksize.k;                                                                                                                          \
+		/* indexes */                                                                                                                                       \
+		int thr_i __attribute__((unused)) = 0;                                                                                                              \
+		int thr_j __attribute__((unused)) = 0;                                                                                                              \
+		int thr_k __attribute__((unused)) = 0;                                                                                                              \
+		/* parallel dims */                                                                                                                                 \
+		int parallel_dims = atoi(CTRL_MACRO_STRINGIFY(CTRL_KERNEL_PARALLEL_DIMS_##name));                                                                   \
+		switch (ctrl_threads.dims) {                                                                                                                        \
+			case 3:                                                                                                                                         \
+				switch (parallel_dims) {                                                                                                                    \
+					case 0:                                                                                                                                 \
+					case 3: CTRL_KERNEL_CPU_3D(3, __VA_ARGS__); break;                                                                                      \
+					case 2: CTRL_KERNEL_CPU_3D(2, __VA_ARGS__); break;                                                                                      \
+					case 1: CTRL_KERNEL_CPU_3D(1, __VA_ARGS__); break;                                                                                      \
+					default:                                                                                                                                \
+						fprintf(stderr, "[Ctrl_CPUKernel] Invalid value for dimension collapse %d\n", parallel_dims);                                       \
+						exit(EXIT_FAILURE);                                                                                                                 \
+				}                                                                                                                                           \
+				break;                                                                                                                                      \
+			case 2:                                                                                                                                         \
+				switch (parallel_dims) {                                                                                                                    \
+					case 0:                                                                                                                                 \
+					case 3:                                                                                                                                 \
+					case 2: CTRL_KERNEL_CPU_2D(2, __VA_ARGS__); break;                                                                                      \
+					case 1: CTRL_KERNEL_CPU_2D(1, __VA_ARGS__); break;                                                                                      \
+					default:                                                                                                                                \
+						fprintf(stderr, "[Ctrl_CPUKernel] Invalid value for dimension collapse %d\n", parallel_dims);                                       \
+						exit(EXIT_FAILURE);                                                                                                                 \
+				}                                                                                                                                           \
+				break;                                                                                                                                      \
+			case 1:                                                                                                                                         \
+				CTRL_KERNEL_CPU_1D(__VA_ARGS__);                                                                                                            \
+				break;                                                                                                                                      \
+			case 0:                                                                                                                                         \
+				/* Executing in task mode */                                                                                                                \
+				CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                                              \
+				break;                                                                                                                                      \
+			default:                                                                                                                                        \
+				fprintf(stderr, "[Ctrl_CPUKernel] Unsupported number of dimensions: %d\n", ctrl_threads.dims);                                              \
+				exit(EXIT_FAILURE);                                                                                                                         \
+		}                                                                                                                                                   \
+	}
 
 /**
  * Defines the function containing the user provided code for a \e GENERIC type kernel
@@ -200,9 +268,15 @@
  * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
  * @see CTRL_KERNEL_CPU
  */
-#define CTRL_KERNEL_WRAP_CPU(name, argsList, type, subtype, ...)                                                                                        \
-	{                                                                                                                                                   \
-		Ctrl_Kernel_Cpu_##type##_##subtype##_##name(threads, blocksize, request.cpu.n_cores, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__)); \
+#define CTRL_KERNEL_WRAP_CPU(name, argsList, type, subtype, ...)                                                                                                                         \
+	{                                                                                                                                                                                    \
+		CTRL_PROF_RANGEPUSH(#name);                                                                                                                                                      \
+		if (threads.dims != blocksize.dims && blocksize.dims != 0 && threads.dims != 0) {                                                                                                \
+			fprintf(stderr, "[CTRL_KERNEL_CPU_WRAP] WARNING: Thread space dims (%d) and blocksize dims (%d) don't match on launch of kernel %s\n", threads.dims, blocksize.dims, #name); \
+			fflush(stderr);                                                                                                                                                              \
+		}                                                                                                                                                                                \
+		Ctrl_Kernel_Cpu_##type##_##subtype##_##name(threads, blocksize, request.cpu.n_cores, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__));                                  \
+		CTRL_PROF_RANGEPOP();                                                                                                                                                            \
 	};
 
 /**
@@ -263,8 +337,6 @@
 /**
  * Kernel function prototype for \e CPU type kernels to allow moving kernel definitions to another file.
  *
- * @note Moving the kernel definition to a separate file is discouraged on \e CPU type kernels because of the inability of the
- * compiler to perform inlining on it, probably leading to poor performance.
  * @hideinitializer
  *
  * @param name Name of the kernel.

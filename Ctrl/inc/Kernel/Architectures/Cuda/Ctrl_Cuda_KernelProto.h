@@ -5,7 +5,7 @@
  * @file Ctrl_Cuda_KernelProto.h
  * @author Trasgo Group
  * @brief Macros to generate the code and manage CUDA kernels.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -32,14 +32,10 @@
  * @copyright More information on http://trasgo.infor.uva.es/
  */
 
+#include "Architectures/Cuda/Ctrl_Cuda_Helper.h"
+#include "Core/Ctrl_Request.h"
 #include "Kernel/Ctrl_KernelArgs.h"
 #include "Kernel/Ctrl_Thread.h"
-
-#include "Core/Ctrl_Request.h"
-
-#include "Architectures/Cuda/Ctrl_Cuda.h"
-#include "Architectures/Cuda/Ctrl_Cuda_Helper.h"
-#include "Architectures/Cuda/Ctrl_Cuda_Request.h"
 
 /**
  * Defines the function containing the user provided code for a \e CUDA type kernel
@@ -52,27 +48,25 @@
  *
  * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDA
  */
-#define CTRL_KERNEL_CUDA(name, type, subtype, ...)                                                                             \
-	C_GUARD                                                                                                                    \
-	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread threads, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
-		unsigned int thread_idx = blockIdx.x * blockDim.x + threadIdx.x;                                                       \
-		unsigned int thread_idy = blockIdx.y * blockDim.y + threadIdx.y;                                                       \
-		unsigned int thread_idz = blockIdx.z * blockDim.z + threadIdx.z;                                                       \
-		if (threads.dims == 3) {                                                                                               \
-			int thread_temp = thread_idx;                                                                                      \
-			thread_idx      = thread_idz;                                                                                      \
-			thread_idz      = thread_temp;                                                                                     \
-		} else if (threads.dims == 2) {                                                                                        \
-			int thread_temp = thread_idx;                                                                                      \
-			thread_idx      = thread_idy;                                                                                      \
-			thread_idy      = thread_temp;                                                                                     \
-		}                                                                                                                      \
-		if (thread_idx >= threads.x || thread_idy >= threads.y || thread_idz >= threads.z)                                     \
-			return;                                                                                                            \
-		int thread_id_x __attribute__((unused)) = thread_idx;                                                                  \
-		int thread_id_y __attribute__((unused)) = thread_idy;                                                                  \
-		int thread_id_z __attribute__((unused)) = thread_idz;                                                                  \
-		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                         \
+#define CTRL_KERNEL_CUDA(name, type, subtype, ...)                                                                                  \
+	C_GUARD                                                                                                                         \
+	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread ctrl_threads, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
+		unsigned int thr_i = 0;                                                                                                     \
+		unsigned int thr_j = 0;                                                                                                     \
+		unsigned int thr_k = 0;                                                                                                     \
+		if (ctrl_threads.dims == 3) {                                                                                               \
+			thr_k = blockIdx.x * blockDim.x + threadIdx.x;                                                                          \
+			thr_j = blockIdx.y * blockDim.y + threadIdx.y;                                                                          \
+			thr_i = blockIdx.z * blockDim.z + threadIdx.z;                                                                          \
+		} else if (ctrl_threads.dims == 2) {                                                                                        \
+			thr_j = blockIdx.x * blockDim.x + threadIdx.x;                                                                          \
+			thr_i = blockIdx.y * blockDim.y + threadIdx.y;                                                                          \
+		} else {                                                                                                                    \
+			thr_i = blockIdx.x * blockDim.x + threadIdx.x;                                                                          \
+		}                                                                                                                           \
+		if (thr_i >= ctrl_threads.i || thr_j >= ctrl_threads.j || thr_k >= ctrl_threads.k)                                          \
+			return;                                                                                                                 \
+		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                                              \
 	}
 
 /**
@@ -86,27 +80,36 @@
  *
  * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDA
  */
-#define CTRL_KERNEL_FUNCTION_CUDA(name, type, subtype, ...)                                          \
-	C_GUARD                                                                                          \
-	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread threads, __VA_ARGS__) { \
-		unsigned int thread_idx = blockIdx.x * blockDim.x + threadIdx.x;                             \
-		unsigned int thread_idy = blockIdx.y * blockDim.y + threadIdx.y;                             \
-		unsigned int thread_idz = blockIdx.z * blockDim.z + threadIdx.z;                             \
-		if (threads.dims == 3) {                                                                     \
-			int thread_temp = thread_idx;                                                            \
-			thread_idx      = thread_idz;                                                            \
-			thread_idz      = thread_temp;                                                           \
-		} else if (threads.dims == 2) {                                                              \
-			int thread_temp = thread_idx;                                                            \
-			thread_idx      = thread_idy;                                                            \
-			thread_idy      = thread_temp;                                                           \
-		}                                                                                            \
-		if (thread_idx >= threads.x || thread_idy >= threads.y || thread_idz >= threads.z)           \
-			return;                                                                                  \
-		int thread_id_x __attribute__((unused)) = thread_idx;                                        \
-		int thread_id_y __attribute__((unused)) = thread_idy;                                        \
-		int thread_id_z __attribute__((unused)) = thread_idz;
+#define CTRL_KERNEL_FUNCTION_CUDA(name, type, subtype, ...)                                               \
+	C_GUARD                                                                                               \
+	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread ctrl_threads, __VA_ARGS__) { \
+		unsigned int thr_i = 0;                                                                           \
+		unsigned int thr_j = 0;                                                                           \
+		unsigned int thr_k = 0;                                                                           \
+		if (ctrl_threads.dims == 3) {                                                                     \
+			thr_k = blockIdx.x * blockDim.x + threadIdx.x;                                                \
+			thr_j = blockIdx.y * blockDim.y + threadIdx.y;                                                \
+			thr_i = blockIdx.z * blockDim.z + threadIdx.z;                                                \
+		} else if (ctrl_threads.dims == 2) {                                                              \
+			thr_j = blockIdx.x * blockDim.x + threadIdx.x;                                                \
+			thr_i = blockIdx.y * blockDim.y + threadIdx.y;                                                \
+		} else {                                                                                          \
+			thr_i = blockIdx.x * blockDim.x + threadIdx.x;                                                \
+		}                                                                                                 \
+		if (thr_i >= ctrl_threads.i || thr_j >= ctrl_threads.j || thr_k >= ctrl_threads.k)                \
+			return;
 
+#ifdef _CTRL_DEBUG_
+#define GENERIC_KERNEL_WARN _Pragma("message(\"[Ctrl Kernels] CUDA support is enabled, but nvcc isn't being used to compile the file containing the kernel (most likely because it is a .c or .cpp file). \
+This will cause an execution error if a CUDA Controller is created and used to execute a GENERIC kernel. \
+Change the file extension to .cu to avoid the error and this warning. \
+If the program doesn't use CUDA Controllers, you can ignore this message.\")")
+#else // _CTRL_DEBUG_
+#define GENERIC_KERNEL_WARN
+#endif // _CTRL_DEBUG_
+
+// If not using nvcc use generic kernel dummy to prevent compilation error
+#ifdef __CUDACC__
 /**
  * Defines the function containing the user provided code for a \e GENERIC type kernel
  * @hideinitializer
@@ -120,6 +123,24 @@
  */
 #define CTRL_KERNEL_CUDA_GENERIC(name, type, subtype, ...) \
 	CTRL_KERNEL_CUDA(name, type, subtype, __VA_ARGS__)
+#else // !__CUDACC__
+/**
+ * Defines the function containing the user provided code for a \e GENERIC type kernel
+ * @hideinitializer
+ *
+ * @param name Name of the kernel.
+ * @param type Type of the kernel.
+ * @param subtype Subtype of the kernel.
+ * @param ... Parameters to the kernel.
+ *
+ * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDA_GENERIC
+ */
+#define CTRL_KERNEL_CUDA_GENERIC(name, type, subtype, ...)                                                                     \
+	GENERIC_KERNEL_WARN                                                                                                        \
+	C_GUARD                                                                                                                    \
+	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread threads, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
+	}
+#endif // __CUDACC__
 
 /**
  * Defines the function containing the user provided code for a \e CUDALIB type kernel
@@ -146,6 +167,38 @@
  * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDALIB
  */
 #define CTRL_KERNEL_FUNCTION_CUDALIB(name, type, subtype, ...) CTRL_KERNEL_FUNCTION_CUDALIB_##subtype(name, type, subtype, __VA_ARGS__)
+
+/**
+ * Defines the function containing the user provided code for a \e CUDALIB_DEFAULT type kernel
+ * @hideinitializer
+ *
+ * @param name Name of the kernel.
+ * @param type Type of the kernel.
+ * @param subtype Subtype of the kernel.
+ * @param ... Parameters to the kernel.
+ *
+ * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDALIB, CTRL_KERNEL_CUDALIB
+ */
+#define CTRL_KERNEL_CUDALIB_DEFAULT(name, type, subtype, ...)                                                       \
+	C_GUARD                                                                                                         \
+	void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(cudaStream_t stream, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
+		CTRL_KERNEL_EXTRACT_KERNEL_NO_STR(__VA_ARGS__)                                                              \
+	}
+
+/**
+ * Defines the function containing the user provided code for a \e CUDALIB_DEFAULT type kernel
+ * @hideinitializer
+ *
+ * @param name Name of the kernel.
+ * @param type Type of the kernel.
+ * @param subtype Subtype of the kernel.
+ * @param ... Parameters to the kernel.
+ *
+ * @see Ctrl_ImplType, CTRL_KERNEL_FUNCTION, CTRL_KERNEL_WRAP_CUDALIB, CTRL_KERNEL_CUDALIB
+ */
+#define CTRL_KERNEL_FUNCTION_CUDALIB_DEFAULT(name, type, subtype, ...) \
+	C_GUARD                                                            \
+	void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(cudaStream_t stream, __VA_ARGS__)
 
 #ifdef _CTRL_CUBLAS_
 /**
@@ -235,15 +288,41 @@
  * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL.
  * @see CTRL_KERNEL_CUDA, CTRL_KERNEL_FUNCTION_CUDA
  */
-#define CTRL_KERNEL_WRAP_CUDA(name, argsList, type, subtype, ...)                                                                       \
-	{                                                                                                                                   \
-		dim3  grid   = CTRL_KERNEL_CUDA_CHAR_grid(threads, blocksize);                                                                  \
-		dim3  block  = {blocksize.x, blocksize.y, blocksize.z};                                                                         \
-		void *args[] = {                                                                                                                \
-			&threads,                                                                                                                   \
-			CTRL_KERNEL_ARG_LIST_ACCESS_KTILE_REF(argsList, __VA_ARGS__)};                                                              \
-		cudaLaunchKernel((void *)Ctrl_Kernel_Cuda_##type##_##subtype##_##name, grid, block, args, (size_t)0, *(request.cuda.p_stream)); \
-		CUDA_ERROR();                                                                                                                   \
+#define CTRL_KERNEL_WRAP_CUDA(name, argsList, type, subtype, ...)                                                                                                                         \
+	{                                                                                                                                                                                     \
+		if (threads.dims != blocksize.dims) {                                                                                                                                             \
+			fprintf(stderr, "[CTRL_KERNEL_CUDA_WRAP] WARNING: Thread space dims (%d) and blocksize dims (%d) don't match on launch of kernel %s\n", threads.dims, blocksize.dims, #name); \
+			fflush(stderr);                                                                                                                                                               \
+		}                                                                                                                                                                                 \
+		unsigned int grid_x = 1, grid_y = 1, grid_z = 1;                                                                                                                                  \
+		unsigned int block_x = 1, block_y = 1, block_z = 1;                                                                                                                               \
+		switch (threads.dims) {                                                                                                                                                           \
+			case 3:                                                                                                                                                                       \
+				grid_x  = (threads.k + blocksize.k - 1) / blocksize.k;                                                                                                                    \
+				grid_y  = (threads.j + blocksize.j - 1) / blocksize.j;                                                                                                                    \
+				grid_z  = (threads.i + blocksize.i - 1) / blocksize.i;                                                                                                                    \
+				block_x = blocksize.k;                                                                                                                                                    \
+				block_y = blocksize.j;                                                                                                                                                    \
+				block_z = blocksize.i;                                                                                                                                                    \
+				break;                                                                                                                                                                    \
+			case 2:                                                                                                                                                                       \
+				grid_x  = (threads.j + blocksize.j - 1) / blocksize.j;                                                                                                                    \
+				grid_y  = (threads.i + blocksize.i - 1) / blocksize.i;                                                                                                                    \
+				block_x = blocksize.j;                                                                                                                                                    \
+				block_y = blocksize.i;                                                                                                                                                    \
+				break;                                                                                                                                                                    \
+			case 1:                                                                                                                                                                       \
+				grid_x  = (threads.i + blocksize.i - 1) / blocksize.i;                                                                                                                    \
+				block_x = blocksize.i;                                                                                                                                                    \
+				break;                                                                                                                                                                    \
+			default:                                                                                                                                                                      \
+				fprintf(stderr, "[CTRL_KERNEL_WRAP_CUDA] ERROR: Invalid number of dimensions for thread space on kernel %s: %d\n", #name, threads.dims);                                  \
+				exit(EXIT_FAILURE);                                                                                                                                                       \
+		}                                                                                                                                                                                 \
+		dim3  grid   = {grid_x, grid_y, grid_z};                                                                                                                                          \
+		dim3  block  = {block_x, block_y, block_z};                                                                                                                                       \
+		void *args[] = {&threads, CTRL_KERNEL_ARG_LIST_ACCESS_KTILE_REF(argsList, __VA_ARGS__)};                                                                                          \
+		CUDA_OP(cudaLaunchKernel((void *)Ctrl_Kernel_Cuda_##type##_##subtype##_##name, grid, block, args, (size_t)0, *(request.cuda.p_stream)));                                          \
 	};
 
 /**
@@ -277,6 +356,24 @@
  * @see CTRL_KERNEL_CUDALIB
  */
 #define CTRL_KERNEL_WRAP_CUDALIB(name, argsList, type, subtype, ...) CTRL_KERNEL_WRAP_CUDALIB_##subtype(name, argsList, type, subtype, __VA_ARGS__)
+
+/**
+ * Block of code that launches a \e CUDALIB_DEFAULT kernel, this calls the function defined in \e CTRL_KERNEL_CUDALIB.
+ * @hideinitializer
+ *
+ * @param name kernel name.
+ * @param argsList list of arguments passed inside task when launching a kernel.
+ * @param type Type of the kernel.
+ * @param subtype Subtype of the kernel.
+ * @param ... Parameters to the kernel.
+ *
+ * @pre A kernel of type \p type and subtype \p subtype must have been defined via \e CTRL_KERNEL or \e CTRL_KERNEL_FUNCTION.
+ * @see CTRL_KERNEL_CUDALIB
+ */
+#define CTRL_KERNEL_WRAP_CUDALIB_DEFAULT(name, argsList, type, subtype, ...)                                                              \
+	{                                                                                                                                     \
+		Ctrl_Kernel_Cuda_##type##_##subtype##_##name(*(request.cuda.p_stream), CTRL_KERNEL_ARG_LIST_ACCESS_KTILE(argsList, __VA_ARGS__)); \
+	};
 
 #ifdef _CTRL_CUBLAS_
 /**
@@ -350,6 +447,21 @@
  * @param ... Arguments recieved by the kernel (with roles).
  */
 #define CTRL_KERNEL_DECLARATION_CUDALIB(name, type, subtype, n_params, ...) CTRL_KERNEL_DECLARATION_CUDALIB_##subtype(name, type, subtype, n_params, __VA_ARGS__)
+
+/**
+ * Kernel declaration for host code or header files for \e CUDALIB_DEFAULT type kernels.
+ * Used to declare the kernel prototype in included header files, as the kernel defintions may be written in a separate file
+ * from the host code.
+ * @hideinitializer
+ *
+ * @param name Name of the kernel.
+ * @param type Type of this implementation.
+ * @param subtype Subtype of this implementation.
+ * @param n_params Number of arguments recieved by the kernel.
+ * @param ... Arguments recieved by the kernel (with roles).
+ */
+#define CTRL_KERNEL_DECLARATION_CUDALIB_DEFAULT(name, type, subtype, n_params, ...) \
+	void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(cudaStream_t stream, CTRL_KERNEL_EXTRACT_DECLARATION_ARGS_##n_params(__VA_ARGS__));
 
 #ifdef _CTRL_CUBLAS_
 /**

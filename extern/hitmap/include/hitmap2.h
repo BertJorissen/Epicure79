@@ -108,6 +108,8 @@
 #define hit_as(var, ref, ...)	HIT2_HIT_TEST_VARIADIC( var, ref, HIT2_COUNTPARAM( __VA_ARGS__ ), __VA_ARGS__ )
 #define HIT2_HIT_TEST_VARIADIC(var, ref, num, ...)	hit_as_tileElemAtNoStride( var, ref, num, __VA_ARGS__ )
 
+#define hit_as_tileElemAtNoStride(var, ref, num, ...)	hit_as_tileElemAtNoStride##num(var, ref, __VA_ARGS__ )
+
 #define hit_as_tileElemAtNoStride1(var, ref, pos)	((var).data[pos])
 
 #define hit_as_tileElemAtNoStride2(var, ref, pos1, pos2)	((var).data[(pos1)*(ref).origAcumCard[1]+(pos2)])

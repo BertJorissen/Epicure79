@@ -1,3 +1,34 @@
+/**
+ * @file Matrix_Add_Blas_Cuda_Ref_Cublas.c
+ * @author Trasgo Group
+ * @brief MatrixAdd: Native CUBLAS version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <omp.h>
@@ -96,22 +127,18 @@ int main(int argc, char *argv[]) {
 	struct cudaDeviceProp cu_dev_prop;
 	CUDA_OP(cudaGetDeviceProperties(&cu_dev_prop, GPU));
 	printf("\n DEVICE: %s", cu_dev_prop.name);
-	#ifdef _CTRL_QUEUE_
-	printf("\n QUEUES: ON");
-	#else
-	printf("\n QUEUES: OFF");
-	#endif // _CTRL_QUEUE_
 	printf("\n\n ---------------------------------------------------- \n");
 	fflush(stdout);
 
 	// 2. Alloc host data structures
+	CUDA_OP(cudaSetDevice(GPU));
+
 	float *A, *B;
 	CUDA_OP(cudaMallocHost((void **)&A, size * size * sizeof(float)));
 	CUDA_OP(cudaMallocHost((void **)&B, size * size * sizeof(float)));
 
 	srand(SEED);
-	float alpha = 1.0;
-	CUDA_OP(cudaSetDevice(GPU));
+	float          alpha = 1.0;
 	cublasHandle_t handle;
 	CUBLAS_OP(cublasCreate(&handle));
 
@@ -138,7 +165,7 @@ int main(int argc, char *argv[]) {
 
 	// 8. Sync and stop timer
 	CUDA_OP(cudaDeviceSynchronize());
-	exec_clock = exec_clock - omp_get_wtime();
+	exec_clock = omp_get_wtime() - exec_clock;
 
 	// 9. Copy result from device memory to host memory
 	CUBLAS_OP(cublasGetMatrix(size, size, sizeof(float), d_B, size, B, size));
@@ -164,5 +191,5 @@ int main(int argc, char *argv[]) {
 	printf(" Clock exec: %lf\n", exec_clock);
 	printf("\n ---------------------------------------------------- \n");
 
-	return 0;
+	return EXIT_SUCCESS;
 }

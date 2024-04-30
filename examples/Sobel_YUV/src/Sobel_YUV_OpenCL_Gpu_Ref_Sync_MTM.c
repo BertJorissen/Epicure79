@@ -1,3 +1,34 @@
+/**
+ * @file Sobel_YUV_OpenCL_Gpu_Ref_Sync_MTM.c
+ * @author Trasgo Group
+ * @brief SobelYUV: Synchronous native OpenCLGPU mem to mem version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #include <CL/cl.h>
@@ -39,29 +70,28 @@ typedef unsigned char BYTE;
 
 #define SOBEL_YUV_KERNEL_SOBEL_OPERATION \
 	" __kernel void Sobel_Operation( __global const BYTE *Input, __global BYTE *Output, const int Width, const int Height) { \
-		float Gradient_h, Gradient_v, Gradient_mod; \n\
-		\n\
-		unsigned int Col_Index = get_global_id(0); \n\
-		unsigned int Row_Index = get_global_id(1); \n\
-		\n\
-		if ((Row_Index != 0) && (Col_Index != 0) && (Row_Index < Height - 1) && (Col_Index < Width - 1)) { \n\
-			Gradient_v = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] + \n\
-						Input[(Row_Index - 1) * Width + (Col_Index + 1)] - \n\
-						2 * Input[Row_Index * Width + (Col_Index - 1)] + \n\
-						2 * Input[Row_Index * Width + (Col_Index + 1)] - \n\
-						Input[(Row_Index + 1) * Width + (Col_Index - 1)] + \n\
-						Input[(Row_Index + 1) * Width + (Col_Index + 1)]); \n\
-			Gradient_h = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] - \n\
-						2 * Input[(Row_Index - 1) * Width + Col_Index] - \n\
-						Input[(Row_Index - 1) * Width + (Col_Index + 1)] + \n\
-						Input[(Row_Index + 1) * Width + (Col_Index - 1)] + \n\
-						2 * Input[(Row_Index + 1) * Width + Col_Index] + \n\
-						Input[(Row_Index + 1) * Width + (Col_Index + 1)]); \n\
-			Gradient_mod = sqrt(Gradient_h * Gradient_h + Gradient_v * Gradient_v); \n\
-			Output[Row_Index * Width + Col_Index] = ((int) Gradient_mod < 256) ? (BYTE) Gradient_mod : 255; \n\
-		} \n\
-	}\
-	"
+		float Gradient_h, Gradient_v, Gradient_mod; \
+		\
+		unsigned int Col_Index = get_global_id(0); \
+		unsigned int Row_Index = get_global_id(1); \
+		\
+		if ((Row_Index != 0) && (Col_Index != 0) && (Row_Index < Height - 1) && (Col_Index < Width - 1)) { \
+			Gradient_v = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] + \
+						Input[(Row_Index - 1) * Width + (Col_Index + 1)] - \
+						2 * Input[Row_Index * Width + (Col_Index - 1)] + \
+						2 * Input[Row_Index * Width + (Col_Index + 1)] - \
+						Input[(Row_Index + 1) * Width + (Col_Index - 1)] + \
+						Input[(Row_Index + 1) * Width + (Col_Index + 1)]); \
+			Gradient_h = -(-Input[(Row_Index - 1) * Width + (Col_Index - 1)] - \
+						2 * Input[(Row_Index - 1) * Width + Col_Index] - \
+						Input[(Row_Index - 1) * Width + (Col_Index + 1)] + \
+						Input[(Row_Index + 1) * Width + (Col_Index - 1)] + \
+						2 * Input[(Row_Index + 1) * Width + Col_Index] + \
+						Input[(Row_Index + 1) * Width + (Col_Index + 1)]); \
+			Gradient_mod = sqrt(Gradient_h * Gradient_h + Gradient_v * Gradient_v); \
+			Output[Row_Index * Width + Col_Index] = ((int) Gradient_mod < 256) ? (BYTE) Gradient_mod : 255; \
+		} \
+	}"
 
 double main_clock;
 double exec_clock;
@@ -103,15 +133,13 @@ void Put_Frame(BYTE *Output_Img[N_IMG], BYTE *buffer_write[N_IMG], size_t *sizes
 	roctxRangePop();
 	#endif //_PROFILING_ENABLED_
 }
+
 int main(int argc, char **argv) {
 	main_clock = omp_get_wtime();
 
 	/* ARGUMENT PARSE */
 	if (argc < 8) {
-		printf(
-			"Usage: %s <width> <height> <num_frames> <input_yuv_file> "
-			"<output_yuv_file> <device> <platform>",
-			argv[0]);
+		printf("Usage: %s <width> <height> <num_frames> <input_yuv_file> <output_yuv_file> <device> <platform>\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -140,7 +168,6 @@ int main(int argc, char **argv) {
 
 	int Frame_num = 0; // loop variable
 
-	// File pointer for reading and writting
 	FILE *File_reader, *File_writer;
 
 	cl_int err;
@@ -217,6 +244,7 @@ int main(int argc, char **argv) {
 	device_id = p_devices[DEVICE];
 	free(p_devices);
 
+	// Extra information for collecting results
 	size_t platform_name_size;
 	OPENCL_ASSERT_OP(clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size));
 	char *platform_name = (char *)malloc(sizeof(char) * platform_name_size);
@@ -238,8 +266,8 @@ int main(int argc, char **argv) {
 	printf("\n PLATFORM: %s", platform_name);
 	printf("\n POLICY SYNC");
 	printf("\n\n ---------------------------------------------------- \n");
-	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 	free(platform_name);
 	free(device_name);
 
@@ -294,8 +322,7 @@ int main(int argc, char **argv) {
 		OPENCL_ASSERT_ERROR(err);
 		mem_pinned_input_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizes[i] * sizeof(BYTE), NULL, &err);
 		OPENCL_ASSERT_ERROR(err);
-		p_pinned_input_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_input_img[i], CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-														   0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
+		p_pinned_input_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_input_img[i], CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
 		OPENCL_ASSERT_ERROR(err);
 
 		mem_output_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE, sizes[i] * sizeof(BYTE), NULL, &err);
@@ -304,8 +331,7 @@ int main(int argc, char **argv) {
 		OPENCL_ASSERT_OP(clEnqueueFillBuffer(queue, mem_output_img[i], &pattern, sizeof(cl_uint), 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL));
 		mem_pinned_output_img[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, sizes[i] * sizeof(BYTE), NULL, &err);
 		OPENCL_ASSERT_ERROR(err);
-		p_pinned_output_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_output_img[i], CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-															0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
+		p_pinned_output_img[i] = (BYTE *)clEnqueueMapBuffer(queue, mem_pinned_output_img[i], CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 0, sizes[i] * sizeof(BYTE), 0, NULL, NULL, &err);
 		OPENCL_ASSERT_ERROR(err);
 	}
 
@@ -326,13 +352,12 @@ int main(int argc, char **argv) {
 			OPENCL_ASSERT_OP(clFlush(queue));
 			OPENCL_ASSERT_OP(clWaitForEvents(1, &aux));
 
-			err = clSetKernelArg(kernel_sobel_operation, 0, sizeof(cl_mem), &mem_input_img[i]);
-			err |= clSetKernelArg(kernel_sobel_operation, 1, sizeof(cl_mem), &mem_output_img[i]);
-			err |= clSetKernelArg(kernel_sobel_operation, 2, sizeof(cl_int), &Width[i]);
-			err |= clSetKernelArg(kernel_sobel_operation, 3, sizeof(cl_int), &Height[i]);
-			err |= clSetKernelArg(kernel_sobel_operation, 4, sizeof(cl_int), &Width[0]);
-			err |= clSetKernelArg(kernel_sobel_operation, 5, sizeof(cl_int), &Height[0]);
-			OPENCL_ASSERT_ERROR(err);
+			OPENCL_ASSERT_OP(clSetKernelArg(kernel_sobel_operation, 0, sizeof(cl_mem), &mem_input_img[i]));
+			OPENCL_ASSERT_OP(clSetKernelArg(kernel_sobel_operation, 1, sizeof(cl_mem), &mem_output_img[i]));
+			OPENCL_ASSERT_OP(clSetKernelArg(kernel_sobel_operation, 2, sizeof(cl_int), &Width[i]));
+			OPENCL_ASSERT_OP(clSetKernelArg(kernel_sobel_operation, 3, sizeof(cl_int), &Height[i]));
+			OPENCL_ASSERT_OP(clSetKernelArg(kernel_sobel_operation, 4, sizeof(cl_int), &Width[0]));
+			OPENCL_ASSERT_OP(clSetKernelArg(kernel_sobel_operation, 5, sizeof(cl_int), &Height[0]));
 
 			OPENCL_ASSERT_OP(clEnqueueNDRangeKernel(queue, kernel_sobel_operation, 2, NULL, global_sizes[i], local_size, 0, NULL, NULL));
 			OPENCL_ASSERT_OP(clFlush(queue));
@@ -358,11 +383,8 @@ int main(int argc, char **argv) {
 	/* RELEASE ZONE */
 
 	for (int i = 0; i < N_IMG; i++) {
-
 		OPENCL_ASSERT_OP(clEnqueueUnmapMemObject(queue, mem_pinned_input_img[i], p_pinned_input_img[i], 0, NULL, NULL));
-
 		OPENCL_ASSERT_OP(clEnqueueUnmapMemObject(queue, mem_pinned_output_img[i], p_pinned_output_img[i], 0, NULL, NULL));
-
 		OPENCL_ASSERT_OP(clFinish(queue));
 
 		OPENCL_ASSERT_OP(clReleaseMemObject(mem_pinned_input_img[i]));
@@ -395,13 +417,12 @@ int main(int argc, char **argv) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
-	#else
-	printf("\n ----------------------- TIME ----------------------- \n\n");
-	printf(" Clock main: %lf\n", main_clock);
-	printf(" Clock exec: %lf\n", exec_clock);
-	printf("\n ---------------------------------------------------- \n");
-	#endif
+	#else // _CTRL_EXAMPLES_EXP_MODE_
+	printf("\n ---------------------- TIMERS ---------------------- \n");
+	printf("Clock main: %lf\n", main_clock);
+	printf("Clock exec: %lf\n", exec_clock);
+	printf("\n\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	return EXIT_SUCCESS;
 }

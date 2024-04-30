@@ -39,12 +39,12 @@
 # 1. DEFINITIONS AND FLAGS FOR THIS PARTICULAR APPLICATION
 # 	(THEY WILL BE AUTOMATICALLY ADDED TO THE MAIN COMPILATION COMMAND)
 #
-APP_FLAGS=-funroll-loops
+APP_FLAGS=-funroll-loops -fPIC -g
 
 #
 # 2. DECLARE APPLICATION TARGETS
 #
-APP_TARGETS=../lib/libhit.a
+APP_TARGETS=../lib/libhit.a ../lib/libhit.so
 APP_CLEAN=$(APP_TARGETS)
 
 # ACTIVATE SPECIAL RULES TREATMENT FOR THE LIBRARY ITSELF
@@ -74,10 +74,12 @@ OBJS= hit_sig.o \
 	hit_com.o hit_pattern.o \
 	hit_file.o  \
 	hit_dump.o\
-	hit_error.o
+	hit_error.o\
+	hit_env.o\
+	hit_alb.o
 
 ../lib/libhit.so: $(OBJS)
-	gcc -shared -o $@ $(OBJS)
+	$(CC) -shared -o $@ $(OBJS) $(HIT_EXT_METIS_LIB_DIRS) $(HIT_EXT_METIS_LIBS)
 
 ../lib/libhit.a: $(OBJS)
 	ar -rcs $@ $(OBJS)
@@ -145,6 +147,11 @@ hit_pattern.o: hit_pattern.c $(INC)/hit_pattern.h $(INC)/hit_com.h
 hit_error.o: hit_error.c $(INC)/hit_error.h
 	$(HIT_COMPILE) -c $<
 
+hit_env.o: hit_env.c $(INC)/hit_env.h
+	$(HIT_COMPILE) -c $<
+
+hit_alb.o: ./hit_automatic_load_balancing/hit_alb.c $(INC)/hit_tile.h $(INC)/hit_layout.h $(INC)/hit_pattern.h $(INC)/hit_sshape.h $(INC)/hit_view.h $(INC)/hitmap2.h
+	$(HIT_COMPILE) -I$(HIT_BASEDIR)/include/hit_automatic_load_balancing -c $<
 
 #
 # END

@@ -45,6 +45,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <limits.h>
 #include <hit_allocP.h>
 #include <hit_sshape.h>

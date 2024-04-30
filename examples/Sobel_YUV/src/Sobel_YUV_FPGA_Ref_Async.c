@@ -1,9 +1,11 @@
-/*
- * <license>
+/**
+ * @file Sobel_YUV_FPGA_Ref_Async.c
+ * @author Trasgo Group
+ * @brief SobelYUV: Asyncronous native FPGA version
+ * @version 4.0
+ * @date 2021-07-31
  *
- * Controller v2.1
- *
- * This software is provided to enhance knowledge and encourage progress in the scientific
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
  * or use for commercial purpose, public redistribution, in source or binary forms, with or
  * without modifications, is NOT ALLOWED without the previous authorization of the copyright
@@ -11,7 +13,7 @@
  * wrote the original software. If you use this software for any purpose (e.g. publication),
  * a reference to the software package and the authors must be included.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
  * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
@@ -21,13 +23,12 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  *
- * More information on http://trasgo.infor.uva.es/
- *
- * </license>
+ * @copyright More information on http://trasgo.infor.uva.es/
  */
+
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #define FPGA_EMULATION 1
@@ -110,7 +111,7 @@ int main(int argc, char **argv) {
 	if (argc < 9) {
 		printf(
 			"Usage: %s <width> <height> <num_frames> <input_yuv_file> "
-			"<output_yuv_file> <device> <platform> <exec_mode>",
+			"<output_yuv_file> <device> <platform> <exec_mode>\n",
 			argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -136,7 +137,6 @@ int main(int argc, char **argv) {
 
 	int Frame_num = 0; // loop variable
 
-	// File pointer for reading and writting
 	FILE *File_reader, *File_writer;
 
 	cl_int err;
@@ -209,6 +209,7 @@ int main(int argc, char **argv) {
 	device_id = p_devices[DEVICE];
 	free(p_devices);
 
+	// Extra information for collecting results
 	size_t platform_name_size;
 	clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size);
 	char *platform_name = (char *)malloc(sizeof(char) * platform_name_size);
@@ -231,8 +232,8 @@ int main(int argc, char **argv) {
 	printf("\n EXEC_MODE: %d", EXEC_MODE);
 	printf("\n POLICY ASYNC");
 	printf("\n\n ---------------------------------------------------- \n");
-	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 	free(platform_name);
 	free(device_name);
 
@@ -473,13 +474,12 @@ int main(int argc, char **argv) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
-	#else
-	printf("\n ----------------------- TIME ----------------------- \n\n");
-	printf(" Clock main: %lf\n", main_clock);
-	printf(" Clock exec: %lf\n", exec_clock);
-	printf("\n ---------------------------------------------------- \n");
-	#endif
+	#else // _CTRL_EXAMPLES_EXP_MODE_
+	printf("\n ---------------------- TIMERS ---------------------- \n");
+	printf("Clock main: %lf\n", main_clock);
+	printf("Clock exec: %lf\n", exec_clock);
+	printf("\n\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	return EXIT_SUCCESS;
 }

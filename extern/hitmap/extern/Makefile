@@ -1,3 +1,5 @@
+export CFLAGS += -fPIC
+
 all:
 	make -C metis
 	make -C iohb1.0

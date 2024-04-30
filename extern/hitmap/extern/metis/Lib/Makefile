@@ -2,7 +2,7 @@ include ../Makefile.in
 
 INCLUDES = -I.
 
-CFLAGS = $(COPTIONS) $(OPTFLAGS) $(INCLUDES)
+CFLAGS += $(COPTIONS) $(OPTFLAGS) $(INCLUDES)
 LD = $(CC) -L. 
 
 

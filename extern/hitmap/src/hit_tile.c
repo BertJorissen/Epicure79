@@ -48,6 +48,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
 #include <hit_allocP.h>
 #include <hit_sshape.h>
 #include <hit_cshape.h>

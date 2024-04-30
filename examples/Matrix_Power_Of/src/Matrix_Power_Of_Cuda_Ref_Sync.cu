@@ -1,3 +1,34 @@
+/**
+ * @file Matrix_Power_Of_Cuda_Ref_Sync.cu
+ * @author Trasgo Group
+ * @brief MatrixPow: Synchronous native CUDA version
+ * @version 4.0
+ * @date 2021-07-31
+ *
+ * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
+ * community. It should be used only for research and educational purposes. Any reproduction
+ * or use for commercial purpose, public redistribution, in source or binary forms, with or
+ * without modifications, is NOT ALLOWED without the previous authorization of the copyright
+ * holder. The origin of this software must not be misrepresented; you must not claim that you
+ * wrote the original software. If you use this software for any purpose (e.g. publication),
+ * a reference to the software package and the authors must be included.
+ *
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+ * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
+ * All rights reserved.
+ *
+ * @copyright More information on http://trasgo.infor.uva.es/
+ */
+
 // System includes
 #include <assert.h>
 #include <math.h>
@@ -13,9 +44,6 @@
 
 double main_clock;
 double exec_clock;
-
-int GPU   = 0;
-int POWER = 0;
 
 #ifdef DEBUG
 #define CUDA_CHECK()                                                      \
@@ -72,67 +100,30 @@ __global__ void matrixMulCUDA(float *d_c, float *d_a, float *d_b, int n) {
 	}
 }
 
-typedef struct Init_Tiles_Args {
-	float *matrix_a, *matrix_b, *matrix_c;
-	int    rows, columns;
-} Init_Tiles_Args_t;
-
-float RandomFloat(float min, float max) {
-	assert(max > min);
-	float random = ((float)rand()) / (float)RAND_MAX;
-	float range  = max - min;
-	return (random * range) + min;
-}
-
-void Init_Tiles(void *args) {
-	Init_Tiles_Args_t *tmp      = (Init_Tiles_Args_t *)args;
-	float             *matrix_a = tmp->matrix_a;
-	float             *matrix_b = tmp->matrix_b;
-	float             *matrix_c = tmp->matrix_c;
-	int                rows     = tmp->rows;
-	int                columns  = tmp->columns;
-
+void Init_Tiles(float *matrix_a, float *matrix_b, float *matrix_c, int rows, int columns) {
 	srand(SEED);
 	for (int j = 0; j < columns; j++) {
 		float col_sum_a = 0;
-		float col_sum_b = 0;
 		for (int i = 0; i < rows; i++) {
-			float a = RandomFloat(-(1 - col_sum_a) + EPSILON, 1 - col_sum_a - EPSILON);
-			float b = RandomFloat(-(1 - col_sum_b) + EPSILON, 1 - col_sum_b - EPSILON);
+			// generate random floats in a way matrixes don't turn into NaN
+			float min    = -(1 - col_sum_a) + EPSILON;
+			float max    = 1 - col_sum_a - EPSILON;
+			float random = ((float)rand()) / (float)RAND_MAX;
+			float range  = max - min;
+			float value  = (random * range) + min;
 
-			matrix_a[i * columns + j] = a;
-			matrix_b[i * columns + j] = b;
+			matrix_a[i * columns + j] = value;
+			matrix_b[i * columns + j] = value;
 			matrix_c[i * columns + j] = 0;
-			col_sum_a += fabsf(a);
-			col_sum_b += fabsf(b);
+			col_sum_a += fabsf(value);
 		}
 	}
 }
 
-typedef struct Host_Compute_Args {
-	int     ITER;
-	double *p_sum;
-	double *p_res;
-	float  *matrix;
-	float  *matrix_res;
-	int     rows;
-	int     columns;
-} Host_Compute_Args_t;
-
-void Host_Compute(void *args) {
+void Host_Compute(int ITER, double *p_sum, double *p_res, float *matrix, float *matrix_res, int rows, int columns) {
 	#ifdef _PROFILING_ENABLED_
 	nvtxRangePushA("Host task");
 	#endif //_PROFILING_ENABLED_
-
-	Host_Compute_Args_t *tmp = (Host_Compute_Args_t *)args;
-
-	static int ITER       = 0;
-	double    *p_sum      = tmp->p_sum;
-	double    *p_res      = tmp->p_res;
-	float     *matrix     = tmp->matrix;
-	float     *matrix_res = tmp->matrix_res;
-	int        rows       = tmp->rows;
-	int        columns    = tmp->columns;
 
 	double minimum = matrix[0 * columns + 0];
 	double maximum = matrix[0 * columns + 0];
@@ -168,9 +159,6 @@ void Host_Compute(void *args) {
 			matrix_res[j * columns + k] = matrix[j * columns + k] / p_res[ITER];
 		}
 	}
-
-	ITER = (ITER + 1) % POWER;
-
 	#ifdef _PROFILING_ENABLED_
 	nvtxRangePop();
 	#endif //_PROFILING_ENABLED_
@@ -184,30 +172,28 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Usage: %s <matrix_size> <n_power> <device>\n\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	int SIZE        = atoi(argv[1]);
-	POWER           = atoi(argv[2]);
-	GPU             = atoi(argv[3]);
-	int MATRIX_SIZE = sizeof(float) * SIZE * SIZE;
+	int    SIZE        = atoi(argv[1]);
+	int    POWER       = atoi(argv[2]);
+	int    GPU         = atoi(argv[3]);
+	size_t MATRIX_SIZE = sizeof(float) * SIZE * SIZE;
 
+	// Extra information for collecting results
 	cudaDeviceProp cu_dev_prop;
 	cudaGetDeviceProperties(&cu_dev_prop, GPU);
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%s, ", cu_dev_prop.name);
-	#else
+	#else // _CTRL_EXAMPLES_EXP_MODE_
 	printf("\n ----------------------- ARGS ----------------------- \n");
 	printf("\n SIZE: %d", SIZE);
 	printf("\n N_ITER: %d", POWER);
 	printf("\n DEVICE: %s", cu_dev_prop.name);
 	printf("\n POLICY SYNC");
 	printf("\n\n ---------------------------------------------------- \n");
-	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 
 	double *p_res = (double *)malloc(POWER * sizeof(double));
 	double *p_sum = (double *)malloc(POWER * sizeof(double));
-
-	// By default, we use device 0, otherwise we override the device ID based on
-	// what is provided at the command line
 
 	cudaSetDevice(GPU);
 	CUDA_CHECK();
@@ -237,21 +223,7 @@ int main(int argc, char **argv) {
 	CUDA_CHECK();
 
 	/*Inicializa variables*/
-	Init_Tiles_Args_t init_args = (Init_Tiles_Args_t){.matrix_a = A,
-													  .matrix_b = B,
-													  .matrix_c = C,
-													  .rows     = SIZE,
-													  .columns  = SIZE};
-	Init_Tiles(&init_args);
-
-	Host_Compute_Args_t host_args =
-		(Host_Compute_Args_t){.ITER       = 0,
-							  .p_sum      = p_sum,
-							  .p_res      = p_res,
-							  .matrix     = NULL,
-							  .matrix_res = matrix_tmp,
-							  .rows       = SIZE,
-							  .columns    = SIZE};
+	Init_Tiles(A, B, C, SIZE, SIZE);
 
 	/*Start timer*/
 	cudaDeviceSynchronize();
@@ -261,30 +233,25 @@ int main(int argc, char **argv) {
 	cudaMemcpy(d_A, A, MATRIX_SIZE, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_B, B, MATRIX_SIZE, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_C, C, MATRIX_SIZE, cudaMemcpyHostToDevice);
-	CUDA_CHECK();
 
 	for (int i = 0; i < POWER; i++) {
-		host_args.ITER = i;
-
+		float *matrix1;
+		float *dmatrix1;
+		float *dmatrix2;
 		if ((i % 2) == 0) {
-			matrixMulCUDA<<<grid, threads>>>(d_C, d_A, d_B, SIZE);
-			CUDA_CHECK();
-
-			cudaMemcpy(C, d_C, MATRIX_SIZE, cudaMemcpyDeviceToHost);
-			CUDA_CHECK();
-
-			host_args.matrix = C;
-			Host_Compute(&host_args);
+			matrix1  = C;
+			dmatrix1 = d_C;
+			dmatrix2 = d_B;
 		} else {
-			matrixMulCUDA<<<grid, threads>>>(d_B, d_A, d_C, SIZE);
-			CUDA_CHECK();
-
-			cudaMemcpy(B, d_B, MATRIX_SIZE, cudaMemcpyDeviceToHost);
-			CUDA_CHECK();
-
-			host_args.matrix = B;
-			Host_Compute(&host_args);
+			matrix1  = B;
+			dmatrix1 = d_B;
+			dmatrix2 = d_C;
 		}
+		matrixMulCUDA<<<grid, threads>>>(dmatrix1, d_A, dmatrix2, SIZE);
+		CUDA_CHECK();
+		cudaMemcpy(matrix1, dmatrix1, MATRIX_SIZE, cudaMemcpyDeviceToHost);
+		CUDA_CHECK();
+		Host_Compute(i, p_sum, p_res, matrix1, matrix_tmp, SIZE, SIZE);
 	}
 	cudaDeviceSynchronize();
 	exec_clock = omp_get_wtime() - exec_clock;
@@ -297,29 +264,22 @@ int main(int argc, char **argv) {
 	CUDA_CHECK();
 
 	/* PRINT RESULTS */
-	#ifdef _CTRL_EXAMPLES_TEST_MODE_
-	for (int i = 0; i < POWER; i++) {
-		printf("%lf, %lf, ", p_sum[i], p_res[i]);
-	}
-	fflush(stdout);
-	#elif _CTRL_EXAMPLES_EXP_MODE_
+	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf, ", p_sum[POWER - 1], p_res[POWER - 1]);
-	fflush(stdout);
-	#else
+	#else // _CTRL_EXAMPLES_EXP_MODE_
 	printf("\n ----------------------- NORM ----------------------- \n\n");
-	fflush(stdout);
 	for (int i = 0; i < POWER; i++) {
 		printf(" iter: %d, sum: %lf, res: %lf\n", i + 1, p_sum[i], p_res[i]);
-		fflush(stdout);
 	}
 	printf("\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 	fflush(stdout);
-	#endif
 
 	cudaFreeHost(A);
 	cudaFreeHost(B);
 	cudaFreeHost(C);
 	CUDA_CHECK();
+
 	free(p_sum);
 	free(p_res);
 	free(matrix_tmp);
@@ -328,13 +288,12 @@ int main(int argc, char **argv) {
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
-	fflush(stdout);
-	#else
-	printf("\n ----------------------- TIME ----------------------- \n\n");
-	printf(" Clock main: %lf\n", main_clock);
-	printf(" Clock exec: %lf\n", exec_clock);
-	printf("\n ---------------------------------------------------- \n");
-	#endif
+	#else // _CTRL_EXAMPLES_EXP_MODE_
+	printf("\n ---------------------- TIMERS ---------------------- \n");
+	printf("Clock main: %lf\n", main_clock);
+	printf("Clock exec: %lf\n", exec_clock);
+	printf("\n\n ---------------------------------------------------- \n");
+	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
-	return 0;
+	return EXIT_SUCCESS;
 }

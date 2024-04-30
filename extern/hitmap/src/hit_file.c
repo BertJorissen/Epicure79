@@ -39,7 +39,23 @@
  * </license>
 */
 
+#ifndef INCLUDE_IOHB__H
+	#define INCLUDE_IOHB__H
+	#include "iohb.h"
+#endif
+
+#ifndef INCLUDE_MATRIX_IO__H
+	#define INCLUDE_MATRIX_IO__H
+	#include "matrix_io.h"
+#endif
+
+#ifndef INCLUDE_METIS__H
+	#define INCLUDE_METIS__H
+	#include "metis.h"
+#endif
+
 #include <hit_file.h>
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -51,10 +67,6 @@
 #include <hit_cshape.h>
 #include <hit_bshape.h>
 
-#ifndef INCLUDE_MATRIX_IO__H
-	#define INCLUDE_MATRIX_IO__H
-	#include "matrix_io.h"
-#endif
 
 /**
  * Compare function for idxtype, to be used in stdlib's qsort(3).

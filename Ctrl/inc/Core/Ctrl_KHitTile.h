@@ -4,7 +4,7 @@
  * @file Ctrl_KHitTile.h
  * @author Trasgo Group
  * @brief KhitTile structure definitions.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -35,14 +35,41 @@
 ///@cond INTERNAL
 #ifndef CTRL_FPGA_KERNEL_FILE
 
+// TODO @sergioalo probably we should avoid dependencies from here to cuda/ocl headers
+#ifdef _CTRL_ARCH_CUDA_
+#include <cuda_runtime_api.h>
+#endif // _CTRL_ARCH_CUDA_
+
+#ifdef _CTRL_ARCH_OPENCL_GPU_
+#include <CL/cl.h>
+#endif // _CTRL_ARCH_OPENCL_GPU_
+
+/**
+ * Holds backend specific extra fields
+ */
+typedef union Ctrl_KHitTile_Ext {
+	#ifdef _CTRL_ARCH_CUDA_
+	struct {
+		cudaTextureObject_t tex; /**< For texture use */
+	} cuda;
+	#endif // _CTRL_ARCH_CUDA_
+	#ifdef _CTRL_ARCH_OPENCL_GPU_
+	struct {
+		cl_mem     tex; /**< For texture use */
+		cl_sampler smp; /**< For texture use */
+	} ocl;
+	#endif // _CTRL_ARCH_OPENCL_GPU_
+} Ctrl_KHitTile_Ext;
+
 /**
  * Stripped down version of an abstract \e HitTile so it`s more suitable for use in kernels
  */
 typedef struct {
-	void *data;            /**< Pointer to the data held by the tile. */
-	int   origAcumCard[4]; /**< Dimension accumulated cardinalities. */
-	int   card[3];         /**< Dimension cardinalities. */
-	int   offset;          /**< Offset to original data. For hierarchical subselections. */
+	void             *data;            /**< Pointer to the data held by the tile. */
+	int               origAcumCard[4]; /**< Dimension accumulated cardinalities. */
+	int               card[3];         /**< Dimension cardinalities. */
+	int               offset;          /**< Offset to original data. For hierarchical subselections. */
+	Ctrl_KHitTile_Ext ext;             /**< Backend specific extra fields  */
 } KHitTile;
 #endif
 
@@ -72,43 +99,40 @@ typedef struct {
  *
  * @see Ctrl_NewType, KHitTile
  */
-#define hit_ktileNewType(type)      \
-	typedef struct {                \
-		type *data;                 \
-		int   origAcumCard[4];      \
-		int   card[3];              \
-		int   offset;               \
-	} KHitTile_##type;              \
-	typedef struct {                \
-		int origAcumCard[4];        \
-		int card[3];                \
-		int offset;                 \
-	} fpga_wrapper_KHitTile_##type; \
+#define hit_ktileNewType(type)             \
+	typedef struct {                       \
+		type             *data;            \
+		int               origAcumCard[4]; \
+		int               card[3];         \
+		int               offset;          \
+		Ctrl_KHitTile_Ext ext;             \
+	} KHitTile_##type;                     \
+	typedef struct {                       \
+		int origAcumCard[4];               \
+		int card[3];                       \
+		int offset;                        \
+	} fpga_wrapper_KHitTile_##type;        \
 	CTRL_KTILE_VARS(type);
 
-#ifndef _CTRL_KERNELS_H_
-#define CTRL_KTILE_VARS(type)                                                \
-	const char *raw_ktile_KHitTile_##type     = CTRL_KERNEL_STRINGIFY(type); \
-	const char *raw_def_ktile_KHitTile_##type = CTRL_KERNEL_STRINGIFY(       \
-		typedef struct {                                                     \
-			__global type *data;                                             \
-			int            origAcumCard[4];                                  \
-			int            card[3];                                          \
-		} KHitTile_##type##_write;                                           \
-		typedef struct {                                                     \
-			__global const type *data;                                       \
-			int                  origAcumCard[4];                            \
-			int                  card[3];                                    \
-		} KHitTile_##type##_read;                                            \
-		typedef struct {                                                     \
-			int origAcumCard[4];                                             \
-			int card[3];                                                     \
-			int offset;                                                      \
-		} KHitTile_##type##_wrapper;);                                       \
-	bool raw_added_ktile_KHitTile_##type = false;
-#else // _CTRL_KERNELS_H_
-#define CTRL_KTILE_VARS(type)
-#endif // _CTRL_KERNELS_H_
+#define CTRL_KTILE_VARS(type)                                                                              \
+	static const char *raw_ktile_KHitTile_##type __attribute__((unused))     = CTRL_MACRO_STRINGIFY(type); \
+	static const char *raw_def_ktile_KHitTile_##type __attribute__((unused)) = CTRL_MACRO_STRINGIFY(       \
+		typedef struct {                                                                                   \
+			__global type *data;                                                                           \
+			int            origAcumCard[4];                                                                \
+			int            card[3];                                                                        \
+		} KHitTile_##type##_write;                                                                         \
+		typedef struct {                                                                                   \
+			__global const type *data;                                                                     \
+			int                  origAcumCard[4];                                                          \
+			int                  card[3];                                                                  \
+		} KHitTile_##type##_read;                                                                          \
+		typedef struct {                                                                                   \
+			int origAcumCard[4];                                                                           \
+			int card[3];                                                                                   \
+			int offset;                                                                                    \
+		} KHitTile_##type##_wrapper;);                                                                     \
+	static bool raw_added_ktile_KHitTile_##type __attribute__((unused)) = false;
 
 #else // CTRL_FPGA_KERNEL_FILE
 

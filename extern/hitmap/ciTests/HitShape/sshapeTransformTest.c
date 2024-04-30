@@ -68,7 +68,7 @@ int main() {
     HitShape sh = hit_shape(3, sig0, sig1, sig0);
     HitShape shNull = HIT_SHAPE_NULL;
     HitShape res;
-    int ok = 1, b=1;
+    int ok = 1; //, b=1;
 
     printf("Check hit_shapeDimTransform: ");
     

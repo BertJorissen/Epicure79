@@ -5,7 +5,7 @@
  * @file Ctrl_FPGA_KernelChar.h
  * @author Gabriel Rodriguez-Canal
  * @brief Macros to set FPGA kernels characterization.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -82,12 +82,12 @@
  * @hideinitializer
  *
  * @param name Name of the kernel.
- * @param X Block sizes for x dimension.
+ * @param X Block sizes for i dimension.
  *
  * @see CTRL_KERNEL_CHAR, CTRL_KERNEL_FPGA_KERNEL_CHAR, CTRL_KERNEL_FPGA_KERNEL_CHAR_1
  */
 #define CTRL_KERNEL_FPGA_KERNEL_CHAR_1_1(name, X) \
-	Ctrl_Thread local_size_FPGA_##name = {.dims = 1, .x = X, .y = 0, .z = 0};
+	Ctrl_Thread local_size_FPGA_##name = {.dims = 1, .i = X, .j = 0, .k = 0};
 
 /**
  * Create default characterization for a \e FPGA kernel, using \e MANUAL characterization mode and a 2D block.
@@ -96,13 +96,13 @@
  * @hideinitializer
  *
  * @param name Name of the kernel.
- * @param X Block sizes for x dimension.
- * @param Y Block sizes for y dimension.
+ * @param X Block sizes for i dimension.
+ * @param Y Block sizes for j dimension.
  *
  * @see CTRL_KERNEL_CHAR, CTRL_KERNEL_FPGA_KERNEL_CHAR, CTRL_KERNEL_FPGA_KERNEL_CHAR_1
  */
 #define CTRL_KERNEL_FPGA_KERNEL_CHAR_1_2(name, X, Y) \
-	Ctrl_Thread local_size_FPGA_##name = {.dims = 2, .x = X, .y = Y, .z = 0};
+	Ctrl_Thread local_size_FPGA_##name = {.dims = 2, .i = X, .j = Y, .k = 0};
 
 /**
  * Create default characterization for a \e FPGA kernel, using \e MANUAL characterization mode and a 3D block.
@@ -111,14 +111,14 @@
  * @hideinitializer
  *
  * @param name Name of the kernel.
- * @param X Block sizes for x dimension.
- * @param Y Block sizes for y dimension.
- * @param Z Block sizes for z dimension.
+ * @param X Block sizes for i dimension.
+ * @param Y Block sizes for j dimension.
+ * @param Z Block sizes for k dimension.
  *
  * @see CTRL_KERNEL_CHAR, CTRL_KERNEL_FPGA_KERNEL_CHAR, CTRL_KERNEL_FPGA_KERNEL_CHAR_1
  */
 #define CTRL_KERNEL_FPGA_KERNEL_CHAR_1_3(name, X, Y, Z) \
-	Ctrl_Thread local_size_FPGA_##name = {.dims = 3, .x = X, .y = Y, .z = Z};
+	Ctrl_Thread local_size_FPGA_##name = {.dims = 3, .i = X, .j = Y, .k = Z};
 
 /**
  * Create default characterization for a \e FPGA kernel, using \e AUTOMATIC characterization mode.
@@ -137,19 +137,19 @@
 #define CTRL_KERNEL_FPGA_KERNEL_CHAR_2(name, dims, A, B, C) \
 	Ctrl_Thread local_size_FPGA_##name = CTRL_KERNEL_FPGA_CHAR_##dims##A##B##C
 
-#define CTRL_KERNEL_FPGA_CHAR_1defdefdef          {.dims = 1, .x = 256, .y = 0, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2defdefdef          {.dims = 2, .x = 256, .y = 1, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_1mediumlowlow       {.dims = 1, .x = 128, .y = 0, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_1fulllowlow         {.dims = 1, .x = 256, .y = 0, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fulllowlow         {.dims = 2, .x = 128, .y = 2, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2square32lowlow     {.dims = 2, .x = 16, .y = 16, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fullmediummedium   {.dims = 2, .x = 128, .y = 2, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fulllowhigh        {.dims = 2, .x = 64, .y = 3, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2mediummediummedium {.dims = 2, .x = 128, .y = 2, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare32      {.dims = 2, .x = 16, .y = 16, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare16      {.dims = 2, .x = 16, .y = 16, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare4       {.dims = 2, .x = 4, .y = 4, .z = 0};
-#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare2       {.dims = 2, .x = 2, .y = 2, .z = 0};
+#define CTRL_KERNEL_FPGA_CHAR_1defdefdef          {.dims = 1, .i = 256, .j = 0, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2defdefdef          {.dims = 2, .i = 256, .j = 1, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_1mediumlowlow       {.dims = 1, .i = 128, .j = 0, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_1fulllowlow         {.dims = 1, .i = 256, .j = 0, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fulllowlow         {.dims = 2, .i = 128, .j = 2, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2square32lowlow     {.dims = 2, .i = 16, .j = 16, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fullmediummedium   {.dims = 2, .i = 128, .j = 2, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fulllowhigh        {.dims = 2, .i = 64, .j = 3, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2mediummediummedium {.dims = 2, .i = 128, .j = 2, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare32      {.dims = 2, .i = 16, .j = 16, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare16      {.dims = 2, .i = 16, .j = 16, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare4       {.dims = 2, .i = 4, .j = 4, .k = 0};
+#define CTRL_KERNEL_FPGA_CHAR_2fixedsquare2       {.dims = 2, .i = 2, .j = 2, .k = 0};
 
 ///@endcond
 #endif // _CTRL_KERNEL_FPGA_CHAR_H_

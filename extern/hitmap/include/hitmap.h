@@ -191,6 +191,7 @@
 
 
 #include "hit_utils.h"
+#include "hit_env.h"
 #include "hit_file.h"
 
 #include "hit_blockTile.h"

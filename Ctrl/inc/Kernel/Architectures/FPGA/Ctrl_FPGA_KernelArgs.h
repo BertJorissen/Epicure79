@@ -5,7 +5,7 @@
  * @file Ctrl_FPGA_KernelArgs.h
  * @author Gabriel Rodriguez-Canal
  * @brief Macros to cast Ctrl FPGA tiles to KHitTiles for their use in kernels.
- * @version 2.1
+ * @version 4.0
  * @date 2021-04-26
  *
  * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
@@ -43,11 +43,11 @@
  *
  * @see KHitTile
  */
-#define CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA(name)                             \
-	case CTRL_TYPE_FPGA: {                                                   \
-		Ctrl_FPGA_Tile *p_tile_data = (Ctrl_FPGA_Tile *)(name->ext);         \
-		k_##name##_void.data        = (void *)(&(p_tile_data->device_data)); \
-		break;                                                               \
+#define CTRL_KERNEL_FPGA_KTILE_DEVICE_DATA(name)                                                                     \
+	case CTRL_TYPE_FPGA: {                                                                                           \
+		Ctrl_FPGA_Tile *p_tile_data = (Ctrl_FPGA_Tile *)(((Ctrl_Tile *)name->ext)->p_impls[p_ctrl->id].tile.p_fpga); \
+		k_##name##_void.data        = (void *)(&(p_tile_data->device_data));                                         \
+		break;                                                                                                       \
 	}
 
 ///@endcond

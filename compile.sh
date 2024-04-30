@@ -1,5 +1,17 @@
 #!/bin/bash
 
+declare -A archs
+archs["CPU"]="OFF"
+archs["CUDA"]="OFF"
+archs["OPENCL"]="OFF"
+archs["HIP"]="OFF"
+archs["FPGA"]="OFF"
+
+declare -A libs
+libs["CUBLAS"]="OFF"
+libs["MKL"]="OFF"
+libs["MAGMA"]="OFF"
+
 CMAKE_FLAGS=""
 while :; do
 	case $1 in
@@ -8,69 +20,48 @@ while :; do
 			echo "This script compiles hitmap if it isnt already, deletes everything in 'build' directory and compiles controllers with the options specified."
 			echo "Usage: bash compile.sh OPTIONS"
 			echo "	-a|--arch archs			Select ctrl architectures to support."
-			echo "							Comma separated. Valid values: cuda, cpu, opencl, openclamd, fpga."
-			echo "							By default compiles for cuda, cpu and opencl."
+			echo "							Comma separated. Valid values: CUDA, HIP, CPU, OPENCL, FPGA."
+			echo "							If not specified uses defaults specified in cmake."
 			echo "	-e|--exp				Compile in 'experimentation mode' (easier to process output from benchmarks)."
-			echo "	-q|--queues				Enable queues."
 			echo "	-d|--debug				Debug mode. Compile with -O0 -g and extra error checking and info."
 			echo "	-c|--clean				Allways clean and recompile hitmap."
 			echo "	-p|--profile			Enable marks for host tasks for profiling on CUDA and OpenCL AMD."
 			echo "	--cc compiler			Use a diferent compiler."
-			echo "	-l|--libs libs			Select blas libs to support. Comma separated. Valid values are cublas, mkl, magma"
+			echo "	-l|--libs libs			Select blas libs to support. Comma separated. Valid values are cublas, mkl, magma."
+			echo "							If not specified uses defaults specified in cmake."
 			echo "	-f|--flags				Specify extra flags for compiler.Comma separated to specify multiple extra flags."
-			echo
-			echo "Notes: "
-			echo "	'opencl' and 'openclamd' architectures cannot be active at the same time. If both are passed at the same time 'openclamd' will be active."
 			exit
 			;;
-		-a | --arch) # Takes an option argument; ensure it has been specified.
+		-a | --arch)
+			# Takes an option argument; ensure it has been specified.
 			if [ "$2" ]; then
-				archs=(${2//,/ })
-				for arch in "${archs[@]}"; do
-					case $arch in
-						cuda)
-							echo "Compiling for CUDA"
-							CMAKE_FLAGS+="-DSUPPORT_CUDA:BOOL=ON "
-							;;
-						openclamd)
-							echo "Compiling for OpenCl amd"
-							CMAKE_FLAGS+="-DSUPPORT_OPENCL_GPU:BOOL=ON -DSUPPORT_OPENCL_GPU_AMD:BOOL=ON "
-							;;
-						opencl)
-							echo "Compiling for OpenCL"
-							CMAKE_FLAGS+="-DSUPPORT_OPENCL_GPU:BOOL=ON "
-							;;
-						cpu)
-							echo "Compiling for CPU"
-							CMAKE_FLAGS+="-DSUPPORT_CPU:BOOL=ON "
-							;;
-						fpga)
-							echo "Compiling for FPGA"
-							CMAKE_FLAGS+="-DSUPPORT_FPGA:BOOL=ON "
-							. /opt/intel/oneapi/setvars.sh
-							;;
-						*)
-							echo "Arch $arch not found."
-							exit
-							;;
-					esac
+				archs_arg=(${2//,/ })
+				for arch in "${archs_arg[@]}"; do
+					arch=${arch^^}
+					# check if arch exists as a key in archs array
+					if [ ! "${archs[$arch]+abc}" ]; then
+						echo "ERROR: Arch $arch not found."
+						exit
+					fi
+					echo "Compiling for $arch"
+					archs["$arch"]="ON"
+					if [ "$arch" == "FPGA" ]; then
+						. /opt/intel/oneapi/setvars.sh
+					fi
 				done
 				shift
 			else
 				echo 'ERROR: "--arch" requires a non-empty option argument.'
+				exit
 			fi
 			;;
 		-e | --exp)
 			echo "Compiling experimentation examples"
 			CMAKE_FLAGS+="-DUSE_EXPERIMENTATION_EXAMPLES:BOOL=ON "
 			;;
-		-q | --queues)
-			echo "Compiling with queues active"
-			CMAKE_FLAGS+="-DCTRL_QUEUE=ON "
-			;;
 		-d | --debug)
 			echo "Compiling with debug"
-			CMAKE_FLAGS+="-DCTRL_DEBUG=ON -DCTRL_DEBUGGER=ON "
+			CMAKE_FLAGS+="-DCTRL_DEBUG=ON "
 			;;
 		-c | --clean)
 			recompile_hitmap=1
@@ -100,37 +91,30 @@ while :; do
 				esac
 				shift
 			else
-				die 'ERROR: "--arch" requires a non-empty option argument.'
+				echo 'ERROR: "--arch" requires a non-empty option argument.'
+				exit
 			fi
 			;;
 		-l | --libs)
 			if [ "$2" ]; then
-				libs=(${2//,/ })
-				for lib in "${libs[@]}"; do
-					case $lib in
-						cublas)
-							echo "Compiling with cublas"
-							CMAKE_FLAGS+="-DCUBLAS:BOOL=ON "
-							;;
-						mkl)
-							echo "Compiling with mkl"
-							. /opt/intel/oneapi/setvars.sh
-							CMAKE_FLAGS+="-DMKL:BOOL=ON "
-							;;
-						magma)
-							echo "Compiling with Magma"
-							. /opt/intel/oneapi/setvars.sh
-							CMAKE_FLAGS+="-DMAGMA:BOOL=ON "
-							;;
-						*)
-							echo "Lib $lib not supported."
-							exit
-							;;
-					esac
+				libs_arg=(${2//,/ })
+				for lib in "${libs_arg[@]}"; do
+					lib=${lib^^}
+					# check if lib exists as a key in libs array
+					if [ ! "${libs[$lib]+abc}" ]; then
+						echo "ERROR: lib $lib not supported."
+						exit
+					fi
+					echo "Compiling with $lib"
+					libs["$lib"]="ON"
+					if [[ "$lib" == "MKL" || "$lib" == "MAGMA" ]]; then
+						. /opt/intel/oneapi/setvars.sh
+					fi
 				done
 				shift
 			else
 				echo 'ERROR: "--libs" requires a non-empty option argument.'
+				exit
 			fi
 			;;
 		-f | --flags)
@@ -138,13 +122,16 @@ while :; do
 				c_flags=(${2//,/ })
 				echo "Using flags: ${c_flags[@]}"
 				CMAKE_FLAGS+="-DCMAKE_C_FLAGS='${c_flags[@]}' "
+				CMAKE_FLAGS+="-DCMAKE_CXX_FLAGS='${c_flags[@]}' "
 				CMAKE_FLAGS+="-DCMAKE_CUDA_FLAGS='${c_flags[@]}' "
 				shift
 			else
-				die 'ERROR: "--flags" requires a non-empty option argument.'
+				echo 'ERROR: "--flags" requires a non-empty option argument.'
+				exit
 			fi
 			;;
-		--) # End of all options.
+		--)
+			# End of all options.
 			shift
 			break
 			;;
@@ -153,11 +140,24 @@ while :; do
 			echo "Use '-h' or '--help' for help."
 			exit
 			;;
-		*) # Default case: No more options, so break out of the loop.
-			break ;;
+		*)
+			# Default case: No more options, so break out of the loop.
+			break
+			;;
 	esac
 	shift
 done
+
+if [ "$archs_arg" ]; then
+	for a in "${!archs[@]}"; do
+		CMAKE_FLAGS+="-DSUPPORT_$a:BOOL=${archs[$a]} "
+	done
+fi
+if [ "$libs_arg" ]; then
+	for l in "${!libs[@]}"; do
+		CMAKE_FLAGS+="-D$l:BOOL=${libs[$l]} "
+	done
+fi
 
 # move to controllers dir
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -180,11 +180,7 @@ echo "Clean and rebuild..."
 rm -rf build/
 mkdir -p build && cd build
 
-if [ "$archs" ]; then
-	eval "cmake $CMAKE_FLAGS .."
-else
-	eval "cmake -DSUPPORT_CUDA:BOOL=ON -DSUPPORT_CPU:BOOL=ON -DSUPPORT_OPENCL_GPU:BOOL=ON -DSUPPORT_FPGA:BOOL=ON $CMAKE_FLAGS .."
-fi
+eval "cmake $CMAKE_FLAGS .."
 
 make -j 12
 cd ..

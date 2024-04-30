@@ -1,0 +1,3 @@
+node *
+	proc 0 0
+		opencl 2 0
