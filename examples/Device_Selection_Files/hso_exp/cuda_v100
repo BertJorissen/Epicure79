@@ -1,0 +1,4 @@
+node manticore
+	proc 0 1
+		cuda 0
+		cpu 1 1-2 0

@@ -1,14 +1,12 @@
-cmake_minimum_required (VERSION 3.17)
+cmake_minimum_required (VERSION 3.20)
 
 # Verbose
 if (CTRL_CMAKE_VERBOSE_EXAMPLES_GEMVER)
 	message(STATUS "GEMVER_INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
 	message(STATUS "GEMVER_LIBS = ${CTRL_LIBS}")
 	message(STATUS "GEMVER_CTRL_C vars = ${CMAKE_C_FLAGS}")
+	message(STATUS "GEMVER_CTRL_CXX vars = ${CMAKE_CXX_FLAGS}")
 	message(STATUS "GEMVER_CTRL_CUDA vars = ${CMAKE_CUDA_FLAGS}")
-	if (SUPPORT_CUDA)
-		message(STATUS "GEMVER_CTRL_NVCC vars = ${CUDA_NVCC_FLAGS}")
-	endif (SUPPORT_CUDA)
 endif(CTRL_CMAKE_VERBOSE_EXAMPLES_GEMVER)
 
 # Include directories

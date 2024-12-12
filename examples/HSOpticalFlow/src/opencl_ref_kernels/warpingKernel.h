@@ -1,3 +1,11 @@
+/**
+ * @file warpingKernel.h
+ * @brief OpenCL reference warping kernel for HSOpticalflow.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "../../../Utils/opencl_helper.h"
 #include "../common.h"
 
@@ -52,7 +60,7 @@
 #endif // ALL_IMG
 
 ///////////////////////////////////////////////////////////////////////////////
-/// \brief warp image with provided vector field, CUDA kernel wrapper.
+/// \brief warp image with provided vector field, OpenCL kernel wrapper.
 ///
 /// For each output pixel there is a vector which tells which pixel
 /// from a source image should be mapped to this particular output

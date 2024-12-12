@@ -1,10 +1,18 @@
+/**
+ * @file derivativesKernel.h
+ * @brief OpenCL reference derivatives kernel for HSOpticalflow.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "../../../Utils/opencl_helper.h"
 #include "../common.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \brief compute image derivatives
 ///
-/// CUDA kernel, relies heavily on texture unit
+/// OpenCL kernel, relies heavily on texture unit
 /// \param[in]  width   image width
 /// \param[in]  height  image height
 /// \param[in]  stride  image stride

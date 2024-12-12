@@ -1,33 +1,10 @@
 ///@cond INTERNAL
 /**
  * @file Ctrl_Cpu.c
- * @author Trasgo Group
  * @brief Source code for Cpu backend.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Architectures/Cpu/Ctrl_Cpu.h"
@@ -230,7 +207,7 @@ void Ctrl_Cpu_Create(Ctrl_Cpu *p_ctrl, Ctrl_Policy policy, char *args) {
 			obj = hwloc_get_obj_by_type(p_ctrl->topo, HWLOC_OBJ_NUMANODE, i);
 			if (!obj) {
 				fprintf(stderr, "[Ctrl_Cpu] warning: Numanode %d not found, ignoring it\n", i);
-				break;
+				continue;
 			}
 			hwloc_bitmap_or(p_ctrl->device_cpuset, p_ctrl->device_cpuset, obj->cpuset);
 		}
@@ -297,33 +274,28 @@ int Ctrl_Cpu_GetNumThreads(Ctrl_Cpu *p_ctrl) {
 	return p_ctrl->mem_moves ? 3 : 1;
 }
 
-void Ctrl_Cpu_ThreadInit(Ctrl_Cpu *p_ctrl, hwloc_topology_t topo, int node) {
+void Ctrl_Cpu_ThreadInit(Ctrl_Cpu *p_ctrl, hwloc_topology_t topo) {
 	// index of the thread used to execute kernels
 	int kernel_thread = 0;
 
 	if (omp_get_thread_num() == kernel_thread) { // kernel thread
-		// bind thread
+		// bind thread unless config is to leave unbound
 		if (!hwloc_bitmap_iszero(p_ctrl->device_cpuset)) {
-			hwloc_set_cpubind(topo, p_ctrl->device_cpuset, HWLOC_CPUBIND_THREAD);
+			if (hwloc_set_cpubind(topo, p_ctrl->device_cpuset, HWLOC_CPUBIND_THREAD) != 0) {
+				fprintf(stderr, "[Ctrl_Cpu_ThreadInit] Warning enforcing affinity of ctrl %d kernel thread returned an error. Make sure you have permission to use those resources.\n", p_ctrl->global_id);
+				fflush(stderr);
+			}
 		}
 		// start executing tasks from the queue
 		Ctrl_Cpu_StreamConsume(p_ctrl->p_kernel_stream, p_ctrl);
 
 	} else if (omp_get_thread_num() == kernel_thread + 1) { // host to device
-		// bind thread
-		hwloc_obj_t obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_NUMANODE, node);
-		if (obj) {
-			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
-		}
+		Ctrl_PinToHostNuma();
 		// start executing tasks from the queue
 		Ctrl_Cpu_StreamConsume(p_ctrl->p_moveTo_stream, p_ctrl);
 
 	} else if (omp_get_thread_num() == kernel_thread + 2) { // device to host
-		// bind thread
-		hwloc_obj_t obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_NUMANODE, node);
-		if (obj) {
-			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
-		}
+		Ctrl_PinToHostNuma();
 		// start executing tasks from the queue
 		Ctrl_Cpu_StreamConsume(p_ctrl->p_moveFrom_stream, p_ctrl);
 	}
@@ -334,16 +306,17 @@ void Ctrl_Cpu_GetInfo(Ctrl_Cpu *p_ctrl, Ctrl_Info *p_info) {
 	p_info->n_threads     = p_ctrl->n_cores;
 	p_info->mem_transfers = p_ctrl->mem_moves;
 
-	int         n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(p_ctrl->topo, p_ctrl->device_cpuset, HWLOC_OBJ_NUMANODE);
-	hwloc_obj_t obj     = hwloc_get_obj_inside_cpuset_by_type(p_ctrl->topo, p_ctrl->device_cpuset, HWLOC_OBJ_NUMANODE, 0);
+	int n_nodes = hwloc_get_nbobjs_inside_cpuset_by_type(p_ctrl->topo, p_ctrl->device_cpuset, HWLOC_OBJ_NUMANODE);
 
-	if (!obj) {
-		fprintf(stderr, "[Ctrl_Cpu_GetInfo] Can't get hwloc numa object for this device\n");
-		exit(EXIT_FAILURE);
+	// No nodes in cpuset means user chose empty numa range and full machine is used for Kernels
+	if (n_nodes == 0) {
+		p_info->numa_range_min = 0;
+		p_info->numa_range_max = 0;
+	} else {
+		hwloc_obj_t obj        = hwloc_get_obj_inside_cpuset_by_type(p_ctrl->topo, p_ctrl->device_cpuset, HWLOC_OBJ_NUMANODE, 0);
+		p_info->numa_range_min = obj->logical_index;
+		p_info->numa_range_max = obj->logical_index + n_nodes;
 	}
-
-	p_info->numa_range_min = obj->logical_index;
-	p_info->numa_range_max = obj->logical_index + n_nodes;
 
 	// Device name
 	p_info->device_name[0] = '\0';
@@ -368,8 +341,10 @@ void Ctrl_Cpu_GetInfo(Ctrl_Cpu *p_ctrl, Ctrl_Info *p_info) {
 }
 
 void Ctrl_Cpu_CreateTex(Ctrl_Cpu *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_desc) {
-	fprintf(stderr, "[Ctrl_Cpu_CreateTex] Error: not implemented\n");
-	exit(EXIT_FAILURE);
+	#ifdef _CTRL_DEBUG_
+	fprintf(stderr, "[Ctrl_Cpu_CreateTex] Warning: not implemented\n");
+	fflush(stderr);
+	#endif // _CTRL_DEBUG_
 }
 
 /*********************************
@@ -690,6 +665,12 @@ void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 										break;
 									#endif // _CTRL_ARCH_CUDA_
 
+									#ifdef _CTRL_ARCH_HIP_
+									case CTRL_TYPE_HIP:
+										Ctrl_Hip_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_hip->p_ctrl, p_tile);
+										break;
+									#endif // _CTRL_ARCH_HIP_
+
 									#ifdef _CTRL_ARCH_OPENCL_GPU_
 									case CTRL_TYPE_OPENCL_GPU:
 										Ctrl_OpenCLGpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_opencl->p_ctrl, p_tile);
@@ -756,6 +737,12 @@ void Ctrl_Cpu_EvalTaskKernelLaunch(Ctrl_Cpu *p_ctrl, Ctrl_Task *p_task) {
 								Ctrl_Cuda_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_cuda->p_ctrl, p_tile);
 								break;
 							#endif // _CTRL_ARCH_CUDA_
+
+							#ifdef _CTRL_ARCH_HIP_
+							case CTRL_TYPE_HIP:
+								Ctrl_Hip_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_hip->p_ctrl, p_tile);
+								break;
+							#endif // _CTRL_ARCH_HIP_
 
 							#ifdef _CTRL_ARCH_OPENCL_GPU_
 							case CTRL_TYPE_OPENCL_GPU:

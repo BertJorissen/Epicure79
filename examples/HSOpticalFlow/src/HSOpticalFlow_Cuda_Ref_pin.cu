@@ -1,37 +1,14 @@
 /**
  * @file HSOpticalFlow_Cuda_Ref.cu
- * @author Trasgo Group
  * @brief HSOpticalFlow: Native CUDA base version
- * @version 4.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * @copyright This file is part of a modified version of a CUDA sample. Thus the following applies:
+ * @copyright Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
  *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
- */
-
-/* Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
+ * @copyright Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *  * Redistributions of source code must retain the above copyright
@@ -43,7 +20,7 @@
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
@@ -377,24 +354,25 @@ int main(int argc, char **argv) {
 
 	// 1. Taking arguments
 	if (argc != 9) {
-		fprintf(stderr, "Usage: %s <alpha> <nLevels> <nSolverIters> <nWarpIters> <GPU> <sourceFrameName> <targetFrameName> <outputFileName> \n\n", argv[0]);
+		fprintf(stderr, "Usage: %s <alpha> <nLevels> <nSolverIters> <nWarpIters> <sourceFrameName> <targetFrameName> <outputFileName> <GPU> \n\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 	const float alpha        = atof(argv[1]); // smoothness if image brightness is not within [0,1] this paramter should be scaled appropriately (0.2f)
 	const int   nLevels      = atoi(argv[2]); // number of pyramid levels (5)
 	const int   nSolverIters = atoi(argv[3]); // number of solver iterations on each level (500)
 	const int   nWarpIters   = atoi(argv[4]); // number of warping iterations (3)
-	const int   GPU          = atoi(argv[5]);
 	// find images
-	const char *const sourceFrameName = argv[6]; // frame10.ppm
-	const char *const targetFrameName = argv[7]; // frame11.ppm
-	const char *const outputFileName  = argv[8]; // FlowGPU.flo
+	const char *const sourceFrameName = argv[5]; // frame10.ppm
+	const char *const targetFrameName = argv[6]; // frame11.ppm
+	const char *const outputFileName  = argv[7]; // FlowGPU.flo
+
+	const int GPU = atoi(argv[8]);
 
 	CUDA_OP(cudaSetDevice(GPU));
 	cudaDeviceProp cu_dev_prop;
 	CUDA_OP(cudaGetDeviceProperties(&cu_dev_prop, GPU));
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
-	printf("%s, ", cu_dev_prop.name);
+	printf("CUDA-%s, ", cu_dev_prop.name);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
 	printf("\n ----------------------- ARGS ------------------------- \n");
 	printf("\n ALPHA: %g", alpha);
@@ -462,10 +440,10 @@ int main(int argc, char **argv) {
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ---------------------- TIMERS ---------------------- \n");
-	printf("Clock main: %lf\n", main_clock);
-	printf("Clock exec: %lf\n", exec_clock);
-	printf("\n\n ---------------------------------------------------- \n");
+	printf("\n ---------------------- TIMERS ---------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	return EXIT_SUCCESS;

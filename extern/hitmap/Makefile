@@ -8,7 +8,7 @@
 
 # <license>
 # 
-# Hitmap v1.3
+# Hitmap v1.4
 # 
 # This software is provided to enhance knowledge and encourage progress in the scientific
 # community. It should be used only for research and educational purposes. Any reproduction
@@ -28,7 +28,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
-# Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+# Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
 # All rights reserved.
 # 
 # More information on http://trasgo.infor.uva.es/
@@ -40,22 +40,27 @@ VERSION=v1.4
 
 all:
 	if [ ! -d "lib" ] ; then mkdir lib ; fi
-	make -C extern
-	make -C src
+	$(MAKE) -C extern
+	$(MAKE) -C src
+
+nocomm:
+	if [ ! -d "lib" ] ; then mkdir lib ; fi
+	$(MAKE) -C extern
+	$(MAKE) -C src -e HIT_COMM=no
 
 clean:
-	make -C extern clean
-	make -C src clean
-	make cleanexamples
+	$(MAKE) -C extern clean
+	$(MAKE) -C src clean
+	$(MAKE) cleanexamples
 	rm -rf lib/
 
 cleanexamples:
-	for example in examples/*; do if [ -d $$example ]; then make -C $$example clean || break; fi; done;
+	for example in examples/*; do if [ -d $$example ]; then $(MAKE) -C $$example clean || break; fi; done;
 
 examples:
-	for example in examples/*; do if [ -d $$example ]; then make -C $$example || break; fi; done
+	for example in examples/*; do if [ -d $$example ]; then $(MAKE) -C $$example || break; fi; done
 
 examplescheck:
-	for example in examples/*; do if [ -d $$example ]; then make check -C $$example || break; fi; done
+	for example in examples/*; do if [ -d $$example ]; then $(MAKE) check -C $$example || break; fi; done
 
 .PHONY: examples cleanexamples

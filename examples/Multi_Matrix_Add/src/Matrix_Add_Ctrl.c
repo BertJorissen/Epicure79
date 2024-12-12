@@ -1,3 +1,11 @@
+/**
+ * @file Matrix_Add_Ctrl.c
+ * @brief Multi Matrix Add: Ctrl multi device version
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "Ctrl.h"
 #include <math.h>
 #include <stdio.h>

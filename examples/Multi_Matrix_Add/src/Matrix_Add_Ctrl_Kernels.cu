@@ -1,3 +1,11 @@
+/**
+ * @file Matrix_Add_Ctrl_Kernels.c
+ * @brief Matrix Add: Ctrl version kernel.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "Ctrl.h"
 
 Ctrl_NewType(float);

@@ -15,7 +15,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -35,13 +35,13 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
  * 
  * </license>
-*/
+ */
 
 #ifndef _HitCom_
 #define _HitCom_
@@ -55,16 +55,8 @@
 #include "hit_allocP.h"
 
 #ifdef __cplusplus
-	extern "C" {
+extern "C" {
 #endif
-/* Hit MPI ERROR TEST */
-/** This macro checks if the MPI operation was successful. */
-#define	hit_mpiTestError(ok,cad)	\
-    if ( ok != MPI_SUCCESS ) {		\
-        fprintf(stderr,"Hit MPI RunTime-Error, Rank %d: %s - %d\n", hit_Rank, cad, ok);	fflush(stderr); \
-        exit(-1);					\
-    }
-
 
 /** @name Hitmap Base types */
 /** @{ */
@@ -72,42 +64,41 @@
 /** Typedef for the HitType. */
 typedef MPI_Datatype HitType;
 /**
- * Constant for char basic type. 
+ * Constant for char basic type.
  * @hideinitializer
  */
-#define	HIT_CHAR		MPI_CHAR
+#define HIT_CHAR MPI_CHAR
 /**
- * Constant for integer basic type. 
+ * Constant for integer basic type.
  * @hideinitializer
  */
-#define	HIT_INT			MPI_INT
+#define HIT_INT MPI_INT
 /**
- * Constant for integer long type. 
+ * Constant for integer long type.
  * @hideinitializer
  */
-#define	HIT_LONG		MPI_LONG
+#define HIT_LONG MPI_LONG
 /**
- * Constant for single precision real basic type. 
+ * Constant for single precision real basic type.
  * @hideinitializer
  */
-#define	HIT_FLOAT		MPI_FLOAT
+#define HIT_FLOAT MPI_FLOAT
 /**
- * Constant for double precision real basic type. 
+ * Constant for double precision real basic type.
  * @hideinitializer
  */
-#define	HIT_DOUBLE		MPI_DOUBLE
+#define HIT_DOUBLE MPI_DOUBLE
 /**
- * Constant for boolean basic type. 
+ * Constant for boolean basic type.
  * @hideinitializer
  */
-#define	HIT_BOOL		MPI_BOOL
+#define HIT_BOOL MPI_BOOL
 /** Typedef for addresses. */
 typedef MPI_Aint HitAint;
 /** @} */
 
-
 /** Extra HitTypes committed in initialization. */
-extern HitType	HIT_SHAPE_SIG;
+extern HitType HIT_SHAPE_SIG;
 
 /** @name HitCom Types */
 /** @{ */
@@ -115,61 +106,61 @@ extern HitType	HIT_SHAPE_SIG;
 /** Constant for Null communication.
  * @hideinitializer
  */
-#define HIT_COMTYPE_NULL		0
+#define HIT_COMTYPE_NULL 0
 /** Constant for Send and/or Receive communication.
  * @hideinitializer
  */
-#define HIT_SENDRECV			3
+#define HIT_SENDRECV 3
 /** Constant for Reduce communication.
  * @hideinitializer
  */
-#define HIT_REDUCE				4
+#define HIT_REDUCE 4
 /**
  * Constant for All Reduce communication.
  * @hideinitializer
  */
-#define HIT_ALLREDUCE			5
+#define HIT_ALLREDUCE 5
 /**
  * Constant for All to all communication.
  * @hideinitializer
  */
-#define HIT_ALLTOALL			6
+#define HIT_ALLTOALL 6
 /**
  * Constant for All to all v communication.
  * @hideinitializer
  */
-#define HIT_ALLTOALLV			7
+#define HIT_ALLTOALLV 7
 /**
  * Constant for Broadcast communication.
  * @hideinitializer
  */
-#define HIT_BROADCAST			8
+#define HIT_BROADCAST 8
 /**
  * Constant for Send and/or Receive Replace communication.
  * @hideinitializer
  */
-#define HIT_SENDRECV_REPLACE	9
+#define HIT_SENDRECV_REPLACE 9
 
 /**
  * Constant for Sparse Update communication.
  * @hideinitializer
  */
-#define HIT_SPARSE_UPDATE		10
+#define HIT_SPARSE_UPDATE 10
 /**
  * Constant for Sparse Broadcast.
  * @hideinitializer
  */
-#define HIT_SPARSE_SCATTER	11
+#define HIT_SPARSE_SCATTER 11
 /**
  * Constant for All Distribute.
  * @hideinitializer
  */
-#define HIT_ALLDISTRIBUTE	12
+#define HIT_ALLDISTRIBUTE 12
 /**
  * Constant for Sparse Scatter Rows.
  * @hideinitializer
  */
-#define HIT_SPARSE_SCATTER_ROWS	13
+#define HIT_SPARSE_SCATTER_ROWS 13
 /**
  * Constant for All GatherV.
  * @hideinitializer
@@ -182,7 +173,6 @@ extern HitType	HIT_SHAPE_SIG;
 #define HIT_ALLGATHER 15
 /** @} */
 
-
 /* HitCOM OPERATION TYPES */
 /** Hit Communication type */
 typedef MPI_Op HitOp;
@@ -193,25 +183,24 @@ typedef MPI_User_function HitReduceFunction;
 /** @name HitOp predefined reduction operators on Tile types */
 /**@{ */
 /** Operator for integer sum reduction operation */
-extern HitOp	HIT_OP_SUM_INT;
+extern HitOp HIT_OP_SUM_INT;
 /** Operator for integer min reduction operation */
-extern HitOp	HIT_OP_MIN_INT;
+extern HitOp HIT_OP_MIN_INT;
 /** Operator for integer max reduction operation */
-extern HitOp	HIT_OP_MAX_INT;
+extern HitOp HIT_OP_MAX_INT;
 /** Operator for float sum reduction operation */
-extern HitOp	HIT_OP_SUM_FLOAT;
+extern HitOp HIT_OP_SUM_FLOAT;
 /** Operator for float min reduction operation */
-extern HitOp	HIT_OP_MIN_FLOAT;
+extern HitOp HIT_OP_MIN_FLOAT;
 /** Operator for float max reduction operation */
-extern HitOp	HIT_OP_MAX_FLOAT;
+extern HitOp HIT_OP_MAX_FLOAT;
 /** Operator for double sum reduction operation */
-extern HitOp	HIT_OP_SUM_DOUBLE;
+extern HitOp HIT_OP_SUM_DOUBLE;
 /** Operator for float min reduction operation */
-extern HitOp	HIT_OP_MIN_DOUBLE;
+extern HitOp HIT_OP_MIN_DOUBLE;
 /** Operator for float max reduction operation */
-extern HitOp	HIT_OP_MAX_DOUBLE;
+extern HitOp HIT_OP_MAX_DOUBLE;
 /**@} */
-
 
 /**
  * Constant for communications of any tag
@@ -219,31 +208,30 @@ extern HitOp	HIT_OP_MAX_DOUBLE;
  */
 #define HIT_ANY_TAG 0
 
-/** 
+/**
  * Constant for selecting my own rank in dimensional collective communications
  * @hideinitializer
  */
-#define HIT_COM_MYSELF	-100
-
+#define HIT_COM_MYSELF -100
 
 /* Hit BASIC RANKS AND COMMUNICATOR GLOBAL DEFINITIONS */
 /**
  * Linear rank for the current processor
  * @hideinitializer
  */
-#define	hit_Rank		(HIT_TOPOLOGY_INFO->selfRank)
+#define hit_Rank (HIT_TOPOLOGY_INFO->selfRank)
+
 /**
  * Number of total processors
  * @hideinitializer
  */
-#define	hit_NProcs		(HIT_TOPOLOGY_INFO->numProcs)
+#define hit_NProcs (HIT_TOPOLOGY_INFO->numProcs)
 /**
  * Low level communicator
  * @hideinitializer
  */
-//#define	hit_Comm		((MPI_Comm *) HIT_TOPOLOGY_INFO.lowLevel)
-#define	hit_Comm		(HIT_TOPOLOGY_INFO->comm)
-
+// #define	hit_Comm		((MPI_Comm *) HIT_TOPOLOGY_INFO.lowLevel)
+#define hit_Comm (HIT_TOPOLOGY_INFO->comm)
 
 /* Hit MPI INITIALIZATION FUNCTION */
 /**
@@ -264,7 +252,7 @@ void hit_comFinalize();
  * Get the node name
  * @return String with the MPI node name
  */
-char * hit_comNodeName();
+char *hit_comNodeName();
 
 /**
  * Get the rank id in the node group (processes in the local node)
@@ -277,8 +265,6 @@ int hit_comNodeGroupRank();
  * @return int  Size of the node group
  */
 int hit_comNodeGroupSize();
-
-
 
 /* Hit COM TYPES: CONSTRUCTOR */
 /**
@@ -301,25 +287,23 @@ HitType hit_comTypeRec(const void *varP, HitType baseType);
  * Null datatype.
  * @hideinitializer
  */
-#define HIT_TYPE_NULL	MPI_DATATYPE_NULL
+#define HIT_TYPE_NULL MPI_DATATYPE_NULL
 
 /* Hit COM TYPES: FREE */
 /**
  * Free a derived HitType.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param type The HitType to free.
  */
-#define hit_comFreeType(type) 	if (type!=HIT_TYPE_NULL) MPI_Type_free( &type );
-
-
+#define hit_comFreeType(type) if (type != HIT_TYPE_NULL) MPI_Type_free(&type);
 
 /**
  * Creates a Hit datatype from a general set of datatypes, and block sizes.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param new_type Pointer to a HitType.
  * @param Nstruct Native struct name (Use typedef to declare it previously).
  * @param n Number of fields in the datatype.
@@ -334,10 +318,23 @@ HitType hit_comTypeRec(const void *varP, HitType baseType);
  * hit_comTypeStruct(&HitNode,Cnode,2, dname,3,HIT_DOUBLE, iname,1,HIT_INT);
  * @endcode
  */
-#define hit_comTypeStruct(new_type,Nstruct,n, ...) hit_comTypeStruct##n(new_type,Nstruct,__VA_ARGS__)
+#define hit_comTypeStruct(new_type, Nstruct, n, ...) hit_comTypeStruct##n(new_type, Nstruct, __VA_ARGS__)
 #include "hit_comTypeStruct.h"
 
-
+/**
+ * Creates a Hit datatype from a tile elements that are arrays
+ *
+ * @hideinitializer
+ *
+ * @param new_type Pointer to a HitType.
+ * @param base_type Base type of the array
+ * @param count Number of elements in the array
+ */
+#define hit_comTypeArray(new_type, native_type, count) \
+	{ \
+	MPI_Type_contiguous((count), native_type, new_type); \
+	MPI_Type_commit(new_type); \
+	}
 
 /* Hit COMMUNICATION STRUCTURE */
 /*
@@ -352,27 +349,25 @@ struct HitComSparse;
  * or a collective communication
  */
 typedef struct {
-	int				commType;		/**< Communication type. */
-	int				myself;			/**< Processor rank. */
-	int				sendTo;			/**< Send destination. */
-	int				recvFrom;		/**< Recv origin. */
-	int				tag;			/**< MPI communication tag. */
-	HitType			typeSend;		/**< MPI send type. */
-	HitType			typeRecv;		/**< MPI recv type */
-	void 			*dataSend;		/**< Pointer to the data to send. */
-	void 			*dataRecv;		/**< Pointer to the data to recv. */
-	MPI_Comm		comm;			/**< MPI Communicator. */
-	MPI_Request		requestSend;	/**< MPI request send struct. */
-	MPI_Request		requestRecv;	/**< MPI request recv struct. */
-	MPI_Status		statusSend;		/**< MPI status send struct. */
-	MPI_Status		statusRecv;		/**< MPI status recv struct. */
-	HitOp			operation;		/**< MPI operation. */
+	int         commType;    /**< Communication type. */
+	int         myself;      /**< Processor rank. */
+	int         sendTo;      /**< Send destination. */
+	int         recvFrom;    /**< Recv origin. */
+	int         tag;         /**< MPI communication tag. */
+	HitType     typeSend;    /**< MPI send type. */
+	HitType     typeRecv;    /**< MPI recv type */
+	void       *dataSend;    /**< Pointer to the data to send. */
+	void       *dataRecv;    /**< Pointer to the data to recv. */
+	MPI_Comm    comm;        /**< MPI Communicator. */
+	MPI_Request requestSend; /**< MPI request send struct. */
+	MPI_Request requestRecv; /**< MPI request recv struct. */
+	MPI_Status  statusSend;  /**< MPI status send struct. */
+	MPI_Status  statusRecv;  /**< MPI status recv struct. */
+	HitOp       operation;   /**< MPI operation. */
 
-	int				count;			/**< Count for all to all. */
-	struct HitComAlltoallv * alltoallv; /**< Pointer to the struct to extend. */
-
+	int         count;       /**< Count for all to all. */
+	struct HitComAlltoallv *alltoallv; /**< Pointer to the struct to extend. */
 } HitCom;
-
 
 /**
  * This struct extends the HitCom struct to allow alltoallv communications.
@@ -380,12 +375,12 @@ typedef struct {
  */
 typedef struct HitComAlltoallv {
 
-	int	*sendcnts;	/**< Send counts for all to all v. */
-	int	*sdispls;	/**< Send displacements for all to all v.  */
-	int	*recvcnts;	/**< Recv counts for all to all v. */
-	int	*rdispls;	/**< Recv displacements for all to all v. */
+	int *sendcnts; /**< Send counts for all to all v. */
+	int *sdispls;  /**< Send displacements for all to all v.  */
+	int *recvcnts; /**< Recv counts for all to all v. */
+	int *rdispls;  /**< Recv displacements for all to all v. */
 
-	struct HitComSparse * sparse;	/**< Pointer to the struct to extend. */
+	struct HitComSparse *sparse; /**< Pointer to the struct to extend. */
 
 } HitComAlltoallv;
 
@@ -395,36 +390,32 @@ typedef struct HitComAlltoallv {
  */
 typedef struct HitComSparse {
 
-	HitShape shape;		/**< Shape of the graph to update. */
-	void * originData;	/**< Pointer of the array with the node values. */
+	HitShape shape;      /**< Shape of the graph to update. */
+	void    *originData; /**< Pointer of the array with the node values. */
 
-	int * recv;	/**< Vertex to receive. */
-	int * send;	/**< Vertex to send. */
-	int nsend;	/**< Number of vertices to send. */
-	int nrecv;	/**< Number of vertices to send. */
+	int *recv;  /**< Vertex to receive. */
+	int *send;  /**< Vertex to send. */
+	int  nsend; /**< Number of vertices to send. */
+	int  nrecv; /**< Number of vertices to send. */
 
 	size_t baseExtent; /**< Base size of the tile type. */
 
-	int * rows; /**<rows for scatter rows */
+	int *rows; /**<rows for scatter rows */
 
 } HitComSparse;
-
-
 
 /**
  * Hit COM: NULL VALUE
  * @hideinitializer
  */
-extern HitCom	HIT_COM_NULL;
-
+extern HitCom HIT_COM_NULL;
 
 /**
  * Hit COM: Static null value
  * @hideinitializer
  */
-/* @arturo: A change in the internal representation of Request/Status object in 
- * 				MPICH version 3.0.2. It come back to the previous representation in
- * 				later versions
+/* @arturo: A change in the internal representation of Request/Status object in
+ *	MPICH version 3.0.2. It come back to the previous representation in later versions
  */
 /* @javfres: Struct initialization following C99 syntax */
 /*
@@ -440,36 +431,33 @@ extern HitCom	HIT_COM_NULL;
 								MPI_REQUEST_NULL, MPI_REQUEST_NULL, { 0,0,0,0,0 }, \
 								{ 0,0,0,0,0 },0,0,NULL}
 */
-#define HIT_COM_NULL_STATIC	{ \
-	.commType = HIT_COMTYPE_NULL, \
-	.myself=MPI_PROC_NULL, \
-	.sendTo=MPI_PROC_NULL, \
-	.recvFrom=MPI_PROC_NULL, \
-	.tag=0, \
-	.typeSend=HIT_TYPE_NULL, \
-	.typeRecv=HIT_TYPE_NULL, \
-	.dataSend=NULL, \
-	.dataRecv=NULL, \
-	.comm=MPI_COMM_NULL, \
-	.requestSend=MPI_REQUEST_NULL, \
-	.requestRecv=MPI_REQUEST_NULL, \
-	.operation=0, \
-	.count=0, \
-	.alltoallv=NULL}
-
-
+#define HIT_COM_NULL_STATIC {            \
+	.commType    = HIT_COMTYPE_NULL, \
+	.myself      = MPI_PROC_NULL,    \
+	.sendTo      = MPI_PROC_NULL,    \
+	.recvFrom    = MPI_PROC_NULL,    \
+	.tag         = 0,                \
+	.typeSend    = HIT_TYPE_NULL,    \
+	.typeRecv    = HIT_TYPE_NULL,    \
+	.dataSend    = NULL,             \
+	.dataRecv    = NULL,             \
+	.comm        = MPI_COMM_NULL,    \
+	.requestSend = MPI_REQUEST_NULL, \
+	.requestRecv = MPI_REQUEST_NULL, \
+	.operation   = 0,                \
+	.count       = 0,                \
+	.alltoallv   = NULL}
 
 /** Hit COM alltoallv: NULL VALUE for HitComAlltoallv. */
 extern HitComAlltoallv HIT_COM_ALLTOALLV_NULL;
 
 /** Hit COM alltoallv: NULL STATIC VALUE for HitComAlltoallv. @hideinitializer */
-#define HIT_COM_ALLTOALLV_NULL_STATIC	{NULL,NULL,NULL,NULL,NULL}
+#define HIT_COM_ALLTOALLV_NULL_STATIC {NULL, NULL, NULL, NULL, NULL}
 
 /** Hit COM sparse: NULL VALUE for HitComSparse. */
 extern HitComSparse HIT_COM_SPARSE_NULL;
 /** Hit COM sparse: NULL STATIC VALUE for HitComSparse. @hideinitializer */
-#define HIT_COM_SPARSE_NULL_STATIC	{HIT_SHAPE_NULL_STATIC, NULL, NULL, NULL, 0, 0, 0, NULL}
-
+#define HIT_COM_SPARSE_NULL_STATIC {HIT_SHAPE_NULL_STATIC, NULL, NULL, NULL, 0, 0, 0, NULL}
 
 /* Hit COM: COMMIT COMMUNICATIONS IN SEVERAL FORMS */
 /* GENERIC DOUBLE COMMUNICATION COMMIT */
@@ -486,7 +474,7 @@ extern HitComSparse HIT_COM_SPARSE_NULL;
 /**
  * Constant for specifying that the selection is made with array coordinates.
  * @hideinitializer
-*/
+ */
 #define HIT_COM_ARRAYCOORDS 0x44
 /** @} */
 
@@ -495,9 +483,9 @@ extern HitComSparse HIT_COM_SPARSE_NULL;
 /**
  * Creates a communication for a send-receive pair communication.
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tilePSend Pointer to the HitTile to send
@@ -511,9 +499,9 @@ extern HitComSparse HIT_COM_SPARSE_NULL;
 /**
  * Creates a communication with tag for a send-receive pair communication.
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tilePSend Pointer to the HitTile to send
@@ -528,9 +516,9 @@ extern HitComSparse HIT_COM_SPARSE_NULL;
 /**
  * Creates a communication with tag for a send-receive pair communication.
  * In this function a selection is applied to each tile to obtain the elements to communicate.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tilePSend Pointer to the HitTile to send
@@ -548,9 +536,9 @@ extern HitComSparse HIT_COM_SPARSE_NULL;
 /**
  * Creates a communication with tag for a send-receive pair communication.
  * In this function a selection is applied to each tile to obtain the elements to communicate.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tilePSend Pointer to the HitTile to send
@@ -574,9 +562,9 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 /**
  * Creates a communications with tag for an only-send communication.
  * In this function a selection is applied to the tile to obtain the elements to send.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to send
@@ -591,9 +579,9 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 /**
  * Creates a communications with tag for an only-send communication.
  * In this function all the elements of the tile are sent.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to send
@@ -606,9 +594,9 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 /**
  * Creates a communications for an only-send communication.
  * In this function a selection is applied to the tile to obtain the elements to send.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to send
@@ -622,9 +610,9 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 /**
  * Creates a communications for an only-send communication.
  * In this function all the elements of the tile are sent.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will send
  * @param tileP Pointer to the HitTile to send
@@ -635,11 +623,11 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 
 /**
  * hit_comRecvSelectTag: creates a communications with tag for an only-receive communication.
- * 
+ *
  * In this function a selection is applied to the tile to obtain the elements to receive.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param receiveFrom HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to receive
@@ -653,11 +641,11 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 
 /**
  * hit_comRecvTag: creates a communications with tag for an only-receive communication.
- * 
+ *
  * In this function all the elements of the tile are received.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param receiveFrom HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to receive
@@ -669,16 +657,16 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 
 /**
  * hit_comRecvSelect: creates a communications for an only-receive communication.
- * 
+ *
  * In this function a selection is applied to the tile to obtain the elements to receive.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param receiveFrom HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to receive
  * @param selection HitShape to applied to the receive tile
- * @param modeSelect Constant indicating if the receive tile is selected in tile or array coordinates * 
+ * @param modeSelect Constant indicating if the receive tile is selected in tile or array coordinates *
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
  * @return \e HitCom communication structure
  */
@@ -688,7 +676,7 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
  * hit_comRecvTag: creates a communications for an only-receive communication.
  * In this function all the elements of the tile are received.
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param receiveFrom HitRanks coordinates of the process that will receive
  * @param tileP Pointer to the HitTile to receive
@@ -702,159 +690,158 @@ HitCom hit_comSendRecvSelectTag(HitLayout lay, HitRanks sendTo, const void *tile
 /** @{ */
 /**
  * Updates the tile from where data is sent.
- * 
+ *
  * Shortcut to create a new communication when the new tile to communicate has the same type.
- * 
+ *
  * @hideinitializer
  * @warning Do not use this function unless you are sure that the new tile has the same data
  * structure as the one used to create the comm object.
- * 
+ *
  * @param comm communication
  * @param sendTile New tile to send
  */
-#define hit_comUpdateSendTile(comm, sendTile) comm.dataSend=sendTile.data
+#define hit_comUpdateSendTile(comm, sendTile) comm.dataSend = sendTile.data
 
 /**
  * Updates the tile where data is received.
- * 
+ *
  * Shortcut to create a new communication when the new tile to communicate has the same type.
- * 
+ *
  * @hideinitializer
  * @warning Do not use this function unless you are sure that the new tile has the same data
  * structure as the one used to create the comm object.
- * 
+ *
  * @param comm communication
  * @param recvTile New tile to receive
  */
-#define hit_comUpdateRecvTile(comm, recvTile) comm.dataRecv=recvTile.data
+#define hit_comUpdateRecvTile(comm, recvTile) comm.dataRecv = recvTile.data
 
 /**
  * Updates the ranks of the processor that sends.
- * 
+ *
  * @hideinitializer
  * @deprecated
- * 
+ *
  * @param comm Communication
  * @param topo Topology
  * @param SendTo Ranks of the new process that sends
  */
-#define hit_comUpdateSendTo(comm, topo, SendTo) comm.sendTo=hit_topRankInternal(topo,SendTo)
+#define hit_comUpdateSendTo(comm, topo, SendTo) comm.sendTo = hit_topRankInternal(topo, SendTo)
 
 /**
  * Updates the ranks of the processor that receives.
- * 
+ *
  * @hideinitializer
  * @deprecated
- * 
+ *
  * @param comm Communication
  * @param topo Topology
  * @param RecvFrom Ranks of the new process that receives
  */
-#define hit_comUpdateRecvFrom(comm, topo, RecvFrom) comm.recvFrom=hit_topRankInternal(topo,RecvFrom)
+#define hit_comUpdateRecvFrom(comm, topo, RecvFrom) comm.recvFrom = hit_topRankInternal(topo, RecvFrom)
 
 /**
  * hit_comUpdateDimSendTo: updates the ranks of the processor that sends
  * in a dimension collective communication.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param comm Communication
- * @param dim Dimension 
+ * @param dim Dimension
  * @param SendTo Ranks of the new process that sends
  */
-//#define hit_comUpdateDimSendTo(comm, dim, SendTo) comm.sendTo=SendTo.rank[dim]
-#define hit_comUpdateDimSendTo(comm, dim, SendTo) comm.sendTo=SendTo
+// #define hit_comUpdateDimSendTo(comm, dim, SendTo) comm.sendTo=SendTo.rank[dim]
+#define hit_comUpdateDimSendTo(comm, dim, SendTo) comm.sendTo = SendTo
 
 /**
  * hit_comUpdateDimRecvFrom: updates the ranks of the processor that receives
  * in a dimension collective communication.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param comm Communication
- * @param dim Dimension 
+ * @param dim Dimension
  * @param RecvFrom Ranks of the new process that receives
  */
-//#define hit_comUpdateDimRecvFrom(comm, dim, RecvFrom) comm.recvFrom=RecvFrom.rank[dim]
-#define hit_comUpdateDimRecvFrom(comm, dim, RecvFrom) comm.recvFrom=RecvFrom
+// #define hit_comUpdateDimRecvFrom(comm, dim, RecvFrom) comm.recvFrom=RecvFrom.rank[dim]
+#define hit_comUpdateDimRecvFrom(comm, dim, RecvFrom) comm.recvFrom = RecvFrom
 
 /**
  * hit_comUpdateTag: updates the tag of a communication.
- * 
+ *
  * @hideinitializer
  * @deprecated
- * 
+ *
  * @param comm Communication
  * @param Tag New tag
  */
-#define hit_comUpdateTag(comm, Tag) comm.tag=Tag
-
+#define hit_comUpdateTag(comm, Tag) comm.tag = Tag
 
 /**
  * hit_comUpdateOriginData: updates the origin data of a communication.
  * It's used to change the tile in a sparse update communication.
- * 
+ *
  * @param[in,out] com A pointer to the communication.
  * @param[in] tileP The new tile pointer with the origin data.
  */
-void hit_comUpdateOriginData(HitCom * com, const void * tileP);
+void hit_comUpdateOriginData(HitCom *com, const void *tileP);
 /** @} */
 
 /**
  * Prepare resources to communicate with hit_com{Broadcast,Reduce}Dim.
- * 
+ *
  * It creates the low level communicator to allow collective dim communications for all dimensions.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay The Layout
  */
-#define hit_comAllowDims(lay) {\
-	int hit_i;\
-	for (hit_i=0;hit_i<hit_layNumDims(lay); hit_i++) hit_comAllowDim(&lay,hit_i); \
+#define hit_comAllowDims(lay) \
+	{ \
+	int hit_i; \
+	for (hit_i = 0; hit_i < hit_layNumDims(lay); hit_i++) \
+		hit_comAllowDim(&lay, hit_i); \
 	}
 
-
- /**
-  * Enables the collective dimension communications preparing
-  * resources to communicate with hit_com{Broadcast,Reduce}Dim with a specific dimension.
-  * 
-  * @param lay Pointer to the layout.
-  * @param dim Dimension to enable the dimension communications.
-  *
-  */
-void hit_comAllowDim(HitLayout * lay, int dim);
-
+/**
+ * Enables the collective dimension communications preparing
+ * resources to communicate with hit_com{Broadcast,Reduce}Dim with a specific dimension.
+ *
+ * @param lay Pointer to the layout.
+ * @param dim Dimension to enable the dimension communications.
+ *
+ */
+void hit_comAllowDim(HitLayout *lay, int dim);
 
 /** @name Shift Communication */
 /** @{ */
 /* SHIFT DATA ACROSS PROCESSORS: EVERYONE SENDS AND RECEIVES */
 /**
  * hit_comShiftDimSelect: creates a communication in which all processes from the same dimension of the layout send and receive a tile. It allows to select part of a tile.
- * 
+ *
  * The tile is sent to a neighbor in shift positions right and received (and overwritten) from the neighbor shift positions left.
- * 
+ *
  * In this function a selection is applied to the tile to obtain the elements to communicate.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param dim Dimension of the layout
  * @param shift	distance to the neighbors to communicate
  * @param tileP Pointer to the HitTile to send and receive
- * @param selection HitShape to applied to the tile 
- * @param modeSelect Constant indicating if the tile is selected in tile or array coordinates 
+ * @param selection HitShape to applied to the tile
+ * @param modeSelect Constant indicating if the tile is selected in tile or array coordinates
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
  * @param tag A tag to allow its use in asynchronous communications
  * @return \e HitCom communication structure
  */
-#define hit_comShiftDimSelect(lay, dim, shift, tileP, selection, modeSelect, baseType, tag) hit_comSendRecvReplaceSelectTag(lay, hit_layNeighbor(lay,dim,shift), tileP, selection, modeSelect, hit_layNeighbor(lay,dim,-shift), baseType, tag)
+#define hit_comShiftDimSelect(lay, dim, shift, tileP, selection, modeSelect, baseType, tag) hit_comSendRecvReplaceSelectTag(lay, hit_layNeighbor(lay, dim, shift), tileP, selection, modeSelect, hit_layNeighbor(lay, dim, -shift), baseType, tag)
 /** @} */
 
 /** @name Send-Receive Communication */
 /**
  * hit_comSendRecvReplaceSelectTag: Sends and receives using a single buffer.
- * 
+ *
  * @param lay Layout.
  * @param sendTo HitRanks coordinates of the process that will send.
  * @param tileP Pointer to the HitTile to send and receive.
@@ -867,18 +854,17 @@ void hit_comAllowDim(HitLayout * lay, int dim);
  */
 HitCom hit_comSendRecvReplaceSelectTag(HitLayout lay, HitRanks sendTo, const void *tileP, HitShape selection, int modeSelect, HitRanks receiveFrom, HitType baseType, int tag);
 
-
 /** @name Shift Communication */
 /** @{ */
 /**
  * hit_comShiftDim: creates a communication in which all processes from the same dimension of the layout send and receive a tile.
- * 
+ *
  * The tile is sent to a neighbor in shift positions right and received (and overwritten) from the neighbor shift positions left.
- * 
+ *
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param dim Dimension of the layout.
  * @param shift	Distance to the neighbors to communicate.
@@ -890,13 +876,13 @@ HitCom hit_comSendRecvReplaceSelectTag(HitLayout lay, HitRanks sendTo, const voi
 
 /**
  * hit_comShiftDimAsync: creates a communication in which all processes from the same dimension of the layout send and receive a tile.
- * 
+ *
  * The tile is sent to a neighbor in shift positions right and received (and overwritten) from the neighbor shift positions left.
- * 
+ *
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param dim Dimension of the layout.
  * @param shift	Distance to the neighbors to communicate.
@@ -906,18 +892,18 @@ HitCom hit_comSendRecvReplaceSelectTag(HitLayout lay, HitRanks sendTo, const voi
  * @param tag A tag to identify an asynchronous communication.
  * @return \e HitCom communication structure.
  */
-#define hit_comShiftDimAsync(lay, dim, shift, tileSend, tileRecv, baseType, tag) hit_comSendRecvTag(lay, hit_layNeighbor( lay, dim, shift ), tileSend, hit_layNeighbor( lay, dim, -shift ), tileRecv, baseType, tag)
+#define hit_comShiftDimAsync(lay, dim, shift, tileSend, tileRecv, baseType, tag) hit_comSendRecvTag(lay, hit_layNeighbor(lay, dim, shift), tileSend, hit_layNeighbor(lay, dim, -shift), tileRecv, baseType, tag)
 /** @} */
 
 /** @name Broadcast Communication */
 /** @{ */
 /**
  * hit_comBroadcast: creates a communication for a broadcast communication.
- * 
+ *
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param root HitRanks coordinates of the process that will send.
  * @param tile Pointer to the HitTile to send or receive.
@@ -928,9 +914,9 @@ HitCom hit_comSendRecvReplaceSelectTag(HitLayout lay, HitRanks sendTo, const voi
 
 /**
  * hit_comBroadcastSelect: creates a communication for a broadcast communication.
- * 
+ *
  * In this function a selection is applied to the tile to obtain the elements to communicate.
- * 
+ *
  * @param lay Layout.
  * @param root HitRanks coordinates of the process that will send.
  * @param tile Pointer to the HitTile to send or receive.
@@ -943,11 +929,11 @@ HitCom hit_comBroadcastSelect(HitLayout lay, HitRanks root, const void *tile, Hi
 
 /**
  * hit_comBroadcastDim: creates a communication for a one-dimensional broadcast communication.
- * 
+ *
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param dim dimension where the broadcast will be applied. It should be lower than the dimensions of the layout.
  * @param root Rank coordinate in the selected dimension of the process that will send.
@@ -959,21 +945,20 @@ HitCom hit_comBroadcastSelect(HitLayout lay, HitRanks root, const void *tile, Hi
 
 /**
  * hit_comBroadcastDimSelect: creates a communication for a one-dimensional broadcast communication.
- * 
+ *
  * In this function a selection is applied to the tile to obtain the elements to communicate.
- * 
+ *
  * @param lay Layout.
  * @param dim dimension where the broadcast will be applied. It should be lower than the dimensions of the layout
- * @param root Rank coordinate in the selected dimension of the process that will send 
+ * @param root Rank coordinate in the selected dimension of the process that will send
  * @param tile Pointer to the HitTile to send or receive
  * @param selection HitShape to applied to the tile
- * @param modeSelect Constant indicating if the tile is selected in tile or array coordinates 
+ * @param modeSelect Constant indicating if the tile is selected in tile or array coordinates
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
  * @return \e HitCom communication structure
  */
 HitCom hit_comBroadcastDimSelect(HitLayout lay, int dim, int root, const void *tile, HitShape selection, int modeSelect, HitType baseType);
 /** @} */
-
 
 // NOTE: If HitRanks is NULL -> AllReduce
 /** @name Reduce Communication */
@@ -981,17 +966,17 @@ HitCom hit_comBroadcastDimSelect(HitLayout lay, int dim, int root, const void *t
 /**
  * hit_comReduce: creates a communication for a reduce communication.
  * If root is null all processes get the result data.
- * 
+ *
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param root HitRanks coordinates of the process that will receive the final data
  * @param tilePSend Pointer to the HitTile to send
  * @param tilePRecv Pointer to the HitTile to receive. It must be of the same type that tilePSend
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
- * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate 
+ * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate
  * @return \e HitCom communication structure
  */
 #define hit_comReduce(lay, root, tilePSend, tilePRecv, baseType, operation) hit_comReduceSelect(lay, root, tilePSend, HIT_SHAPE_WHOLE, HIT_COM_TILECOORDS, tilePRecv, HIT_SHAPE_WHOLE, HIT_COM_TILECOORDS, baseType, operation)
@@ -999,38 +984,38 @@ HitCom hit_comBroadcastDimSelect(HitLayout lay, int dim, int root, const void *t
 /**
  * hit_comReduceSelect: creates a communication for a reduce communication.
  * If root is null all processes get the result data.
- * 
+ *
  * In this function a selection is applied to the tiles to obtain the elements to communicate.
- * 
+ *
  * @param lay Layout.
  * @param root HitRanks coordinates of the process that will receive the final data
  * @param tilePSend Pointer to the HitTile to send
  * @param selectionSend HitShape to applied to the send tile
- * @param modeSelectSend Constant indicating if the send tile is selected in tile or array coordinates 
+ * @param modeSelectSend Constant indicating if the send tile is selected in tile or array coordinates
  * @param tilePRecv Pointer to the HitTile to receive. It must be of the same type that tilePSend
  * @param selectionRecv HitShape to applied to the receive tile
- * @param modeSelectRecv Constant indicating if the receive tile is selected in tile or array coordinates 
+ * @param modeSelectRecv Constant indicating if the receive tile is selected in tile or array coordinates
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
- * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate 
+ * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate
  * @return \e HitCom communication structure
  */
-HitCom hit_comReduceSelect(HitLayout lay, HitRanks root, const void * tilePSend, HitShape selectionSend, int modeSelectSend, const void * tilePRecv, HitShape selectionRecv, int modeSelectRecv, HitType baseType, HitOp operation);
+HitCom hit_comReduceSelect(HitLayout lay, HitRanks root, const void *tilePSend, HitShape selectionSend, int modeSelectSend, const void *tilePRecv, HitShape selectionRecv, int modeSelectRecv, HitType baseType, HitOp operation);
 
 /**
  * hit_comReduceDim: creates a communication for a one-dimensional reduce communication.
  * If root is null all processes get the result data.
- * 
+ *
  * In this function all the elements of the tiles are communicated.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param dim Dimension where the broadcast will be applied. It should be lower than the dimensions of the layout
  * @param root HitRanks coordinates of the process that will receive the final data
  * @param tilePSend Pointer to the HitTile to send
  * @param tilePRecv Pointer to the HitTile to receive. It must be of the same type that tilePSendç
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
- * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate 
+ * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate
  * @return \e HitCom communication structure
  */
 #define hit_comReduceDim(lay, dim, root, tilePSend, tilePRecv, baseType, operation) hit_comReduceDimSelect(lay, dim, root, tilePSend, HIT_SHAPE_WHOLE, HIT_COM_TILECOORDS, tilePRecv, HIT_SHAPE_WHOLE, HIT_COM_TILECOORDS, baseType, operation)
@@ -1038,32 +1023,32 @@ HitCom hit_comReduceSelect(HitLayout lay, HitRanks root, const void * tilePSend,
 /**
  * hit_comReduceDimSelect: creates a communication for a one-dimensional reduce communication.
  * If root is null all processes get the result data.
- * 
+ *
  * In this function a selection is applied to the tiles to obtain the elements to communicate.
- * 
+ *
  * @param lay Layout.
  * @param dim Dimension where the broadcast will be applied. It should be lower than the dimensions of the layout
  * @param root HitRanks coordinates of the process that will receive the final data
  * @param tilePSend Pointer to the HitTile to send
  * @param selectionSend HitShape to applied to the send tile
- * @param modeSelectSend Constant indicating if the send tile is selected in tile or array coordinates 
+ * @param modeSelectSend Constant indicating if the send tile is selected in tile or array coordinates
  * @param tilePRecv Pointer to the HitTile to receive. It must be of the same type that tilePSendç
  * @param selectionRecv HitShape to applied to the receive tile
- * @param modeSelectRecv Constant indicating if the receive tile is selected in tile or array coordinates 
+ * @param modeSelectRecv Constant indicating if the receive tile is selected in tile or array coordinates
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
- * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate 
+ * @param operation HitOp created to reduce the elements of the tile @see hit_comOpCreate
  * @return \e HitCom communication structure
  */
-HitCom hit_comReduceDimSelect(HitLayout lay, int dim, HitRanks root, const void * tilePSend, HitShape selectionSend, int modeSelectSend, const void * tilePRecv, HitShape selectionRecv, int modeSelectRecv, HitType baseType, HitOp operation);
+HitCom hit_comReduceDimSelect(HitLayout lay, int dim, HitRanks root, const void *tilePSend, HitShape selectionSend, int modeSelectSend, const void *tilePRecv, HitShape selectionRecv, int modeSelectRecv, HitType baseType, HitOp operation);
 /** @} */
 
 /** @name All-To-All Communication */
 /** @{ */
 /**
  * hit_comAlltoall: Perform an all-to-all communication.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param tilePSend Pointer to the HitTile to send
  * @param tilePRecv Pointer to the HitTile to receive. It must be of the same type that tilePSend
@@ -1075,7 +1060,7 @@ HitCom hit_comReduceDimSelect(HitLayout lay, int dim, HitRanks root, const void 
 
 /**
  * hit_comAlltoallSelect: Perform an all-to-all communication.
- * 
+ *
  * @param lay Layout.
  * @param tilePSend Pointer to the HitTile to send
  * @param selectionSend HitShape to applied to the send tile
@@ -1087,13 +1072,13 @@ HitCom hit_comReduceDimSelect(HitLayout lay, int dim, HitRanks root, const void 
  * @param count Number of elements to send/receive.
  * @return \e HitCom communication structure.
  */
-HitCom hit_comAlltoallSelect(HitLayout lay, const void * tilePSend, HitShape selectionSend, int modeSelectSend, const void * tilePRecv, HitShape selectionRecv, int modeSelectRecv, HitType baseType, int count);
+HitCom hit_comAlltoallSelect(HitLayout lay, const void *tilePSend, HitShape selectionSend, int modeSelectSend, const void *tilePRecv, HitShape selectionRecv, int modeSelectRecv, HitType baseType, int count);
 
 /**
  * hit_comAlltoallv: Perform an all-to-allv communication.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param tilePSend Pointer to the HitTile to send
  * @param selectionSend HitShape to applied to the send tile
@@ -1106,7 +1091,7 @@ HitCom hit_comAlltoallSelect(HitLayout lay, const void * tilePSend, HitShape sel
 
 /**
  * hit_comAlltoallv: Perform a all-to-allv communication.
- * 
+ *
  * @param lay Layout.
  * @param tilePSend Pointer to the HitTile to send
  * @param selectionSend HitShape to applied to the send tile
@@ -1117,17 +1102,16 @@ HitCom hit_comAlltoallSelect(HitLayout lay, const void * tilePSend, HitShape sel
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...)
  * @return \e HitCom communication structure.
  */
-HitCom hit_comAlltoallSelectv(HitLayout lay, const void * tilePSend, HitShape * selectionSend, int modeSelectSend, const void * tilePRecv, HitShape * selectionRecv, int modeSelectRecv, HitType baseType);
+HitCom hit_comAlltoallSelectv(HitLayout lay, const void *tilePSend, HitShape *selectionSend, int modeSelectSend, const void *tilePRecv, HitShape *selectionRecv, int modeSelectRecv, HitType baseType);
 /** @} */
-
 
 /** @name All-Gather Communication */
 /** @{ */
 /**
  * hit_comAllGather: Perform an all-gather communication.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay Layout.
  * @param tilePSend Pointer to the HitTile to send
  * @param tilePRecv Pointer to the HitTile to receive. It must be of the same type that tilePSend
@@ -1137,41 +1121,40 @@ HitCom hit_comAlltoallSelectv(HitLayout lay, const void * tilePSend, HitShape * 
  */
 HitCom hit_comAllgather(HitLayout lay, const void *tilePSend, const void *tilePRecv, HitType baseType, int count);
 
-
 /** @name Sparse Update Communication */
 /** @{ */
 
 /**
  * Performs a sparse update communication.
- * 
+ *
  * In a sparse update communication, each processor sends the
  * vertices uses by its neighbors and updates the values of its
  * own neighbor vertices. This communication uses an alltoallv mpi communication.
- * 
+ *
  * @param lay Layout.
  * @param tileP Pointer to the HitTile.
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...).
  * @return \e HitCom communication structure.
  */
-HitCom hit_comSparseUpdate(HitLayout lay, const void * tileP, HitType baseType);
+HitCom hit_comSparseUpdate(HitLayout lay, const void *tileP, HitType baseType);
 
 /**
  * Performs a sparse update communication using CSR sparse data format.
- * 
+ *
  * In a sparse update communication, each processor sends the
  * vertices uses by its neighbors and updates the values of its
  * own neighbor vertices. This communication uses an alltoallv mpi communication.
- * 
+ *
  * @param lay Layout.
  * @param tileP Pointer to the HitTile.
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...).
  * @return \e HitCom communication structure.
  */
-HitCom hit_comSparseUpdateCSR(HitLayout lay, const void * tileP, HitType baseType);
+HitCom hit_comSparseUpdateCSR(HitLayout lay, const void *tileP, HitType baseType);
 
 /**
  * Performs a sparse update communication using Bitmap sparse data format.
- * 
+ *
  * In a sparse update communication, each processor sends the
  * vertices uses by its neighbors and updates the values of its
  * own neighbor vertices. This communication uses an alltoallv mpi communication.
@@ -1180,14 +1163,14 @@ HitCom hit_comSparseUpdateCSR(HitLayout lay, const void * tileP, HitType baseTyp
  * @param baseType Basic type of the elements of the tile (HIT_INT, HIT_DOUBLE, HIT_FLOAT,...).
  * @return \e HitCom communication structure.
  */
-HitCom hit_comSparseUpdateBitmap(HitLayout lay, const void * tileP, HitType baseType);
+HitCom hit_comSparseUpdateBitmap(HitLayout lay, const void *tileP, HitType baseType);
 
 /**
  * This communication scatters the data in a tile among the processors according
  * with the partition of a layout.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay The layout with the partition.
  * @param tilePSend The tile to send by the root processor.
  * @param tilePRecv The tile to receive by each processor.
@@ -1197,18 +1180,17 @@ HitCom hit_comSparseUpdateBitmap(HitLayout lay, const void * tileP, HitType base
 #define hit_comSparseScatter(lay, tilePSend, tilePRecv, baseType) hit_comSparseScatterInternal(lay, tilePSend, tilePRecv, baseType, __FILE__, __LINE__)
 
 /** @cond INTERNAL */
-HitCom hit_comSparseScatterInternal(HitLayout lay, const void * tilePSend, const void * tilePRecv, HitType baseType, const char * file, int line);
+HitCom hit_comSparseScatterInternal(HitLayout lay, const void *tilePSend, const void *tilePRecv, HitType baseType, const char *file, int line);
 /** @endcond */
 /** @} */
-
 
 /** @name Scatter and Gather Communications */
 /** @{ */
 /**
  * This communication scatters a sparse matrix by rows.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay The layout with the partition.
  * @param tilePSend The tile with the data to send.
  * @param tilePRecv The tile to receive the data.
@@ -1218,7 +1200,7 @@ HitCom hit_comSparseScatterInternal(HitLayout lay, const void * tilePSend, const
 #define hit_comSparseScatterRows(lay, tilePSend, tilePRecv, baseType) hit_comSparseScatterRowsInternal(lay, tilePSend, tilePRecv, baseType, __FILE__, __LINE__)
 
 /** @cond INTERNAL */
-HitCom hit_comSparseScatterRowsInternal(HitLayout lay, const void * tilePSend, const void * tilePRecv, HitType baseType, const char * file, int line);
+HitCom hit_comSparseScatterRowsInternal(HitLayout lay, const void *tilePSend, const void *tilePRecv, HitType baseType, const char *file, int line);
 /** @endcond */
 /** @} */
 
@@ -1227,26 +1209,25 @@ HitCom hit_comSparseScatterRowsInternal(HitLayout lay, const void * tilePSend, c
  * This communication distributes different sets of data to the processors using
  * a plug_layContiguous. The processors have part of each set. When the communication
  * is done, each processors will have the data of its assigned sets.
- * 
+ *
  * @param lay The layout with the partition.
  * @param tilePSend The tile with the partial sets.
  * @param count The number of elements in each partial set.
  * @param tilePRecv The tile to reive the complete sets for each processors.
- * @param baseType The hitmap base type of the data. 
+ * @param baseType The hitmap base type of the data.
  * @note works only with plug_layContiguous
  * @return The new HitCom object.
  */
 // @arturo: TEST, redistribute function that internally allocates and substitutes tile by new buffer
-HitCom hit_comAllDistribute(HitLayout lay, const void * tilePSend, int * count, const void * tilePRecv, HitType baseType);
-
+HitCom hit_comAllDistribute(HitLayout lay, const void *tilePSend, int *count, const void *tilePRecv, HitType baseType);
 
 /** @name Scatter and Gather Communications */
 /** @{ */
 /**
  * Gathers data from all tasks and distribute the combined data to all tasks.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay The layout
  * @param tilePSend The send tile.
  * @param tilePRecv The recv tile.
@@ -1256,10 +1237,9 @@ HitCom hit_comAllDistribute(HitLayout lay, const void * tilePSend, int * count, 
 #define hit_comAllGatherv(lay, tilePSend, tilePRecv, baseType) hit_comAllGathervInternal(lay, tilePSend, tilePRecv, baseType, __FILE__, __LINE__)
 
 /** @cond INTERNAL */
-HitCom hit_comAllGathervInternal(HitLayout lay, const void * tilePSend, const void * tilePRecv, HitType baseType, const char * file, int line);
+HitCom hit_comAllGathervInternal(HitLayout lay, const void *tilePSend, const void *tilePRecv, HitType baseType, const char *file, int line);
 /** @endcond */
 /** @} */
-
 
 /* Hit COM: FREE COMMUNICATION ISSUE */
 /**
@@ -1267,22 +1247,21 @@ HitCom hit_comAllGathervInternal(HitLayout lay, const void * tilePSend, const vo
  * @param issue communication
  */
 void hit_comFree(HitCom issue);
-//#define hit_comFree( issue )	{ hit_comFreeType( (issue).typeSend ); hit_comFreeType( (issue).typeRecv ); }
-
+// #define hit_comFree( issue )	{ hit_comFreeType( (issue).typeSend ); hit_comFreeType( (issue).typeRecv ); }
 
 /* Hit COM: DECLARE TAGS */
 /**
  * Defines an enumerate type of tags.
  * These tags can be used in communications.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param ... Set of tags.
  */
-#define hit_comTagSet( ... )	enum { __VA_ARGS__ }
+#define hit_comTagSet( ... ) enum { __VA_ARGS__ }
 
 /** @name Activate/Wait for Communication*/
-/** @{ */ 
+/** @{ */
 /* Hit COM ACTIVATE/WAIT FOR COMMUNICATION */
 /**
  * hit_comStartSend: start to send in a send-receive communication
@@ -1358,17 +1337,17 @@ void hit_comDoSparseUpdate(HitCom *issue);
 
 /**
  * hit_comDo: do a communication (send and receive) in a send-receive communication.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param comm \e HitCom communication
  */
-#define hit_comDoSendRecv( comm )	{	\
-	hit_comStartSend( &(comm) );		\
-	hit_comDoRecv( &(comm) );			\
-	hit_comEndSend( &(comm) );			\
-}
-
+#define hit_comDoSendRecv(comm) \
+	{ \
+	hit_comStartSend(&(comm)); \
+	hit_comDoRecv(&(comm)); \
+	hit_comEndSend(&(comm)); \
+	}
 
 /* Hit MPI COMM DO A COMPLETE COMM. ISSUE */
 /**
@@ -1384,162 +1363,164 @@ void hit_comDo(HitCom *issue);
  * @hideinitializer
  * @param com A HitCom object or a constructor
  */
-#define	hit_comDoOnce( com )	{ HitCom __HIT_COM__ = com; hit_comDo( & __HIT_COM__ ); hit_comFree( __HIT_COM__ ); }
+#define hit_comDoOnce(com) \
+	{ \
+	HitCom __HIT_COM__ = com; \
+	hit_comDo(&__HIT_COM__); \
+	hit_comFree(__HIT_COM__); \
+	}
 /** @} */
 
 /** hit_error_noinit: prints an error without MPI initialized.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param name Error message.
  * @param file Code file.
  * @param numLine Line number.
  */
-#define hit_error_noinit( name )	\
-	{							\
-	fprintf(stderr,"Hit Programmer, RunTime-Error: %s, in %s[%d]\n", name, __FILE__, __LINE__);				\
-	exit( HIT_ERR_USER );		\
+#define hit_error_noinit(name) \
+	{ \
+	fprintf(stderr, "Hit Programmer, RunTime-Error: %s, in %s[%d]\n", name, __FILE__, __LINE__); \
+	exit(HIT_ERR_USER); \
 	}
 
 /** hit_error: Redefines hit_error to include MPI information.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param name Error message.
  * @param file Code file.
  * @param numLine Line number.
  */
 #undef hit_error
-#define hit_error(name,file,numLine)	\
-	{							\
-	fprintf(stderr,"Hit Programmer, RunTime-Error Rank(%d): %s, in %s[%d]\n", hit_Rank, name, file, numLine); \
-	MPI_Finalize();				\
-	exit( HIT_ERR_USER );		\
+#define hit_error(name, file, numLine) \
+	{ \
+	fprintf(stderr, "Hit Programmer, RunTime-Error Rank(%d): %s, in %s[%d]\n", hit_Rank, name, file, numLine); \
+	MPI_Finalize(); \
+	exit(HIT_ERR_USER); \
 	}
-
 
 /* Com Barrier, use the active communicator in layout */
 /**
  * hit_comBarrier: barrier for all active processes in a layout.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param lay A HitLayout.
  * @author arturo Mar 2013
  */
 #define hit_comBarrier( lay ) MPI_Barrier( lay.pTopology[0]->comm )
-//#define hit_comBarrier( lay ) MPI_Barrier( *(MPI_Comm *) lay.pTopology[0].lowLevel )
+// #define hit_comBarrier( lay ) MPI_Barrier( *(MPI_Comm *) lay.pTopology[0].lowLevel )
 
 /* REDUCE HIT OPERATIONS */
 /**
  * hit_comOp: creates a new conmutative HitOp operation. Used in reductions.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param function conmutative function to create that matches to ( void * a, void * b, int * len, HitType * )
  * @param operation HitOp operation to create
  */
-#define hit_comOp(function,operation)	MPI_Op_create((HitReduceFunction *)function, 1, &(operation) );
+#define hit_comOp(function, operation) MPI_Op_create((HitReduceFunction *)function, 1, &(operation));
 
 /**
  * hit_comOpNoCommutative: creates a new no-conmutative HitOp operation. Used in reductions.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param function no-conmutative function to create the operator. Operator function prototype should be ( void * a, void * b, int * len, HitType * )
  * @param operation HitOp operation to create
  */
-#define hit_comOpNoCommutative(function,operation)	MPI_Op_create(function, 0, &(operation) );
+#define hit_comOpNoCommutative(function, operation) MPI_Op_create(function, 0, &(operation));
 
 /**
  * hit_comOpFree: frees a HitOp operation.
- * 
+ *
  * @hideinitializer
- * 
+ *
  * @param operation HitOp operation to free.
  */
-#define hit_comOpFree( operation )	MPI_Op_free( &(operation) );
+#define hit_comOpFree(operation) MPI_Op_free(&(operation));
 
 /**
  * hit_comOpSumFloat: defined operation to add tiles of floats
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpSumFloat (void *, void *, int *, HitType *);
+void hit_comOpSumFloat(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpMaxFloat: defined operation to calculate the maximum value in tiles of doubles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpMaxFloat (void *, void *, int *, HitType *);
+void hit_comOpMaxFloat(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpMinFloat: defined operation to calculate the minimum value in tiles of doubles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpMinFloat (void *, void *, int *, HitType *);
+void hit_comOpMinFloat(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpSumDouble: defined operation to add tiles of doubles
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpSumDouble (void *, void *, int *, HitType *);
+void hit_comOpSumDouble(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpMaxDouble: defined operation to calculate the maximum value in tiles of doubles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpMaxDouble (void *, void *, int *, HitType *);
+void hit_comOpMaxDouble(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpMinDouble: defined operation to calculate the minimum value in tiles of doubles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpMinDouble (void *, void *, int *, HitType *);
+void hit_comOpMinDouble(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpSumInt: defined operation to calculate the sum value in tiles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpSumInt (void *, void *, int *, HitType *);
+void hit_comOpSumInt(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpMinInt: defined operation to calculate the min value in tiles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpMinInt (void *, void *, int *, HitType *);
+void hit_comOpMinInt(void *, void *, int *, HitType *);
 
 /**
  * hit_comOpMaxInt: defined operation to calculate the max value in tiles.
  * You must use hit_comOp before use it, and hit_comOpFree at the end of the program.
  * @see creation of operations.
  */
-void hit_comOpMaxInt (void *, void *, int *, HitType *);
-
+void hit_comOpMaxInt(void *, void *, int *, HitType *);
 
 /** HitComOpFunction: basic functions to reduce operations. */
-typedef void (*HitComOpFunction) (void *, void * );
+typedef void (*HitComOpFunction)(void *, void *);
 
 /**
  * hit_comOpGenericAnyType
  * @see creation of operations
  */
-void hit_comOpGenericAnyType( void * in, void * inout, HitType datatype, int offset, size_t tam, HitComOpFunction f );
-
+void hit_comOpGenericAnyType(void *in, void *inout, HitType datatype, int offset, size_t tam, HitComOpFunction f);
 
 /**
  * CREATION OF OPERATORS
  * void myReduceFunction (void * inout, void * in) {
  *   *((int *)inout) += *((int *)in);
  * }
- * 
+ *
  * void myAddIntFunction (void * in, void * inout, int *len, HitType * type) {
  *	hit_comOpGenericAnyType(in,inout,*type,0,sizeof(int),&myReduceFunction);
  * }
@@ -1549,12 +1530,12 @@ void hit_comOpGenericAnyType( void * in, void * inout, HitType datatype, int off
  *	HitOp myOp;
  *  hit_comOp(myAddIntFunction,myOp);
  *    ...
- *     // Use your operator  
+ *     // Use your operator
  *    ...
  *  hit_comOpFree(op);
  *    ...
  * }
-*/
+ */
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,0 @@
-OLD VERSIONS
-------------------
-
-refMPIJacobi2D.v1.c:	All procs. have the whole matrix allocated. Synchronous receives
-refMPIJacobi2D.v2.c:	All procs. have the whole matrix allocated. Asynchronous receives

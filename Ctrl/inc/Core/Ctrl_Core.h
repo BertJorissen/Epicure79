@@ -2,33 +2,10 @@
 #define _CTRL_CORE_H_
 /**
  * @file Ctrl_Core.h
- * @author Trasgo Group
  * @brief Prototypes for initializing ctrls and launching operations to ctrls.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 #ifndef CTRL_FPGA_KERNEL_FILE
 #include <hwloc.h>
@@ -229,7 +206,8 @@ typedef Ctrl *PCtrl;
 #define __ctrl_block__(config_file) \
 	Ctrl_ParseConfig(config_file);  \
 	omp_set_nested(1);              \
-	_Pragma("omp parallel") if (Ctrl_Thread_Init() == 0)
+	_Pragma("omp parallel")         \
+	if (Ctrl_Thread_Init() == 0)
 
 /**
  * Generate particular polymorphic types of HitTile and KHitTile.
@@ -241,7 +219,8 @@ typedef Ctrl *PCtrl;
  *
  * @param type Name of a valid native or derived C type.
  */
-#define Ctrl_NewType(type)                                                                                                 \
+#define Ctrl_NewType(type) Ctrl_NewType2(type)
+#define Ctrl_NewType2(type)                                                                                                \
 	hitNewType(type);                                                                                                      \
 	hit_ktileNewType(type);                                                                                                \
 	static inline HitTile_##type Ctrl_Select_##type(HitTile *p_parent, HitShape shape, int flags) __attribute__((unused)); \
@@ -305,7 +284,7 @@ typedef Ctrl *PCtrl;
  * 			CTRL_MEM_ALLOC_DEV: Allocate memory only on device.
  * 			CTRL_MEM_PINNED: Allocate pinned memory if possible.
  * 			CTRL_MEM_NOPINNED: Allocate non pinned memory.
- * 			CTRL_MEM_ALIGNED: Try to allocate aligned memory on the device. Currently only works for cuda 2D.
+ * 			CTRL_MEM_ALIGNED: Try to allocate aligned memory on the device. Currently only works for CUDA, HIP and OpenCL 2D.
  * 		Flags CTRL_MEM_ALLOC_HOST and CTRL_MEM_ALLOC_DEV are mutually exclusive.
  * 		If none of them or both are specified the default behaviour (allocating memory on host and device) will apply.
  * 		Similarly CTRL_MEM_PINNED and CTRL_MEM_NOPINNED are mutually exclusive, if both are specified CTRL_MEM_PINNED will
@@ -328,8 +307,10 @@ void Ctrl_AllocInner(Ctrl *p_ctrl, HitTile *p_tile, int flags);
  * \p tile must have memory already allocated on the device using a suitable alignment for the texture options.
  * This is always a synchronous call.
  *
- * @note Currently only CUDA and OpenCL GPU backends supports this.
- * @note Some descriptor options may have additional requirements depending on the backend used, refer to CUDA and OpenCL documentations.
+ * @note Currently only CUDA, HIP and OpenCL GPU backends supports this.
+ * @note OpenCL GPU support requires support for creating a 2D image from a buffer.
+ * 		This is part of the 2.x standard and an extension in other opencl versions.
+ * @note Some descriptor options may have additional requirements depending on the backend used, refer to CUDA, HIP and OpenCL documentations.
  * @hideinitializer
  *
  * @param ctrl pointer to ctrl to allocate memory with.
@@ -354,7 +335,8 @@ void Ctrl_CreateTexInner(Ctrl *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_desc);
  *
  * @pre \p type must have been declared as a type with @see Ctrl_NewType
  */
-#define Ctrl_Domain(type, shape) Ctrl_Domain_##type(shape);
+#define Ctrl_Domain(type, shape)  Ctrl_Domain2(type, shape);
+#define Ctrl_Domain2(type, shape) Ctrl_Domain_##type(shape);
 void Ctrl_DomainInner(HitTile *p_tile);
 
 #ifdef DOXYGEN
@@ -377,7 +359,7 @@ void Ctrl_DomainInner(HitTile *p_tile);
  * 			CTRL_MEM_ALLOC_DEV: Allocate memory only on device.
  * 			CTRL_MEM_PINNED: Allocate pinned memory if possible.
  * 			CTRL_MEM_NOPINNED: Allocate non pinned memory.
- * 			CTRL_MEM_ALIGNED: Try to allocate aligned memory on the device. Currently only works for cuda 2D.
+ * 			CTRL_MEM_ALIGNED: Try to allocate aligned memory on the device. Currently only works for CUDA, HIP and OpenCL 2D.
  * 		Flags CTRL_MEM_ALLOC_HOST and CTRL_MEM_ALLOC_DEV are mutually exclusive.
  * 		If none of them or both are specified the default behaviour (allocating memory on host and device) will apply.
  * 		Similarly CTRL_MEM_PINNED and CTRL_MEM_NOPINNED are mutually exclusive, if both are specified CTRL_MEM_PINNED will
@@ -403,6 +385,9 @@ void Ctrl_DomainInner(HitTile *p_tile);
  * Initialize a hierarchical subselection using tile coordinates.
  * This is always a synchronous call.
  *
+ * @note Subselections of tiles with padding on the device (such as those allocated with CTRL_MEM_ALIGNED) are not currently supported
+ * @note Subselections of tiles attached to one or more ctrls may not be attached to a new ctrl
+ *
  * @hideinitializer
  *
  * @param type Type of data inside the tiles.
@@ -413,7 +398,8 @@ void Ctrl_DomainInner(HitTile *p_tile);
  *
  * @pre \p type must have been declared as a type with @see Ctrl_NewType
  */
-#define Ctrl_Select(type, p_parent, shape, flags) Ctrl_Select_##type(((HitTile *)(&p_parent)), shape, flags);
+#define Ctrl_Select(type, p_parent, shape, flags)  Ctrl_Select2(type, p_parent, shape, flags);
+#define Ctrl_Select2(type, p_parent, shape, flags) Ctrl_Select_##type(((HitTile *)(&p_parent)), shape, flags);
 void Ctrl_SelectInner(HitTile *p_tile, int flags);
 
 /**
@@ -646,6 +632,11 @@ void Ctrl_HostTaskWait(Ctrl_Tile_Impl *p_tile_impl, char rol, Ctrl_TaskQueue *p_
  * @param p_tile tile to be freed.
  */
 void Ctrl_FreeHostInner(HitTile *p_tile);
+
+/**
+ * Pin calling thread to host numa node (specified via ctrl device selection file) using hwloc.
+ */
+void Ctrl_PinToHostNuma();
 
 // clang-format off
 #define Ctrl_OP_1( op, ctrl, tile )       Ctrl_##op##Inner(ctrl, ((HitTile *)&(tile)));

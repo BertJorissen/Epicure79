@@ -3,33 +3,10 @@
 ///@cond INTERNAL
 /**
  * @file Ctrl_TaskQueue.h
- * @author Trasgo Group
  * @brief Ctrl queues, tasks and events.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include <omp.h>
@@ -53,7 +30,8 @@
 #endif //_CTRL_ARCH_CUDA_
 
 #ifdef _CTRL_ARCH_HIP_
-#include <hip/hip_runtime.h>
+#include "Architectures/Hip/Ctrl_Hip_Helper.h"
+#include <hip/hip_runtime_api.h>
 #endif //_CTRL_ARCH_HIP_
 
 #if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
@@ -227,8 +205,7 @@ typedef struct Ctrl_TaskQueue {
 		.tile                 = HIT_TILE_NULL_STATIC,    \
 		.event                = CTRL_GENERIC_EVENT_NULL, \
 		.flags                = 0,                       \
-		.stream               = 0                        \
-	}
+		.stream               = 0}
 
 /**
  * Free \p p_task.
@@ -499,6 +476,12 @@ static inline Ctrl_GenericEvent Ctrl_GenericEvent_Create(Ctrl_EventType type, in
 			break;
 		#endif //_CTRL_ARCH_CUDA_
 
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_EVENT_TYPE_HIP:
+			HIP_OP(hipEventCreateWithFlags(&event.event.event_hip, hipEventDisableTiming));
+			break;
+		#endif //_CTRL_ARCH_HIP_
+
 		#if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
 		case CTRL_EVENT_TYPE_OPENCL:
 			event.event.p_event_cl = (cl_event *)malloc(sizeof(cl_event));
@@ -511,7 +494,7 @@ static inline Ctrl_GenericEvent Ctrl_GenericEvent_Create(Ctrl_EventType type, in
 			event.event.user_event_cpu = Ctrl_CpuUserEvent_Create();
 			break;
 		default:
-			printf("unknown event type\n");
+			fprintf(stderr, "[Ctrl_GenericEvent_Create] Error: Unknown event type %d.\n", type);
 			exit(EXIT_FAILURE);
 			break;
 	}
@@ -552,6 +535,12 @@ static inline void Ctrl_GenericEvent_Release(Ctrl_GenericEvent event) {
 				break;
 			#endif //_CTRL_ARCH_CUDA_
 
+			#ifdef _CTRL_ARCH_HIP_
+			case CTRL_EVENT_TYPE_HIP:
+				HIP_OP(hipEventDestroy(event.event.event_hip));
+				break;
+			#endif //_CTRL_ARCH_HIP_
+
 			#if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
 			case CTRL_EVENT_TYPE_OPENCL:
 				OPENCL_ASSERT_OP(clReleaseEvent(*event.event.p_event_cl));
@@ -565,7 +554,7 @@ static inline void Ctrl_GenericEvent_Release(Ctrl_GenericEvent event) {
 				Ctrl_CpuUserEvent_Destroy(&event.event.user_event_cpu);
 				break;
 			default:
-				printf("unknown event type\n");
+				fprintf(stderr, "[Ctrl_GenericEvent_Release] Error: Unknown event type %d.\n", event.event_type);
 				exit(EXIT_FAILURE);
 				break;
 		}
@@ -588,7 +577,7 @@ static inline void Ctrl_GenericEvent_Wait(Ctrl_GenericEvent event) {
 
 		#ifdef _CTRL_ARCH_HIP_
 		case CTRL_EVENT_TYPE_HIP:
-			hipEventSynchronize(event.event.event_hip);
+			HIP_OP(hipEventSynchronize(event.event.event_hip));
 			break;
 		#endif //_CTRL_ARCH_HIP_
 
@@ -604,7 +593,7 @@ static inline void Ctrl_GenericEvent_Wait(Ctrl_GenericEvent event) {
 			Ctrl_CpuUserEvent_Wait(event.event.user_event_cpu);
 			break;
 		default:
-			printf("unknown event type %d\n", event.event_type);
+			fprintf(stderr, "[Ctrl_GenericEvent_Wait] Error: Unknown event type %d.\n", event.event_type);
 			exit(EXIT_FAILURE);
 			break;
 	}
@@ -629,7 +618,7 @@ static inline void Ctrl_GenericEvent_Signal(Ctrl_GenericEvent event) {
 			Ctrl_CpuUserEvent_Signal(&event.event.user_event_cpu);
 			break;
 		default:
-			printf("unknown event type\n");
+			fprintf(stderr, "[Ctrl_GenericEvent_Signal] Error: Unknown event type %d.\n", event.event_type);
 			exit(EXIT_FAILURE);
 			break;
 	}
@@ -649,6 +638,11 @@ static inline bool Ctrl_GenericEvent_Test(Ctrl_GenericEvent event) {
 			return cudaEventQuery(event.event.event_cuda) == cudaSuccess;
 		#endif //_CTRL_ARCH_CUDA_
 
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_EVENT_TYPE_HIP:
+			return hipEventQuery(event.event.event_hip) == hipSuccess;
+		#endif //_CTRL_ARCH_HIP_
+
 		#if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
 		case CTRL_EVENT_TYPE_OPENCL: {
 			cl_int status;
@@ -666,11 +660,9 @@ static inline bool Ctrl_GenericEvent_Test(Ctrl_GenericEvent event) {
 		case CTRL_EVENT_TYPE_USERCPU:
 			return Ctrl_CpuUserEvent_Test(event.event.user_event_cpu);
 		default:
-			printf("[Ctrl GenericEvent Test] unknown event type\n");
+			fprintf(stderr, "[Ctrl_GenericEvent_Test] Error: unknown event type %d.\n", event.event_type);
 			exit(EXIT_FAILURE);
 	}
-	printf("[Ctrl GenericEvent Test] Internal error\n");
-	exit(EXIT_FAILURE);
 }
 
 /**
@@ -682,7 +674,8 @@ static inline bool Ctrl_GenericEvent_Test(Ctrl_GenericEvent event) {
  * @return If the recieving controller driver queues are natively compatible with \p event and thus it's waiting can be meved to the driver
  */
 static inline bool Ctrl_Event_CheckCompat(Ctrl_GenericEvent event, Ctrl_Type ctrl_type, int ctrl_id) {
-	if (event.event_type == CTRL_EVENT_TYPE_CUDA && ctrl_type == CTRL_TYPE_CUDA)
+	if ((event.event_type == CTRL_EVENT_TYPE_CUDA && ctrl_type == CTRL_TYPE_CUDA) ||
+		(event.event_type == CTRL_EVENT_TYPE_HIP && ctrl_type == CTRL_TYPE_HIP))
 		return true;
 	if (event.event_type == CTRL_EVENT_TYPE_OPENCL && (ctrl_type == CTRL_TYPE_OPENCL_GPU || ctrl_type == CTRL_TYPE_FPGA))
 		return event.ctrl_id == ctrl_id;

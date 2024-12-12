@@ -1,32 +1,4 @@
-# <license>
-# 
-# Controller v4.0
-# 
-# This software is provided to enhance knowledge and encourage progress in the scientific
-# community. It should be used only for research and educational purposes. Any reproduction
-# or use for commercial purpose, public redistribution, in source or binary forms, with or 
-# without modifications, is NOT ALLOWED without the previous authorization of the copyright 
-# holder. The origin of this software must not be misrepresented; you must not claim that you
-# wrote the original software. If you use this software for any purpose (e.g. publication),
-# a reference to the software package and the authors must be included.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
-# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-# THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
-# Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
-# All rights reserved.
-# 
-# More information on http://trasgo.infor.uva.es/
-# 
-# </license>
-cmake_minimum_required (VERSION 3.17)
+cmake_minimum_required (VERSION 3.20)
 
 project (Ctrl LANGUAGES C CXX)
 
@@ -58,6 +30,7 @@ endif(SUPPORT_XILINX)
 
 # BLAS library support
 option(CUBLAS "CUBLAS" OFF)
+option(HIPBLAS "HIPBLAS" OFF)
 option(MKL "MKL" OFF)
 option(MAGMA "MAGMA" OFF)
 
@@ -101,9 +74,6 @@ set(OPENCL_GPU_TEST_OUTPUT OFF) # Print in test mode (for script parse)
 set(OPENCL_GPU_PROFILING_N_READ_TASKS "5000") # Numero de tareas de lectura 
 set(OPENCL_GPU_PROFILING_N_WRITE_TASKS "5000") # Numero de tareas de escritura
 set(OPENCL_GPU_PROFILING_N_KERNEL_TASKS "5000") # Numero de tareas de kernels
-
-# To compile also for old architectures in Trasgo group cluster
-#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets -gencode arch=compute_35,code=sm_35 -gencode arch=compute_70,code=sm_70 -gencode arch=compute_80,code=sm_80" )
 
 # Extra options FPGA
 option(FPGA_PROFILING "FPGA_PROFILING" OFF)
@@ -180,19 +150,18 @@ if (MPI_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMPICH_SKIP_MPICXX -DMPI_NO_CPPBIND -DSGIMPI ")
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DMPICH_SKIP_MPICXX -DMPI_NO_CPPBIND -DSGIMPI ")
     set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${MPI_C_INCLUDE_DIRS})
-    set(CTRL_LIBS ${CTRL_LIBS} MPI::MPI_C)
+    set(CTRL_LIBS ${CTRL_LIBS} MPI::MPI_C MPI::MPI_CXX )
 endif(MPI_FOUND)
 
 # OpenMP
 find_package(OpenMP REQUIRED)
 if (OPENMP_FOUND)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} ")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_C_FLAGS} ")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${OpenMP_C_FLAGS} ")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} ")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${OpenMP_CXX_FLAGS} ")
     set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${OpenMP_C_INCLUDE_DIRS})
 	if(NOT SUPPORT_HIP)
 		set(CTRL_LIBS ${CTRL_LIBS} OpenMP::OpenMP_C)
-		set(CTRL_LIBS ${CTRL_LIBS} "-fno-lto")
 	endif(NOT SUPPORT_HIP)
 endif(OPENMP_FOUND)
 
@@ -202,6 +171,8 @@ set(CTRL_LIBS ${CTRL_LIBS} "-lhwloc")
 # CUDA
 if (SUPPORT_CUDA)
 	enable_language(CUDA)
+	set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
+	set(CMAKE_CUDA_ARCHITECTURES "50;72;80;89")
 	find_package(CUDAToolkit REQUIRED)
 	set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${CUDAToolkit_INCLUDE_DIRS})
 	set(CTRL_LIBS ${CTRL_LIBS} CUDA::cudart)
@@ -222,10 +193,21 @@ if (SUPPORT_HIP)
 
     list(APPEND CMAKE_PREFIX_PATH ${ROCM_PATH})
 
+	# AMD arquitectures to use
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --offload-arch=gfx900 --offload-arch=gfx1100")
+
+	# FIXME @sergioalo hip functions return codes are ignored on all examples
+	add_compile_options(-Wno-unused-result)
+
     # Find hip
     find_package(hip REQUIRED)
 	set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${HIP_INCLUDE_DIRS})
 	set(CTRL_LIBS ${CTRL_LIBS} hip::host)
+
+	if(HIPBLAS)
+		find_package(HIPBLAS REQUIRED)
+		set(CTRL_LIBS ${CTRL_LIBS} roc::hipblas)
+	endif(HIPBLAS)
 
     # Compiling for an AMD platform.
     add_definitions(-D__HIP_PLATFORM_AMD__)
@@ -241,7 +223,7 @@ if (CTRL_CMAKE_VERBOSE_MAIN)
     message(STATUS "OPENCL_FPGA = ${SUPPORT_FPGA}")
     message(STATUS "C vars = ${CMAKE_C_FLAGS}")
     message(STATUS "CUDA vars = ${CMAKE_CUDA_FLAGS}")
-    message(STATUS "HIP vars = ${CMAKE_HIP_FLAGS}")
+    message(STATUS "CXX vars = ${CMAKE_CXX_FLAGS}")
     message(STATUS "HEADERS = ${CTRL_HEADERS}")
     message(STATUS "INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
     message(STATUS "SOURCES = ${CTRL_SOURCES}")
@@ -259,7 +241,7 @@ if (CTRL_CMAKE_VERBOSE_MAIN)
     message(STATUS "HIP = ${SUPPORT_HIP}")
     message(STATUS "OPENCL_GPU = ${SUPPORT_OPENCL}")
     message(STATUS "C vars = ${CMAKE_C_FLAGS}")
-    message(STATUS "HIP vars = ${CMAKE_HIP_FLAGS}")
+    message(STATUS "CXX vars = ${CMAKE_CXX_FLAGS}")
     message(STATUS "HEADERS = ${CTRL_HEADERS}")
     message(STATUS "INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
     message(STATUS "SOURCES = ${CTRL_SOURCES}")
@@ -275,10 +257,8 @@ endif(USE_EXPERIMENTATION_EXAMPLES)
 # Examples
 add_subdirectory(examples)
 
-if (SUPPORT_CUDA)
-    # Parallel stencil skeleton
-    add_subdirectory(ParallelStencilSkeleton)
-endif(SUPPORT_CUDA)
+# Parallel stencil skeleton
+add_subdirectory(Epsilod)
 
 # Verbose
 if (CTRL_CMAKE_VERBOSE_MAIN)
@@ -289,7 +269,7 @@ if (CTRL_CMAKE_VERBOSE_MAIN)
     message(STATUS "OPENCL_GPU = ${SUPPORT_OPENCL}")
     message(STATUS "OPENCL_FPGA = ${SUPPORT_FPGA}")
     message(STATUS "C vars = ${CMAKE_C_FLAGS}")
-    message(STATUS "HIP vars = ${CMAKE_HIP_FLAGS}")
+    message(STATUS "CXX vars = ${CMAKE_CXX_FLAGS}")
     message(STATUS "HEADERS = ${CTRL_HEADERS}")
     message(STATUS "INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
     message(STATUS "SOURCES = ${CTRL_SOURCES}")

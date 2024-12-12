@@ -110,7 +110,6 @@ slurm-*.out
 workspace.code-workspace
 
 # Experimentation folder
-experimentation
 exp/GenericStencil/*.err
 exp/GenericStencil/profile*
 
@@ -130,3 +129,11 @@ doxygenWarnings
 *.aocx
 *.aocr
 *.log
+
+# Profiler output folder
+prof/
+
+# python generated stuff
+__pycache__/
+*.py[cod]
+*$py.class

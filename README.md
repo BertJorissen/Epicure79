@@ -20,7 +20,7 @@ Controllers has some core dependencies, which are always required and then suppo
 Core dependencies:
  - MPI (3.x or higher)
  - OpenMP (4.x or higher)
- - hwloc (1.11.x)
+ - hwloc (1.11.x or higher)
 
 CUDA architecture dependencies:
  - CUDA (9.x or higher)
@@ -34,7 +34,7 @@ FPGA architecture dependencies:
 
 Compiling Controllers
 ----
-Compilation is done using CMake (3.17 or higher).
+Compilation is done using CMake (3.20 or higher).
 
 ```
 mkdir -p build

@@ -1,9 +1,10 @@
-cmake_minimum_required (VERSION 3.17)
+cmake_minimum_required (VERSION 3.20)
 
 # Common options
 set(CTRL_EXAMPLES_BLOCKSIZE_0 "16") # Localsize/Blocksize x j
 set(CTRL_EXAMPLES_BLOCKSIZE_1 "16") # Localsize/Blocksize y i
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBLOCKSIZE_0=${CTRL_EXAMPLES_BLOCKSIZE_0} -DBLOCKSIZE_1=${CTRL_EXAMPLES_BLOCKSIZE_1} ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBLOCKSIZE_0=${CTRL_EXAMPLES_BLOCKSIZE_0} -DBLOCKSIZE_1=${CTRL_EXAMPLES_BLOCKSIZE_1} ")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DBLOCKSIZE_0=${CTRL_EXAMPLES_BLOCKSIZE_0} -DBLOCKSIZE_1=${CTRL_EXAMPLES_BLOCKSIZE_1} ")
 
 # OpenCL options
@@ -28,6 +29,7 @@ if (CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD)
 	message(STATUS "MATRIX_ADD_INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
 	message(STATUS "MATRIX_ADD_LIBS = ${CTRL_LIBS}")
 	message(STATUS "MATRIX_ADD_CTRL_C vars = ${CMAKE_C_FLAGS}")
+	message(STATUS "MATRIX_ADD_CTRL_CXX vars = ${CMAKE_CXX_FLAGS}")
 	message(STATUS "MATRIX_ADD_CTRL_CUDA vars = ${CMAKE_CUDA_FLAGS}")
 endif(CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD)
 
@@ -59,6 +61,13 @@ if (SUPPORT_CUDA)
 	add_executable(Matrix_Add_Cuda_Ref src/Matrix_Add_Cuda_Ref.cu)
 	target_link_libraries(Matrix_Add_Cuda_Ref ${CTRL_LIBS})
 endif(SUPPORT_CUDA)
+
+# Hip
+if (SUPPORT_HIP)
+	set(CTRL_SOURCE_FILES ${CTRL_SOURCE_FILES} src/kernels_hiplib.c)
+	add_executable(Matrix_Add_Hip_Ref src/Matrix_Add_Hip_Ref.cpp)
+	target_link_libraries(Matrix_Add_Hip_Ref ${CTRL_LIBS})
+endif(SUPPORT_HIP)
 
 # OpenCL
 if (SUPPORT_OPENCL)

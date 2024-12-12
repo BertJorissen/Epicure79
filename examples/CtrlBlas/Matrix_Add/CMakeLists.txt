@@ -1,14 +1,12 @@
-cmake_minimum_required (VERSION 3.17)
+cmake_minimum_required (VERSION 3.20)
 
 # Verbose
 if (CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD)
 	message(STATUS "MATRIX_ADD_INCLUDE DIRS = ${CTRL_INCLUDE_DIRS}")
 	message(STATUS "MATRIX_ADD_LIBS = ${CTRL_LIBS}")
 	message(STATUS "MATRIX_ADD_CTRL_C vars = ${CMAKE_C_FLAGS}")
+	message(STATUS "MATRIX_ADD_CTRL_CXX vars = ${CMAKE_CXX_FLAGS}")
 	message(STATUS "MATRIX_ADD_CTRL_CUDA vars = ${CMAKE_CUDA_FLAGS}")
-	if (SUPPORT_CUDA)
-		message(STATUS "MATRIX_ADD_CTRL_NVCC vars = ${CUDA_NVCC_FLAGS}")
-	endif (SUPPORT_CUDA)
 endif(CTRL_CMAKE_VERBOSE_EXAMPLES_MATRIX_ADD)
 
 # Include directories

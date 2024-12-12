@@ -1,19 +1,18 @@
+/**
+ * @file Texture_Test_Ctrl.c
+ * @brief Texture test: Ctrl version host code.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "Ctrl.h"
+#include "../../examples/Utils/ctrl_print_info.h"
 #include "Texture_Test_Ctrl.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#ifdef _PROFILING_ENABLED_
-#ifdef _CTRL_ARCH_CUDA_
-#include "nvToolsExt.h"
-#endif // _CTRL_ARCH_CUDA_
-
-#ifdef _CTRL_ARCH_OPENCL_GPU_
-#include <roctx.h>
-#endif // _CTRL_ARCH_OPENCL_GPU_
-#endif //_PROFILING_ENABLED_
 
 #define hit_tileSwap(a, b)               \
 	{                                    \
@@ -32,49 +31,19 @@ Ctrl_NewType(float);
 CTRL_KERNEL_CHAR(TexTest, MANUAL, BLOCKSIZE_1, BLOCKSIZE_0);
 
 /* C. Defining kernel prototypes */
-CTRL_KERNEL_PROTO(TexTest, 2, CUDA, DEFAULT, OPENCLGPU, DEFAULT, textest_params);
+CTRL_KERNEL_PROTO(TexTest, 3, HIP, DEFAULT, CUDA, DEFAULT, OPENCLGPU, DEFAULT, textest_params);
 
 /* D. Host task to initialize the matrix */
 CTRL_HOST_TASK(Init_Matrix, HitTile_float matrix) {
-	#ifdef _PROFILING_ENABLED_
-	#ifdef _CTRL_ARCH_CUDA_
-	nvtxRangePushA("Init tile");
-	#endif // _CTRL_ARCH_CUDA_
-
-	#ifdef _CTRL_ARCH_OPENCL_GPU_
-	roctxRangePush("Init tile");
-	#endif // _CTRL_ARCH_OPENCL_GPU_
-	#endif //_PROFILING_ENABLED_
-
 	for (int i = 0; i < hit_tileDimCard(matrix, 0); i++) {
 		for (int j = 0; j < hit_tileDimCard(matrix, 1); j++) {
 			hit(matrix, i, j) = i * hit_tileDimCard(matrix, 1) + j;
 		}
 	}
-
-	#ifdef _PROFILING_ENABLED_
-	#ifdef _CTRL_ARCH_CUDA_
-	nvtxRangePop();
-	#endif // _CTRL_ARCH_CUDA_
-
-	#ifdef _CTRL_ARCH_OPENCL_GPU_
-	roctxRangePop();
-	#endif // _CTRL_ARCH_OPENCL_GPU_
-	#endif //_PROFILING_ENABLED_
 }
 
 /* E. Host task to calculate and print the norm */
 CTRL_HOST_TASK(Norm_calc, HitTile_float matrix) {
-	#ifdef _PROFILING_ENABLED_
-	#ifdef _CTRL_ARCH_CUDA_
-	nvtxRangePushA("Norm calc");
-	#endif // _CTRL_ARCH_CUDA_
-
-	#ifdef _CTRL_ARCH_OPENCL_GPU_
-	roctxRangePush("Norm calc");
-	#endif // _CTRL_ARCH_OPENCL_GPU_
-	#endif //_PROFILING_ENABLED_
-
 	double resultado = 0;
 	double suma      = 0;
 	for (int i = 0; i < hit_tileDimCard(matrix, 0); i++) {
@@ -89,16 +58,6 @@ CTRL_HOST_TASK(Norm_calc, HitTile_float matrix) {
 	printf("\n Result: %lf \n", resultado);
 	printf("\n ---------------------------------------------------- \n");
 	fflush(stdout);
-
-	#ifdef _PROFILING_ENABLED_
-	#ifdef _CTRL_ARCH_CUDA_
-	nvtxRangePop();
-	#endif // _CTRL_ARCH_CUDA_
-
-	#ifdef _CTRL_ARCH_OPENCL_GPU_
-	roctxRangePop();
-	#endif // _CTRL_ARCH_OPENCL_GPU_
-	#endif //_PROFILING_ENABLED_
 }
 
 CTRL_HOST_TASK(Print_matrix, HitTile_float matrix) {
@@ -139,20 +98,12 @@ int main(int argc, char *argv[]) {
 	Ctrl_ThreadInit(threads, SIZE, SIZE);
 
 	__ctrl_block__(ctrl_conf_file) {
+		// 3. Get controller object and print info
+		PCtrl ctrl = Ctrl_Get(0);
 		printf("\n ----------------------- ARGS ------------------------- \n");
 		printf("\n SIZE: %d", SIZE);
 		printf("\n POLICY %s", policy ? "Async" : "Sync");
-
-		// 3. Get controller object and print info
-		PCtrl ctrl = Ctrl_Get(0);
-
-		Ctrl_Info info = Ctrl_GetInfo(ctrl);
-		printf("\n\n CTRL TYPE: %s", info.type);
-		printf("\n PLATFORM: %s", info.platform_name);
-		printf("\n DEVICE: %s", info.device_name);
-		printf("\n N_THREADS: %d", info.n_threads);
-		printf("\n MEM_MOVES: %s", info.mem_transfers ? "ON" : "OFF");
-		printf("\n NUMA RANGE: %d-%d", info.numa_range_min, info.numa_range_max);
+		Ctrl_PrintInfo();
 		printf("\n\n ---------------------------------------------------- \n");
 		fflush(stdout);
 

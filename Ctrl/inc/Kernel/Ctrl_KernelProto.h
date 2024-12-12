@@ -2,37 +2,14 @@
 #define _CTRL_KERNEL_PROTO_H_
 /**
  * @file Ctrl_KernelProto.h
- * @author Trasgo Group
  * Macros to generate the code, from the prototype declaration of a kernel,
  * of the enqueue/dequeue(launching) functions. The launching function is a
  * wrapper to invocate the actual kernel implementations
- * @version 4.0
- * @date 2021-04-26
  * @note Macros to support up to 7 different implementations, and up to 20 different parameters
  *		in a kernel call.
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 /* New types declared by the user before including Controllers headers */
@@ -90,9 +67,13 @@ CTRL_USER_TYPES
 #define CTRL_KERNEL_HIP(...)
 #define CTRL_KERNEL_FUNCTION_HIP(...)
 #define CTRL_KERNEL_WRAP_HIP(...)
+#define CTRL_KERNEL_HIPLIB(...)
+#define CTRL_KERNEL_FUNCTION_HIPLIB(...)
+#define CTRL_KERNEL_WRAP_HIPLIB(...)
 #define CTRL_KERNEL_HIP_GENERIC(...)
 #define CTRL_KERNEL_WRAP_HIP_GENERIC(...)
 #define CTRL_KERNEL_DECLARATION_HIP(...)
+#define CTRL_KERNEL_DECLARATION_HIPLIB(...)
 #endif // _CTRL_ARCH_HIP_
 
 #ifdef _CTRL_ARCH_OPENCL_GPU_
@@ -183,7 +164,7 @@ CTRL_USER_TYPES
  * @if INTERNAL
  * @see CTRL_KERNEL_CPU_GENERIC, CTRL_KERNEL_CUDA_GENERIC, CTRL_KERNEL_OPENCLGPU_GENERIC, CTRL_KERNEL_HIP_GENERIC
  * CTRL_KERNEL_CPU, CTRL_KERNEL_CUDA, CTRL_KERNEL_OPENCLGPU, CTRL_KERNEL_HIP
- * CTRL_KERNEL_CPULIB, CTRL_KERNEL_CUDALIB, CTRL_KERNEL_OPENCLGPULIB
+ * CTRL_KERNEL_CPULIB, CTRL_KERNEL_CUDALIB, CTRL_KERNEL_HIPLIB, CTRL_KERNEL_OPENCLGPULIB
  * @endif
  */
 #define CTRL_KERNEL(name, type, subtype, ...) \
@@ -426,7 +407,8 @@ CTRL_USER_TYPES
 		switch (device_id) {                                                                                                                                                                   \
 			CTRL_KERNEL_WRAP_LAUNCH_##n_implementations(name, args_list, __VA_ARGS__);                                                                                                         \
 			default:                                                                                                                                                                           \
-				fprintf(stderr, "Ctrl Internal error: Wrong implementation type on launching wrapper: %s, %s[%d]\n", #name, __FILE__, __LINE__);                                               \
+				fprintf(stderr, "Ctrl Internal error: Wrong implementation type %d on launching wrapper: %s, %s[%d]\n", device_id, #name, __FILE__, __LINE__);                                 \
+				exit(EXIT_FAILURE);                                                                                                                                                            \
 		}                                                                                                                                                                                      \
 	}                                                                                                                                                                                          \
                                                                                                                                                                                                \

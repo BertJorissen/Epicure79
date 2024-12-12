@@ -3,33 +3,10 @@
 ///@cond INTERNAL
 /**
  * @file Ctrl_Cuda_KernelProto.h
- * @author Trasgo Group
  * @brief Macros to generate the code and manage CUDA kernels.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Architectures/Cuda/Ctrl_Cuda_Helper.h"
@@ -100,12 +77,12 @@
 			return;
 
 #ifdef _CTRL_DEBUG_
-#define GENERIC_KERNEL_WARN _Pragma("message(\"[Ctrl Kernels] CUDA support is enabled, but nvcc isn't being used to compile the file containing the kernel (most likely because it is a .c or .cpp file). \
+#define CUDA_GENERIC_KERNEL_WARN _Pragma("message(\"[Ctrl Kernels] CUDA support is enabled, but nvcc isn't being used to compile the file containing the kernel (most likely because it is a .c or .cpp file). \
 This will cause an execution error if a CUDA Controller is created and used to execute a GENERIC kernel. \
 Change the file extension to .cu to avoid the error and this warning. \
 If the program doesn't use CUDA Controllers, you can ignore this message.\")")
 #else // _CTRL_DEBUG_
-#define GENERIC_KERNEL_WARN
+#define CUDA_GENERIC_KERNEL_WARN
 #endif // _CTRL_DEBUG_
 
 // If not using nvcc use generic kernel dummy to prevent compilation error
@@ -136,7 +113,7 @@ If the program doesn't use CUDA Controllers, you can ignore this message.\")")
  * @see Ctrl_ImplType, CTRL_KERNEL, CTRL_KERNEL_WRAP_CUDA_GENERIC
  */
 #define CTRL_KERNEL_CUDA_GENERIC(name, type, subtype, ...)                                                                     \
-	GENERIC_KERNEL_WARN                                                                                                        \
+	CUDA_GENERIC_KERNEL_WARN                                                                                                   \
 	C_GUARD                                                                                                                    \
 	__global__ void Ctrl_Kernel_Cuda_##type##_##subtype##_##name(Ctrl_Thread threads, CTRL_KERNEL_EXTRACT_ARGS(__VA_ARGS__)) { \
 	}

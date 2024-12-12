@@ -1,32 +1,9 @@
 /**
  * @file Matrix_Power_Of_Hip_Ctrl.cpp
- * @author Trasgo Group
  * @brief MatrixPow: Ctrl HIP version
- * @version 3.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include <assert.h>
@@ -36,10 +13,7 @@
 #include <stdlib.h>
 
 #include "Ctrl.h"
-
-#ifdef _PROFILING_ENABLED_
-#include <roctx.h>
-#endif //_PROFILING_ENABLED_
+#include "../../examples/Utils/ctrl_print_info.h"
 
 #define SEED    6834723
 #define EPSILON 0.0001
@@ -101,10 +75,6 @@ CTRL_HOST_TASK(Init_Tiles, CTRL_HPARAMS(init_params)) {
 }
 
 CTRL_HOST_TASK(Host_Compute, CTRL_HPARAMS(host_task_params)) {
-	#ifdef _PROFILING_ENABLED_
-	roctxRangePush("Host task");
-	#endif //_PROFILING_ENABLED_
-
 	double minimum = hit(matrix, 0);
 	double maximum = hit(matrix, 0);
 
@@ -131,10 +101,6 @@ CTRL_HOST_TASK(Host_Compute, CTRL_HPARAMS(host_task_params)) {
 	for (int i = 0; i < SIZE * SIZE; i++) {
 		hit(matrix_res, i) = hit(matrix, i) / p_res[ITER];
 	}
-
-	#ifdef _PROFILING_ENABLED_
-	roctxRangePop();
-	#endif //_PROFILING_ENABLED_
 }
 
 CTRL_KERNEL_PROTO(Mult, 1, HIP, DEFAULT, mult_params);
@@ -165,16 +131,14 @@ int main(int argc, char *argv[]) {
 		PCtrl ctrl = Ctrl_Get(0);
 
 		// Extra information for collecting results
-		Ctrl_Info info = Ctrl_GetInfo(ctrl);
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, ", info.device_name);
-		#else
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n ----------------------- ARGS ----------------------- \n");
 		printf("\n SIZE: %d", SIZE);
 		printf("\n N_ITER: %d", N_ITER);
-		printf("\n DEVICE: %s", info.device_name);
 		printf("\n POLICY %s", policy ? "Async" : "Sync");
-		printf("\n HOST AFFINITY: %d", info.host_affinity);
+		#endif // _CTRL_EXAMPLES_EXP_MODE_
+		Ctrl_PrintInfo();
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n\n ---------------------------------------------------- \n");
 		#endif // _CTRL_EXAMPLES_EXP_MODE_
 		fflush(stdout);
@@ -224,17 +188,17 @@ int main(int argc, char *argv[]) {
 	free(p_sum);
 	free(p_res);
 
-	Ctrl_Finalize();
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ---------------------- TIMERS ---------------------- \n");
-	printf("Clock main: %lf\n", main_clock);
-	printf("Clock exec: %lf\n", exec_clock);
-	printf("\n\n ---------------------------------------------------- \n");
+	printf("\n ---------------------- TIMERS ---------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_ // _CTRL_EXAMPLES_EXP_MODE_
 
+	Ctrl_Finalize();
 	return EXIT_SUCCESS;
 }

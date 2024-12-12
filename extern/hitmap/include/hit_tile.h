@@ -17,7 +17,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -37,7 +37,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
@@ -631,6 +631,19 @@ extern HitTile			HIT_TILE_NULL;
  * 						be reduced.
  */
 int hit_tileReduceDims(void *newVar, int numReductions);
+
+/**
+ * Flatten dimensions.
+ *
+ * Changes the shape of the tile to have the same number of elements but in the few number
+ * of dimesions as possible. For memory owners the resulting shape has only one dimension.
+ * For subselections the dimensions after the last selection are flattened. The values of 
+ * the elements and its storage are not modified.
+ *
+ * @param[in,out] varP	A pointer to a HitTile.
+ * @return  0 if the reduction is correct, 1 in case the no dimension can be flattened.
+ */
+int hit_tileFlattenDims(void *varP);
 
 /* 7. MERGE/FUSION OF TILES WITH A TOUCHING BOUNDARY WITH THE SAME GEOMETRY */
 /* GLUE TILES WITH TOUCHING BOUNDARIES OF THE SAME GEOMETRY */

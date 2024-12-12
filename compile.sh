@@ -9,6 +9,7 @@ archs["FPGA"]="OFF"
 
 declare -A libs
 libs["CUBLAS"]="OFF"
+libs["HIPBLAS"]="OFF"
 libs["MKL"]="OFF"
 libs["MAGMA"]="OFF"
 
@@ -18,6 +19,7 @@ while :; do
 		-h | -\? | --help)
 			echo "--------Controllers compiling script--------"
 			echo "This script compiles hitmap if it isnt already, deletes everything in 'build' directory and compiles controllers with the options specified."
+			echo "User is responsible for loading relevant modules/environments for the options chosen except for what is inside env.sh whish is sourced automatically."
 			echo "Usage: bash compile.sh OPTIONS"
 			echo "	-a|--arch archs			Select ctrl architectures to support."
 			echo "							Comma separated. Valid values: CUDA, HIP, CPU, OPENCL, FPGA."
@@ -26,8 +28,8 @@ while :; do
 			echo "	-d|--debug				Debug mode. Compile with -O0 -g and extra error checking and info."
 			echo "	-c|--clean				Allways clean and recompile hitmap."
 			echo "	-p|--profile			Enable marks for host tasks for profiling on CUDA and OpenCL AMD."
-			echo "	--cc compiler			Use a diferent compiler."
-			echo "	-l|--libs libs			Select blas libs to support. Comma separated. Valid values are cublas, mkl, magma."
+			echo "	--cc compiler			Use a diferent C/C++ compiler. Also applies for CUDA host compiler and hitmap compilation if necessary. By default uses the value on \$CC or gcc if \$CC does not exist."
+			echo "	-l|--libs libs			Select blas libs to support. Comma separated. Valid values are cublas, hipblas, mkl, magma."
 			echo "							If not specified uses defaults specified in cmake."
 			echo "	-f|--flags				Specify extra flags for compiler.Comma separated to specify multiple extra flags."
 			exit
@@ -45,9 +47,6 @@ while :; do
 					fi
 					echo "Compiling for $arch"
 					archs["$arch"]="ON"
-					if [ "$arch" == "FPGA" ]; then
-						. /opt/intel/oneapi/setvars.sh
-					fi
 				done
 				shift
 			else
@@ -72,23 +71,9 @@ while :; do
 			;;
 		--cc)
 			if [ "$2" ]; then
-				echo "using $2 compiler"
-				case "$2" in
-					icc)
-						CMAKE_FLAGS+="-DCMAKE_C_COMPILER=icc "
-						. /opt/intel/oneapi/setvars.sh
-						icc --version
-						;;
-					aocc)
-						CMAKE_FLAGS+="-DCMAKE_C_COMPILER=clang "
-						. /opt/AMD/aocc-compiler-3.1.0/setenv_AOCC.sh
-						clang --version
-						;;
-					*)
-						CMAKE_FLAGS+="-DCMAKE_C_COMPILER=$2 "
-						$2 --version
-						;;
-				esac
+				echo "using $2 C/C++ compiler"
+				C_COMP=$2
+				$2 --version
 				shift
 			else
 				echo 'ERROR: "--arch" requires a non-empty option argument.'
@@ -107,9 +92,6 @@ while :; do
 					fi
 					echo "Compiling with $lib"
 					libs["$lib"]="ON"
-					if [[ "$lib" == "MKL" || "$lib" == "MAGMA" ]]; then
-						. /opt/intel/oneapi/setvars.sh
-					fi
 				done
 				shift
 			else
@@ -165,13 +147,22 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 # load modules
 . ./env.sh
 
+# overwrite c and c++ compilers if indicated
+CC=${CC:-"gcc"}
+CXX=${CXX:-"gcc"}
+
+CC=${C_COMP:-$CC}
+CXX=${C_COMP:-$CXX}
+
+CMAKE_FLAGS+="-DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX "
+
 # check if hitmap is compiled, if not, compile it
 echo "Checking extern libs..."
 if [ ! -f "extern/hitmap/lib/libhit.a" ] || [ $recompile_hitmap ]; then
 	echo "Hitmap not found, compiling..."
 	cd extern/hitmap
 	make clean
-	make -j 12
+	make -j 12 CC=$CC
 	cd ../../
 fi
 echo "... Done!"

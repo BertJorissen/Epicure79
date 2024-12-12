@@ -1,42 +1,18 @@
 /**
  * @file HSOpticalFLow_Ctrl_Multi.cu
- * @author Trasgo Group
  * @brief HSOpticalFlow: Ctrl version, muli frame and multi device
- * @version 4.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Ctrl.h"
 #include "helper_image.h"
 #include <math.h>
 #include <unistd.h>
+#include "../../examples/Utils/ctrl_print_info.h"
 
 #include "ctrl_kernels/kernels_protos.h"
-
-#include "../../Utils/profiler_utils.h"
 
 #define hit_tileSwap(a, b)               \
 	{                                    \
@@ -49,8 +25,6 @@ double main_clock;
 double exec_clock;
 
 CTRL_HOST_TASK(Load_frame, HitTile_float matrix, const char *video_path, int frame) {
-	PROF_RANGEPUSH("Load frame");
-
 	unsigned char *data = 0;
 	unsigned int   w = 0, h = 0;
 
@@ -76,8 +50,6 @@ CTRL_HOST_TASK(Load_frame, HitTile_float matrix, const char *video_path, int fra
 	}
 
 	free(data);
-
-	PROF_RANGEPOP();
 }
 
 /* F. Defining host task prototypes */
@@ -86,6 +58,69 @@ CTRL_HOST_TASK_PROTO(Load_frame, 3, OUT, HitTile_float, matrix, INVAL, const cha
 #define CTRL_BLK_DEF     CTRL_THREAD_NULL
 #define hit_height(tile) hit_tileDimCard(tile, 0)
 #define hit_width(tile)  hit_tileDimCard(tile, 1)
+
+typedef struct Cut_Point {
+	int cid; /**< device id */
+	int lvl; /**< End level */
+	int wi;  /**< End warp iteration */
+} Cut_Point;
+
+Cut_Point *cut_points = NULL;
+int        npoints    = 0;
+
+/**
+ * @brief Initalize work partition.
+ *
+ * Allocates memory to store a list of cutting points of size equal to the number of compute devices
+ */
+void InitWorkPartition() {
+	cut_points = (Cut_Point *)malloc(sizeof(Cut_Point) * (Ctrl_GetNCtrls() - 1));
+}
+
+/**
+ * @brief free previously allocated work partition.
+ */
+void DestroyWorkPartition() {
+	free(cut_points);
+}
+
+/**
+ * @brief Adds a new cut point to the work partition
+ *
+ * The cut points must be added in sequential order.
+ * There may not be more cut points than the number of compute devices.
+ *
+ * @param cid id of device responsible for the section
+ * @param lvl level of the cut point
+ * @param wi Warp iteration of the cu point
+ */
+void AddCutPoint(int cid, int lvl, int wi) {
+	if (npoints >= Ctrl_GetNCtrls()) {
+		fprintf(stderr, "Error: tried to add more cut points than compute devices available\n");
+		exit(EXIT_FAILURE);
+	}
+
+	cut_points[npoints++] = (Cut_Point){.cid = cid, .lvl = lvl, .wi = wi};
+}
+
+/**
+ * @brief Get the id of the device in charge of executing warp iter \p wi of level \p lvl
+ *
+ * @param lvl level
+ * @param wi warp iter
+ * @return Ctrl id in charge of this block
+ */
+int Get_Cid(int lvl, int wi) {
+
+	for (int i = 0; i < npoints; i++) {
+		Cut_Point cp = cut_points[i];
+
+		if (lvl < cp.lvl) return cp.cid;
+		if (lvl == cp.lvl && wi <= cp.wi) return cp.cid;
+	}
+	fprintf(stderr, "Error: invalid lvl (%d) or warp (%d) for partition config\n", lvl, wi);
+	exit(EXIT_FAILURE);
+}
 
 /**
  * \brief Compute the optical flow between \p src and \p tgt.
@@ -102,7 +137,6 @@ CTRL_HOST_TASK_PROTO(Load_frame, 3, OUT, HitTile_float, matrix, INVAL, const cha
  * \param[in]  n_solves                number of solver iterations (Jacobi iterations)
  * \param[out] u                       horizontal displacement
  * \param[out] v                       vertical displacement
- * \param[in]  lw2cid                  work partition scheme, level and warp iter to ctrl responsible for it
  * \param      pp_src,pp_tgt             downscaled images. Last lvl has refs to original images tiles \p src and \p tgt. Device only except for last lvl.
  * \param      pp_u,pp_v               partial results of levels and warps. Of size of the corresponding lvl, tiles for warps of the same lvl may be
  *                                     references to the same tile if handled by the same ctrl.
@@ -112,7 +146,7 @@ CTRL_HOST_TASK_PROTO(Load_frame, 3, OUT, HitTile_float, matrix, INVAL, const cha
  * \param      p_du0,p_dv0,p_du1,p_dv1 ancillary for jacobi iterations. Tiles of size of original image, one per ctrl participating in compute. Device only
  * \param      p_Ix,p_Iy,p_Iz          derivatives. Tiles of size of original image, one per ctrl participating in compute. Device only
  */
-void ComputeFlow(HitTile_float src, HitTile_float tgt, int n_ctrls, float alpha, int n_lvls, int n_warps, int n_solves, HitTile_float u, HitTile_float v, int lw2cid[n_lvls][n_warps],
+void ComputeFlow(HitTile_float src, HitTile_float tgt, int n_ctrls, float alpha, int n_lvls, int n_warps, int n_solves, HitTile_float u, HitTile_float v,
 				 HitTile_float pp_src[n_lvls][n_ctrls], HitTile_float pp_tgt[n_lvls][n_ctrls], HitTile_float pp_u[n_lvls][n_warps + 1], HitTile_float pp_v[n_lvls][n_warps + 1],
 				 HitTile_float p_tmp[n_ctrls], HitTile_float p_du0[n_ctrls], HitTile_float p_dv0[n_ctrls], HitTile_float p_du1[n_ctrls], HitTile_float p_dv1[n_ctrls],
 				 HitTile_float p_Ix[n_ctrls], HitTile_float p_Iy[n_ctrls], HitTile_float p_Iz[n_ctrls]) {
@@ -169,15 +203,19 @@ void ComputeFlow(HitTile_float src, HitTile_float tgt, int n_ctrls, float alpha,
 		}
 	}
 
-	// TODO what to do with this? custom kernel? lib kernel that calls to memset? 1D char or 2D char
-	Ctrl_Launch(Ctrl_Get(lw2cid[0][0]), Zero, thr_space[0], CTRL_BLK_DEF, pp_u[0][0]);
-	Ctrl_Launch(Ctrl_Get(lw2cid[0][0]), Zero, thr_space[0], CTRL_BLK_DEF, pp_v[0][0]);
+	Ctrl_Launch(Ctrl_Get(Get_Cid(0, 0)), Zero, thr_space[0], CTRL_BLK_DEF, pp_u[0][0]);
+	Ctrl_Launch(Ctrl_Get(Get_Cid(0, 0)), Zero, thr_space[0], CTRL_BLK_DEF, pp_v[0][0]);
 
 	// Initial estimate (u, v) starts at 0
 	for (; lvl < n_lvls; ++lvl) {
 		for (int wi = 0; wi < n_warps; ++wi) {
-			int   cid  = lw2cid[lvl][wi]; // ctrl id
+			// Ctrl_Synchronize();
+			// double wi_timer = omp_get_wtime();
+			int   cid  = Get_Cid(lvl, wi); // ctrl id
 			PCtrl ctrl = Ctrl_Get(cid);
+
+			// cpu type ctrls shouldn't use the augmented thr space for solve kernels
+			Ctrl_Thread *thr_space_solve = (!strcmp(Ctrl_GetInfo(ctrl).type, "CPU")) ? thr_space : thr_space_aug;
 
 			// Texture creation
 			tex_desc.width  = thr_space[lvl].j;
@@ -202,7 +240,7 @@ void ComputeFlow(HitTile_float src, HitTile_float tgt, int n_ctrls, float alpha,
 			// Solve equation for du, dv
 			for (int iter = 0; iter < n_solves; ++iter) {
 				// threads are +1 in both dims because of the way the copy to shared mem is done
-				Ctrl_Launch(ctrl, Solve, thr_space_aug[lvl], CTRL_BLK_DEF, p_du0[cid], p_dv0[cid], p_Ix[cid], p_Iy[cid], p_Iz[cid], alpha, p_du1[cid], p_dv1[cid]);
+				Ctrl_Launch(ctrl, Solve, thr_space_solve[lvl], CTRL_BLK_DEF, p_du0[cid], p_dv0[cid], p_Ix[cid], p_Iy[cid], p_Iz[cid], alpha, p_du1[cid], p_dv1[cid]);
 
 				hit_tileSwap(p_du0[cid], p_du1[cid]);
 				hit_tileSwap(p_dv0[cid], p_dv1[cid]);
@@ -211,11 +249,15 @@ void ComputeFlow(HitTile_float src, HitTile_float tgt, int n_ctrls, float alpha,
 			// Update current estimate
 			Ctrl_Launch(ctrl, Add, thr_space[lvl], CTRL_BLK_DEF, pp_u[lvl][wi], p_du0[cid], pp_u[lvl][wi + 1]);
 			Ctrl_Launch(ctrl, Add, thr_space[lvl], CTRL_BLK_DEF, pp_v[lvl][wi], p_dv0[cid], pp_v[lvl][wi + 1]);
+
+			// Ctrl_Synchronize();
+			// printf("lvl %d wi %d cid %d time %lf\n", lvl, wi, cid, omp_get_wtime() - wi_timer);
+			// fflush(stdout);
 		}
 
 		// Prolongate solution (u, v) for use in the next level
 		if (lvl != n_lvls - 1) {
-			PCtrl ctrl   = Ctrl_Get(lw2cid[lvl][n_warps - 1]);
+			PCtrl ctrl   = Ctrl_Get(Get_Cid(lvl, n_warps - 1));
 			float scaleX = (float)hit_width(pp_src[lvl + 1][0]) / hit_width(pp_src[lvl][0]);
 			Ctrl_Launch(ctrl, Upscale, thr_space[lvl + 1], CTRL_BLK_DEF, pp_u[lvl][n_warps], scaleX, pp_u[lvl + 1][0]);
 
@@ -246,6 +288,11 @@ int main(int argc, char *argv[]) {
 
 	__ctrl_block__(ctrl_conf_file) {
 		// 2. Get controller object and print info
+		int   n_ctrls = Ctrl_GetNCtrls();
+		PCtrl ctrls[n_ctrls];
+		for (int i = 0; i < n_ctrls; i++) {
+			ctrls[i] = Ctrl_Get(i);
+		}
 		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n ----------------------- ARGS ------------------------- \n");
 		printf("\n ALPHA: %g", alpha);
@@ -255,41 +302,59 @@ int main(int argc, char *argv[]) {
 		printf("\n FRAMES: %d", n_frames);
 		printf("\n FRAMES PATH: %s", video_path);
 		#endif // _CTRL_EXAMPLES_EXP_MODE_
-
-		int   n_ctrls = Ctrl_GetNCtrls();
-		PCtrl ctrls[n_ctrls];
-		for (int i = 0; i < n_ctrls; i++) {
-			ctrls[i]       = Ctrl_Get(i);
-			Ctrl_Info info = Ctrl_GetInfo(ctrls[i]);
-			#ifdef _CTRL_EXAMPLES_EXP_MODE_
-			printf("%s;", info.device_name);
-			#else // _CTRL_EXAMPLES_EXP_MODE_
-			printf("\n\n CTRL TYPE: %s", info.type);
-			printf("\n PLATFORM: %s", info.platform_name);
-			printf("\n DEVICE: %s", info.device_name);
-			printf("\n N_THREADS: %d", info.n_threads);
-			printf("\n MEM_MOVES: %s", info.mem_transfers ? "ON" : "OFF");
-			printf("\n NUMA RANGE: %d-%d", info.numa_range_min, info.numa_range_max);
-			#endif // _CTRL_EXAMPLES_EXP_MODE_
-		}
-
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf(", ");
-		#else // _CTRL_EXAMPLES_EXP_MODE_
+		Ctrl_PrintInfo();
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n\n ---------------------------------------------------- \n");
 		#endif // _CTRL_EXAMPLES_EXP_MODE_
 		fflush(stdout);
 
-		// 3. Define work partition scheme
-		// level and warp iter to ctrl id
-		int lw2cid[5][3] = {
-			{1, 1, 1},
-			{1, 1, 1},
-			{1, 1, 1},
-			{2, 3, 0},
-			{0, 0, 0}};
+		// allocs work partition
+		InitWorkPartition();
+		// add cut points
 
-		// 4. Create tiles and alloc memory
+		switch (n_ctrls - 1) {
+			case 1:
+				AddCutPoint(0, 4, 2);
+				break;
+			case 2:
+				// gfx900, v100
+				// AddCutPoint(0, 3, 2);
+				// AddCutPoint(1, 4, 2);
+
+				// v100, gfx900
+				// AddCutPoint(0, 4, 1);
+				// AddCutPoint(1, 4, 2);
+
+				// rtx4500 gfx1100
+				AddCutPoint(0, 4, 0);
+				AddCutPoint(1, 4, 2);
+
+				// a100 rtx4500/gfx1100
+				// AddCutPoint(0, 4, 1);
+				// AddCutPoint(1, 4, 2);
+
+				// rtx4500/gfx1100 a100
+				// AddCutPoint(0, 3, 2);
+				// AddCutPoint(1, 4, 3);
+			case 3:
+				// 2x rtx4500 1x a100
+				AddCutPoint(0, 3, 0);
+				AddCutPoint(1, 3, 2);
+				AddCutPoint(2, 4, 2);
+				break;
+			case 4:
+				// 1x gfx1100 2x rtx4500 1x a100
+				AddCutPoint(0, 3, 0);
+				AddCutPoint(1, 3, 2);
+				AddCutPoint(2, 4, 0);
+				AddCutPoint(3, 4, 2);
+				break;
+			default:
+				fprintf(stderr, "ERROR: No config for %d devices\n", n_ctrls - 1);
+				exit(EXIT_FAILURE);
+		}
+
+		// 3. Create tiles and alloc memory
 		// get frames size
 		char           frame_path[strlen(video_path) + 9];
 		unsigned int   channels, w, h;
@@ -356,20 +421,20 @@ int main(int argc, char *argv[]) {
 		for (int lvl = 0; lvl < n_lvls; lvl++) {
 			HitShape shape = hit_tileShape(pp_src[lvl][0]);
 			// alloc first tile for each lvl
-			pp_u[lvl][0] = Ctrl_DomainAlloc(ctrls[lw2cid[lvl][0]], float, shape, CTRL_MEM_ALIGNED | CTRL_MEM_ALLOC_DEV);
-			pp_v[lvl][0] = Ctrl_DomainAlloc(ctrls[lw2cid[lvl][0]], float, shape, CTRL_MEM_ALIGNED | CTRL_MEM_ALLOC_DEV);
-			if (lvl != 0 && lw2cid[lvl][0] != lw2cid[lvl - 1][n_warps - 1]) {
+			pp_u[lvl][0] = Ctrl_DomainAlloc(ctrls[Get_Cid(lvl, 0)], float, shape, CTRL_MEM_ALIGNED | CTRL_MEM_ALLOC_DEV);
+			pp_v[lvl][0] = Ctrl_DomainAlloc(ctrls[Get_Cid(lvl, 0)], float, shape, CTRL_MEM_ALIGNED | CTRL_MEM_ALLOC_DEV);
+			if (lvl != 0 && Get_Cid(lvl, 0) != Get_Cid(lvl - 1, n_warps - 1)) {
 				// connection to ctrl of the prev lvl if different
-				Ctrl_Alloc(ctrls[lw2cid[lvl - 1][n_warps - 1]], pp_u[lvl][0], CTRL_MEM_ALIGNED);
-				Ctrl_Alloc(ctrls[lw2cid[lvl - 1][n_warps - 1]], pp_v[lvl][0], CTRL_MEM_ALIGNED);
+				Ctrl_Alloc(ctrls[Get_Cid(lvl - 1, n_warps - 1)], pp_u[lvl][0], CTRL_MEM_ALIGNED);
+				Ctrl_Alloc(ctrls[Get_Cid(lvl - 1, n_warps - 1)], pp_v[lvl][0], CTRL_MEM_ALIGNED);
 			}
 			for (int wi = 1; wi < n_warps + 1; wi++) {
 				// if warps are handled by different ctrls create a new tile else copy previous
-				if (wi < n_warps && lw2cid[lvl][wi] != lw2cid[lvl][wi - 1]) {
-					pp_u[lvl][wi] = Ctrl_DomainAlloc(ctrls[lw2cid[lvl][wi]], float, shape, CTRL_MEM_ALIGNED);
-					pp_v[lvl][wi] = Ctrl_DomainAlloc(ctrls[lw2cid[lvl][wi]], float, shape, CTRL_MEM_ALIGNED);
-					Ctrl_Alloc(ctrls[lw2cid[lvl][wi - 1]], pp_u[lvl][wi], CTRL_MEM_ALIGNED);
-					Ctrl_Alloc(ctrls[lw2cid[lvl][wi - 1]], pp_v[lvl][wi], CTRL_MEM_ALIGNED);
+				if (wi < n_warps && Get_Cid(lvl, wi) != Get_Cid(lvl, wi - 1)) {
+					pp_u[lvl][wi] = Ctrl_DomainAlloc(ctrls[Get_Cid(lvl, wi)], float, shape, CTRL_MEM_ALIGNED);
+					pp_v[lvl][wi] = Ctrl_DomainAlloc(ctrls[Get_Cid(lvl, wi)], float, shape, CTRL_MEM_ALIGNED);
+					Ctrl_Alloc(ctrls[Get_Cid(lvl, wi - 1)], pp_u[lvl][wi], CTRL_MEM_ALIGNED);
+					Ctrl_Alloc(ctrls[Get_Cid(lvl, wi - 1)], pp_v[lvl][wi], CTRL_MEM_ALIGNED);
 				} else {
 					pp_u[lvl][wi] = pp_u[lvl][wi - 1];
 					pp_v[lvl][wi] = pp_v[lvl][wi - 1];
@@ -377,19 +442,19 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		HitTile_float u = Ctrl_DomainAlloc(ctrls[lw2cid[n_lvls - 1][n_warps - 1]], float, hit_tileShape(frames[0]), CTRL_MEM_ALIGNED);
-		HitTile_float v = Ctrl_DomainAlloc(ctrls[lw2cid[n_lvls - 1][n_warps - 1]], float, hit_tileShape(frames[0]), CTRL_MEM_ALIGNED);
+		HitTile_float u = Ctrl_DomainAlloc(ctrls[Get_Cid(n_lvls - 1, n_warps - 1)], float, hit_tileShape(frames[0]), CTRL_MEM_ALIGNED);
+		HitTile_float v = Ctrl_DomainAlloc(ctrls[Get_Cid(n_lvls - 1, n_warps - 1)], float, hit_tileShape(frames[0]), CTRL_MEM_ALIGNED);
 		Ctrl_Alloc(ctrls[n_ctrls], u);
 		Ctrl_Alloc(ctrls[n_ctrls], v);
 
 		double *p_sum = (double *)malloc(sizeof(double) * (n_frames - 1));
 		double *p_res = (double *)malloc(sizeof(double) * (n_frames - 1));
 
-		// 5. Sync and start timer
+		// 4. Sync and start timer
 		Ctrl_Synchronize();
 		exec_clock = omp_get_wtime();
 
-		// 6. Main computation loop
+		// 5. Main computation loop
 		int one = 1;
 		Ctrl_HostTask(Load_frame, frames[0], video_path, one);
 		for (int i = 2; i < n_frames + 1; i++) {
@@ -397,14 +462,14 @@ int main(int argc, char *argv[]) {
 			HitTile_float tgt = frames[(i - 1) % pipe_len];
 			Ctrl_HostTask(Load_frame, tgt, video_path, i);
 
-			ComputeFlow(src, tgt, n_ctrls, alpha, n_lvls, n_warps, n_solves, u, v, lw2cid,
+			ComputeFlow(src, tgt, n_ctrls, alpha, n_lvls, n_warps, n_solves, u, v,
 						pp_src, pp_tgt, pp_u, pp_v, p_tmp,
 						p_du0, p_dv0, p_du1, p_dv1,
 						p_Ix, p_Iy, p_Iz);
 			Ctrl_Launch(ctrls[n_ctrls], Norm, CTRL_THREAD_NULL, CTRL_THREAD_NULL, u, v, p_sum, p_res, i);
 		}
 
-		// 7. Sync and stop timer
+		// 6. Sync and stop timer
 		Ctrl_Synchronize();
 		exec_clock = omp_get_wtime() - exec_clock;
 
@@ -422,7 +487,7 @@ int main(int argc, char *argv[]) {
 		// This should not be neccessary but there are weird issues with the freeing of shared tiles in opencl ctrls
 		// Ctrl_Synchronize();
 
-		// 8. Tile cleanup
+		// 7. Tile cleanup
 		for (int i = 0; i < n_lvls - 1; ++i) {
 			for (int cid = 0; cid < n_ctrls; cid++) {
 				Ctrl_Free(ctrls[cid], pp_src[i][cid], pp_tgt[i][cid]);
@@ -437,18 +502,18 @@ int main(int argc, char *argv[]) {
 
 		for (int lvl = 0; lvl < n_lvls; lvl++) {
 			for (int wi = 0; wi < n_warps - 1; wi++) {
-				if (lw2cid[lvl][wi] != lw2cid[lvl][wi + 1]) {
-					Ctrl_Free(ctrls[lw2cid[lvl][wi]], pp_u[lvl][wi + 1], pp_v[lvl][wi + 1]);
-					Ctrl_Free(ctrls[lw2cid[lvl][wi]], pp_u[lvl][wi], pp_v[lvl][wi]);
+				if (Get_Cid(lvl, wi) != Get_Cid(lvl, wi + 1)) {
+					Ctrl_Free(ctrls[Get_Cid(lvl, wi)], pp_u[lvl][wi + 1], pp_v[lvl][wi + 1]);
+					Ctrl_Free(ctrls[Get_Cid(lvl, wi)], pp_u[lvl][wi], pp_v[lvl][wi]);
 				}
 			}
-			Ctrl_Free(ctrls[lw2cid[lvl][n_warps - 1]], pp_u[lvl][n_warps - 1], pp_v[lvl][n_warps - 1]);
-			if (lvl != n_lvls - 1 && lw2cid[lvl][n_warps - 1] != lw2cid[lvl + 1][0]) {
-				Ctrl_Free(ctrls[lw2cid[lvl][n_warps - 1]], pp_u[lvl + 1][0], pp_v[lvl + 1][0]);
+			Ctrl_Free(ctrls[Get_Cid(lvl, n_warps - 1)], pp_u[lvl][n_warps - 1], pp_v[lvl][n_warps - 1]);
+			if (lvl != n_lvls - 1 && Get_Cid(lvl, n_warps - 1) != Get_Cid(lvl + 1, 0)) {
+				Ctrl_Free(ctrls[Get_Cid(lvl, n_warps - 1)], pp_u[lvl + 1][0], pp_v[lvl + 1][0]);
 			}
 		}
 
-		Ctrl_Free(ctrls[lw2cid[n_lvls - 1][n_warps - 1]], u, v);
+		Ctrl_Free(ctrls[Get_Cid(n_lvls - 1, n_warps - 1)], u, v);
 		Ctrl_Free(ctrls[n_ctrls], u, v);
 
 		for (int cid = 0; cid < n_ctrls; cid++) {
@@ -461,11 +526,13 @@ int main(int argc, char *argv[]) {
 		free(p_sum);
 		free(p_res);
 
-		// 9. Destroy the controller
+		DestroyWorkPartition();
+
+		// 8. Destroy the controller
 		Ctrl_EndBlock();
 	}
 
-	// 10. Stop main timer and print times
+	// 9. Stop main timer and print times
 	main_clock = omp_get_wtime() - main_clock;
 
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_

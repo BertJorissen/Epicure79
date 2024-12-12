@@ -33,6 +33,9 @@ lib/
 # Ignore ciTests executables
 ciTests/*/*.test
 
+# Ignore generated utils execs
+utils/hitmap_files
+
 # Ignore generated examples execs
 
 examples/CannonMM/cannonAsync

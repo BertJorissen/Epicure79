@@ -1,3 +1,6 @@
 node manticore
 	proc 0 1
-		opencl 0 0
+		opencl 1 0
+node gorgon
+	proc 0 3
+		opencl 1 0

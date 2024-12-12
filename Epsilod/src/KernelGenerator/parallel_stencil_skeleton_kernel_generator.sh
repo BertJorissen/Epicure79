@@ -4,9 +4,8 @@
 #
 # Generator of stencil kernels from stencil pattern specifications
 #
-# Author: Arturo Gonzalez-Escribano, 2021
-# Version: 1.0
-#
+# This software is part of the Controller project by Trasgo Group, UVa.
+# The relevant license, warranty and copyright notice is available in the Controller project repository.
 
 # 1. CHECK ARGUMENT
 if [ $# -lt 1 ]; then

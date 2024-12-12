@@ -1,33 +1,10 @@
 ///@cond INTERNAL
 /**
  * @file Ctrl_OpenCL_Gpu.c
- * @author Trasgo Group
  * @brief Source code for OpenCL GPU backend.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Architectures/OpenCL/Ctrl_OpenCL_Gpu.h"
@@ -246,20 +223,30 @@ void Ctrl_OpenCLGpu_Create(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Policy policy, char *arg
 	OPENCL_ASSERT_OP(clGetPlatformInfo(p_ctrl->platform_id, CL_PLATFORM_NAME, 0, NULL, &platform_name_size));
 	char *platform_name = (char *)malloc(sizeof(char) * platform_name_size);
 	OPENCL_ASSERT_OP(clGetPlatformInfo(p_ctrl->platform_id, CL_PLATFORM_NAME, platform_name_size, platform_name, NULL));
-	if (strstr(platform_name, "AMD")) { // do not use "pinned" mem on amd platforms for performance reasons
-		p_ctrl->default_alloc_mode = CTRL_MEM_NOPINNED;
-	} else if (strstr(platform_name, "NVIDIA")) { // nvidia platforms prefer pinned memory
-		p_ctrl->default_alloc_mode = CTRL_MEM_PINNED;
-	} else { // on other unknown platforms default to using "pinned mem"
-		p_ctrl->default_alloc_mode = CTRL_MEM_PINNED;
-	}
-	free(platform_name);
 
 	// get OpenCL device id from device index
 	cl_device_id *p_device_ids = (cl_device_id *)malloc((device + 1) * sizeof(cl_device_id));
 	OPENCL_ASSERT_OP(clGetDeviceIDs(p_ctrl->platform_id, CL_DEVICE_TYPE_GPU, device + 1, p_device_ids, NULL));
 	p_ctrl->device_id = p_device_ids[device];
 	free(p_device_ids);
+
+	size_t device_name_size;
+	OPENCL_ASSERT_OP(clGetDeviceInfo(p_ctrl->device_id, CL_DEVICE_NAME, 0, NULL, &device_name_size));
+	char device_name[device_name_size];
+	OPENCL_ASSERT_OP(clGetDeviceInfo(p_ctrl->device_id, CL_DEVICE_NAME, device_name_size, device_name, NULL));
+
+	if (strstr(platform_name, "AMD")) { // some amd devices have performance issues when using pinned
+		if (strstr(device_name, "gfx900")) {
+			p_ctrl->default_alloc_mode = CTRL_MEM_NOPINNED;
+		} else {
+			p_ctrl->default_alloc_mode = CTRL_MEM_PINNED;
+		}
+	} else if (strstr(platform_name, "NVIDIA")) { // nvidia platforms prefer pinned memory
+		p_ctrl->default_alloc_mode = CTRL_MEM_PINNED;
+	} else { // on other unknown platforms default to using "pinned mem"
+		p_ctrl->default_alloc_mode = CTRL_MEM_PINNED;
+	}
+	free(platform_name);
 
 	// Create OpenCL context
 	cl_context_properties context_properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)p_ctrl->platform_id, 0};
@@ -1046,6 +1033,12 @@ void Ctrl_OpenCLGpu_EvalTaskKernelLaunch(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_ta
 									break;
 								#endif // _CTRL_ARCH_CUDA_
 
+								#ifdef _CTRL_ARCH_HIP_
+								case CTRL_TYPE_HIP:
+									Ctrl_Hip_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_hip->p_ctrl, p_tile);
+									break;
+								#endif // _CTRL_ARCH_HIP_
+
 								#ifdef _CTRL_ARCH_OPENCL_GPU_
 								case CTRL_TYPE_OPENCL_GPU:
 									Ctrl_OpenCLGpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_opencl->p_ctrl, p_tile);
@@ -1251,6 +1244,10 @@ void Ctrl_OpenCLGpu_EvalTaskSelectTile(Ctrl_OpenCLGpu *p_ctrl, Ctrl_Task *p_task
 
 	if (p_tile->memStatus == HIT_MS_NOT_OWNER) {
 		p_tile_data_impl->device_status = p_parent_data_impl->device_status;
+		if (p_parent_data_ocl->pitch != 0) {
+			fprintf(stderr, "[Ctrl_OpenCLGpu_EvalTaskSelectTile] Error: subselections of tiles with padding on the device (allocated with CTRL_MEM_ALIGNED) not supported.\n");
+			exit(EXIT_FAILURE);
+		}
 
 		/* Use parent buffers. Offset added inside the kernels (device pointers can't be edited in host scope). */
 		p_tile_data_ocl->device_data = p_parent_data_ocl->device_data;

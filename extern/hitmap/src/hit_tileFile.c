@@ -11,7 +11,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -31,7 +31,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
@@ -102,7 +102,7 @@ HitTile_FileHeaderInfo hit_tileFileStreamReadHeader( FILE *fichSh, const char *f
 		&& strcmp( str_type, "int" )
 		&& strcmp( str_type, "long" )
 		&& strcmp( str_type, "float" )
-		&& strcmp( str_type, "doubl" )
+		&& strcmp( str_type, "double" )
 		&& strcmp( str_type, "unk" ) )
 		hit_err( "Wrong type name in file", fileName, "" );
 

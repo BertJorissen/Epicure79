@@ -1,3 +1,10 @@
+/**
+ * @file example_1d4.c
+ * @brief Epsilod: Kernel definition file example 1d4
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
 
 HitShape shp_st_1d4 = hitShape((-2, 2));
 

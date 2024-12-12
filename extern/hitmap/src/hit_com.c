@@ -15,7 +15,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -35,7 +35,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
@@ -418,6 +418,7 @@ HitType hit_comTypeRec(const void *varP, HitType baseType) {
 #ifdef DEBUG
 printf("Multilevel Struct type for acumCard: %d\n", var.acumCard ); fflush(stdout);
 #endif
+
 			for(i=0;i<var.acumCard;i++) {
 				offset=0;
 				for(j=0;j<hit_tileDims(var);j++) {
@@ -428,7 +429,8 @@ printf("Multilevel Struct type for acumCard: %d\n", var.acumCard ); fflush(stdou
 				types[i]=auxtypes[i];
 				void * data = hit_comSearchData(auxtile);
 				MPI_Get_address(data,&addresses[i]);
-				sizes[i]=1;
+				// @arturo: Moved outside the loop to avoid warning: sizes may be used not initialized
+				//sizes[i]=1;
 				j=0;
 				do {
 					ind[j]=(ind[j]+1)%max[j];
@@ -436,6 +438,9 @@ printf("Multilevel Struct type for acumCard: %d\n", var.acumCard ); fflush(stdou
 				} while(j<hit_tileDims(var) && ind[j-1]==0 && max[j]!=0);
 			}
 			for(i=var.acumCard-1;i>=0;i--) addresses[i]-=addresses[0];
+			// @arturo: Moved outside the loop to avoid warning: sizes may be used not initialized
+			for(i=0;i<var.acumCard;i++) sizes[i]=1;
+
 			MPI_Type_create_struct(var.acumCard,sizes,addresses,types,&newType);
 			MPI_Type_commit(&newType);
 			for(i=0;i<var.acumCard;i++) hit_comFreeType(auxtypes[i]);

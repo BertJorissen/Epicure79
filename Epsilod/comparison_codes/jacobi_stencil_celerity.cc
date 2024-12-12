@@ -1,8 +1,11 @@
-/*
- * Celerity: Jacobi 2D
- * Author: Sergio Miguel-Lopez
- * Date: Aug 2021
+/**
+ * @file jacobi_stencil_celerity.cc
+ * @brief Jacobi 2D: Celerity version.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
+
 #include <CL/sycl.hpp>
 #include <celerity.h>
 #include <chrono>

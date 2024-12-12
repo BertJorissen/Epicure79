@@ -1,11 +1,11 @@
 export CFLAGS += -fPIC
 
 all:
-	make -C metis
-	make -C iohb1.0
-	make -C matrix_io
+	$(MAKE) -C metis
+	$(MAKE) -C iohb1.0
+	$(MAKE) -C matrix_io
 
 clean:
-	make -C metis realclean
-	make -C iohb1.0 clean
-	make -C matrix_io clean
+	$(MAKE) -C metis realclean
+	$(MAKE) -C iohb1.0 clean
+	$(MAKE) -C matrix_io clean

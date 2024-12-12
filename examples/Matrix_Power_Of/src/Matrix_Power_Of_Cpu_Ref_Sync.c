@@ -1,32 +1,9 @@
 /**
  * @file Matrix_Power_Of_Cpu_Ref_Sync.c
- * @author Trasgo Group
  * @brief MatrixPow: Native CPU version
- * @version 4.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include <assert.h>
@@ -137,15 +114,17 @@ int main(int argc, char const *argv[]) {
 	int THREADS     = atoi(argv[3]);
 	int MATRIX_SIZE = sizeof(float) * SIZE * SIZE;
 
-	#ifndef _CTRL_EXAMPLES_EXP_MODE_
+	#ifdef _CTRL_EXAMPLES_EXP_MODE_
+	printf("CPU-%d, ", THREADS);
+	#else // _CTRL_EXAMPLES_EXP_MODE_
 	printf("\n ----------------------- ARGS ----------------------- \n");
 	printf("\n SIZE: %d", SIZE);
 	printf("\n N_ITER: %d", POWER);
 	printf("\n N_THREADS: %d", THREADS);
 	printf("\n POLICY SYNC");
 	printf("\n\n ---------------------------------------------------- \n");
-	fflush(stdout);
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
+	fflush(stdout);
 
 	/*Variables*/
 	double *p_res      = (double *)malloc(POWER * sizeof(double));
@@ -206,10 +185,10 @@ int main(int argc, char const *argv[]) {
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ---------------------- TIMERS ---------------------- \n");
-	printf("Clock main: %lf\n", main_clock);
-	printf("Clock exec: %lf\n", exec_clock);
-	printf("\n\n ---------------------------------------------------- \n");
+	printf("\n ---------------------- TIMERS ---------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	return EXIT_SUCCESS;

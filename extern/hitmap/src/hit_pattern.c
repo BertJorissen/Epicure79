@@ -15,7 +15,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -35,7 +35,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
@@ -677,6 +677,12 @@ HitPattern hit_patternRedistributeCom(	HitLayout lay, void *tileP1, void *tileP2
 	// @javfres Initialize this to avoid warnings
 	HitShape tileShapesOrig[2] = {HIT_SHAPE_NULL_STATIC,HIT_SHAPE_NULL_STATIC};
 	int prefixSums[2][ HIT_MAXDIMS ];
+
+	// @arturo: To skip warnings when accesing tileShapes[myRank]
+	if ( myRank<0 || myRank>numProcs-1) {
+		HitPattern pnull = HIT_PATTERN_NULL_STATIC;
+		return pnull;
+	}
 
 	/*
 	//if ( ! hit_topImActive( hit_layTopology( lay ) ) ) {

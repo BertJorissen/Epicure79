@@ -1,0 +1,5 @@
+node manticore
+	proc 0 0
+		hip 0
+		hip 1
+		cpu 1 0-1 0

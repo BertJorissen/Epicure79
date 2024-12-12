@@ -1,3 +1,11 @@
+/**
+ * @file Matrix_Increment_Cuda_Ref_Async.cu
+ * @brief Matrix Increment: Native CUDA version
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -222,7 +230,7 @@ int main(int argc, char const *argv[]) {
 		CUDA_CHECK();
 		cudaSetDevice(CU_DEV1);
 		#else // CUDA_DEV2DEV
-		//   DTH m2 d0
+		//         DTH m2 d0
 		cudaStreamWaitEvent(stream_DtH_d0, event_kernel_d0);
 		cudaStreamWaitEvent(stream_DtH_d0, event_HtD_m2);
 		cudaMemcpyAsync(h_m2, d0_m2, MATRIX_SIZE, cudaMemcpyDeviceToHost, stream_DtH_d0);

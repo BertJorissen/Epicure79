@@ -1,10 +1,10 @@
 
 
 default:
-	(cd Lib ; make ) 
+	(cd Lib ; $(MAKE) ) 
 
 clean:
-	(cd Lib ; make clean )
+	(cd Lib ; $(MAKE) clean )
 
 realclean:
-	(cd Lib ; make realclean )
+	(cd Lib ; $(MAKE) realclean )

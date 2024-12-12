@@ -14,3 +14,4 @@ AlignAfterOpenBracket: Align
 IndentPPDirectives: BeforeHash
 AllowShortCaseLabelsOnASingleLine: true
 StatementMacros: ["_Pragma"]
+SortIncludes: Never

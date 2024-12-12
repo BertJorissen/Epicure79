@@ -1,42 +1,18 @@
 /**
  * @file HSOpticalFLow_Ctrl.cu
- * @author Trasgo Group
  * @brief HSOpticalFlow: Ctrl base version
- * @version 4.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Ctrl.h"
 #include "helper_image.h"
+#include "../../examples/Utils/ctrl_print_info.h"
 #include <math.h>
 #include <unistd.h>
 
 #include "ctrl_kernels/kernels_protos.h"
-
-#include "../../Utils/profiler_utils.h"
 
 #define hit_tileSwap(a, b)               \
 	{                                    \
@@ -50,8 +26,6 @@ double exec_clock;
 
 /* E. Host task to calculate and print the norm */
 CTRL_HOST_TASK(Norm_calc, HitTile_float u, HitTile_float v) {
-	PROF_RANGEPUSH("Norm calc");
-
 	double sum = 0;
 	double res = 0;
 
@@ -74,13 +48,9 @@ CTRL_HOST_TASK(Norm_calc, HitTile_float u, HitTile_float v) {
 	printf(" Result: %lf \n", res);
 	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
-
-	PROF_RANGEPOP();
 }
 
 CTRL_HOST_TASK(Init, HitTile_float matrix, unsigned char *data) {
-	PROF_RANGEPUSH("Init matrix");
-
 	int w = hit_tileDimCard(matrix, 1);
 	int h = hit_tileDimCard(matrix, 0);
 
@@ -94,8 +64,6 @@ CTRL_HOST_TASK(Init, HitTile_float matrix, unsigned char *data) {
 	}
 
 	free(data);
-
-	PROF_RANGEPOP();
 }
 
 /* F. Defining host task prototypes */
@@ -103,8 +71,6 @@ CTRL_HOST_TASK_PROTO(Norm_calc, 2, IN, HitTile_float, u, IN, HitTile_float, v);
 CTRL_HOST_TASK_PROTO(Init, 2, OUT, HitTile_float, matrix, INVAL, unsigned char *, data);
 
 HitTile_float LoadImageAsFP32(PCtrl ctrl, const char *name) {
-	PROF_RANGEPUSH("Load Image");
-
 	unsigned char *data = 0;
 	unsigned int   w = 0, h = 0;
 
@@ -119,8 +85,6 @@ HitTile_float LoadImageAsFP32(PCtrl ctrl, const char *name) {
 	HitTile_float img_data = Ctrl_DomainAlloc(ctrl, float, hitShapeSize(h, w), CTRL_MEM_ALIGNED | CTRL_MEM_NOPINNED);
 	Ctrl_HostTask(Init, img_data, data);
 
-	PROF_RANGEPOP();
-
 	return img_data;
 }
 
@@ -131,8 +95,6 @@ HitTile_float LoadImageAsFP32(PCtrl ctrl, const char *name) {
 /// \param[in] v    vertical displacement
 ///////////////////////////////////////////////////////////////////////////////
 void WriteFloFile(const char *name, HitTile_float u, HitTile_float v) {
-	PROF_RANGEPUSH("Write File");
-
 	FILE *stream = fopen(name, "wb");
 
 	if (stream == 0) {
@@ -155,7 +117,6 @@ void WriteFloFile(const char *name, HitTile_float u, HitTile_float v) {
 	}
 
 	fclose(stream);
-	PROF_RANGEPOP();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -171,17 +132,20 @@ void WriteFloFile(const char *name, HitTile_float u, HitTile_float v) {
 /// \param[out] u            horizontal displacement
 /// \param[out] v            vertical displacement
 ///////////////////////////////////////////////////////////////////////////////
-void ComputeFlowCUDA(PCtrl ctrl, HitTile_float I0, HitTile_float I1, float alpha, int nLevels, int nWarpIters,
-					 int nSolverIters, HitTile_float u, HitTile_float v) {
+void ComputeFlow(PCtrl ctrl, HitTile_float I0, HitTile_float I1, float alpha, int nLevels, int nWarpIters,
+				 int nSolverIters, HitTile_float u, HitTile_float v) {
 
 	HitTile_float pI0[nLevels];
 	HitTile_float pI1[nLevels];
 
-	Ctrl_Thread p_threads[nLevels];
+	Ctrl_Thread thr_space[nLevels];
 	// +1 in both dims to force extra threads to copy last column and row of the
 	// matrix in the first padding row and column to have boundary values during
 	// stencil stage on solve kernel
-	Ctrl_Thread p_threads1[nLevels];
+	Ctrl_Thread thr_space_aug[nLevels];
+
+	// cpu type ctrls shouldn't use the augmented thr space for solve kernels
+	Ctrl_Thread *thr_space_solve = (!strcmp(Ctrl_GetInfo(ctrl).type, "CPU")) ? thr_space : thr_space_aug;
 
 	Ctrl_TexDesc tex_desc      = {0};
 	tex_desc.normalized_coords = true;
@@ -214,8 +178,8 @@ void ComputeFlowCUDA(PCtrl ctrl, HitTile_float I0, HitTile_float I1, float alpha
 	Ctrl_CreateTex(ctrl, pI1[currentLevel], tex_desc);
 	// NOTE I0 I1 are copied to dev here in ref
 
-	Ctrl_ThreadInit(p_threads[currentLevel], hit_tileDimCard(I0, 0), hit_tileDimCard(I0, 1));
-	Ctrl_ThreadInit(p_threads1[currentLevel], hit_tileDimCard(I0, 0) + 1, hit_tileDimCard(I0, 1) + 1);
+	Ctrl_ThreadInit(thr_space[currentLevel], hit_tileDimCard(I0, 0), hit_tileDimCard(I0, 1));
+	Ctrl_ThreadInit(thr_space_aug[currentLevel], hit_tileDimCard(I0, 0) + 1, hit_tileDimCard(I0, 1) + 1);
 
 	// Create lower resolution versions of both images (src y tgt)
 	for (; currentLevel > 0; --currentLevel) {
@@ -230,63 +194,61 @@ void ComputeFlowCUDA(PCtrl ctrl, HitTile_float I0, HitTile_float I1, float alpha
 		Ctrl_CreateTex(ctrl, pI0[currentLevel - 1], tex_desc);
 		Ctrl_CreateTex(ctrl, pI1[currentLevel - 1], tex_desc);
 
-		Ctrl_ThreadInit(p_threads[currentLevel - 1], nh, nw);
-		Ctrl_ThreadInit(p_threads1[currentLevel - 1], nh + 1, nw + 1);
+		Ctrl_ThreadInit(thr_space[currentLevel - 1], nh, nw);
+		Ctrl_ThreadInit(thr_space_aug[currentLevel - 1], nh + 1, nw + 1);
 
-		Ctrl_Launch(ctrl, Downscale, p_threads[currentLevel - 1], CTRL_THREAD_NULL, pI0[currentLevel], pI0[currentLevel - 1]);
-		Ctrl_Launch(ctrl, Downscale, p_threads[currentLevel - 1], CTRL_THREAD_NULL, pI1[currentLevel], pI1[currentLevel - 1]);
+		Ctrl_Launch(ctrl, Downscale, thr_space[currentLevel - 1], CTRL_THREAD_NULL, pI0[currentLevel], pI0[currentLevel - 1]);
+		Ctrl_Launch(ctrl, Downscale, thr_space[currentLevel - 1], CTRL_THREAD_NULL, pI1[currentLevel], pI1[currentLevel - 1]);
 	}
 
-	// TODO what to do with this? custom kernel? lib kernel that calls to memset? 1D char or 2D char
-	Ctrl_Launch(ctrl, Zero, p_threads[nLevels - 1], CTRL_THREAD_NULL, u);
-	Ctrl_Launch(ctrl, Zero, p_threads[nLevels - 1], CTRL_THREAD_NULL, v);
+	Ctrl_Launch(ctrl, Zero, thr_space[nLevels - 1], CTRL_THREAD_NULL, u);
+	Ctrl_Launch(ctrl, Zero, thr_space[nLevels - 1], CTRL_THREAD_NULL, v);
 
 	// Initial estimate (u, v) starts at 0
 	for (; currentLevel < nLevels; ++currentLevel) {
 		// Texture creation
-		tex_desc.width  = p_threads[currentLevel].j;
-		tex_desc.height = p_threads[currentLevel].i;
+		tex_desc.width  = thr_space[currentLevel].j;
+		tex_desc.height = thr_space[currentLevel].i;
 		Ctrl_CreateTex(ctrl, d_tmp, tex_desc);
 		Ctrl_CreateTex(ctrl, u, tex_desc);
 		Ctrl_CreateTex(ctrl, v, tex_desc);
 
 		for (int warpIter = 0; warpIter < nWarpIters; ++warpIter) {
 			// Initialize p_du0, p_du1, p_dv0, p_dv1 to 0
-			Ctrl_Launch(ctrl, Zero, p_threads[nLevels - 1], CTRL_THREAD_NULL, d_du0);
-			Ctrl_Launch(ctrl, Zero, p_threads[nLevels - 1], CTRL_THREAD_NULL, d_dv0);
+			Ctrl_Launch(ctrl, Zero, thr_space[nLevels - 1], CTRL_THREAD_NULL, d_du0);
+			Ctrl_Launch(ctrl, Zero, thr_space[nLevels - 1], CTRL_THREAD_NULL, d_dv0);
 
-			Ctrl_Launch(ctrl, Zero, p_threads[nLevels - 1], CTRL_THREAD_NULL, d_du1);
-			Ctrl_Launch(ctrl, Zero, p_threads[nLevels - 1], CTRL_THREAD_NULL, d_dv1);
+			Ctrl_Launch(ctrl, Zero, thr_space[nLevels - 1], CTRL_THREAD_NULL, d_du1);
+			Ctrl_Launch(ctrl, Zero, thr_space[nLevels - 1], CTRL_THREAD_NULL, d_dv1);
 
 			// Warp target image according to current estimate (u, v)
-			Ctrl_Launch(ctrl, Warp, p_threads[currentLevel], CTRL_THREAD_NULL, pI1[currentLevel], u, v, d_tmp);
+			Ctrl_Launch(ctrl, Warp, thr_space[currentLevel], CTRL_THREAD_NULL, pI1[currentLevel], u, v, d_tmp);
 
 			// Compute matrices of the equation to solve
-			Ctrl_Launch(ctrl, ComputeDerivatives, p_threads[currentLevel], CTRL_THREAD_NULL, pI0[currentLevel], d_tmp, d_Ix, d_Iy, d_Iz);
+			Ctrl_Launch(ctrl, ComputeDerivatives, thr_space[currentLevel], CTRL_THREAD_NULL, pI0[currentLevel], d_tmp, d_Ix, d_Iy, d_Iz);
 
 			// Solve equation for du, dv
 			for (int iter = 0; iter < nSolverIters; ++iter) {
-				// threads are +1 in both dims because of the way the copy to shared mem is done
-				Ctrl_Launch(ctrl, Solve, p_threads1[currentLevel], CTRL_THREAD_NULL, d_du0, d_dv0, d_Ix, d_Iy, d_Iz, alpha, d_du1, d_dv1);
+				Ctrl_Launch(ctrl, Solve, thr_space_solve[currentLevel], CTRL_THREAD_NULL, d_du0, d_dv0, d_Ix, d_Iy, d_Iz, alpha, d_du1, d_dv1);
 
 				hit_tileSwap(d_du0, d_du1);
 				hit_tileSwap(d_dv0, d_dv1);
 			}
 
 			// Update current estimate
-			Ctrl_Launch(ctrl, Add, p_threads[currentLevel], CTRL_THREAD_NULL, u, d_du0, u);
-			Ctrl_Launch(ctrl, Add, p_threads[currentLevel], CTRL_THREAD_NULL, v, d_dv0, v);
+			Ctrl_Launch(ctrl, Add, thr_space[currentLevel], CTRL_THREAD_NULL, u, d_du0, u);
+			Ctrl_Launch(ctrl, Add, thr_space[currentLevel], CTRL_THREAD_NULL, v, d_dv0, v);
 		}
 
 		// Prolongate solution (u, v) for use in the next level
 		if (currentLevel != nLevels - 1) {
 			float scaleX = (float)hit_tileDimCard(pI0[currentLevel + 1], 1) / (float)hit_tileDimCard(pI0[currentLevel], 1);
 
-			Ctrl_Launch(ctrl, Upscale, p_threads[currentLevel + 1], CTRL_THREAD_NULL, u, scaleX, d_nu);
+			Ctrl_Launch(ctrl, Upscale, thr_space[currentLevel + 1], CTRL_THREAD_NULL, u, scaleX, d_nu);
 
 			float scaleY = (float)hit_tileDimCard(pI0[currentLevel + 1], 0) / (float)hit_tileDimCard(pI0[currentLevel], 0);
 
-			Ctrl_Launch(ctrl, Upscale, p_threads[currentLevel + 1], CTRL_THREAD_NULL, v, scaleY, d_nv);
+			Ctrl_Launch(ctrl, Upscale, thr_space[currentLevel + 1], CTRL_THREAD_NULL, v, scaleY, d_nv);
 
 			hit_tileSwap(u, d_nu);
 			hit_tileSwap(v, d_nv);
@@ -331,10 +293,7 @@ int main(int argc, char *argv[]) {
 		// 3. Get controller object and print info
 		PCtrl ctrl = Ctrl_Get(0);
 
-		Ctrl_Info info = Ctrl_GetInfo(ctrl);
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, ", info.device_name);
-		#else // _CTRL_EXAMPLES_EXP_MODE_
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n ----------------------- ARGS ------------------------- \n");
 		printf("\n ALPHA: %g", alpha);
 		printf("\n LEVELS: %d", nLevels);
@@ -343,13 +302,9 @@ int main(int argc, char *argv[]) {
 		printf("\n SOURCE: %s", sourceFrameName);
 		printf("\n TARGET: %s", targetFrameName);
 		printf("\n OUTPUT: %s", outputFileName);
-
-		printf("\n\n CTRL TYPE: %s", info.type);
-		printf("\n PLATFORM: %s", info.platform_name);
-		printf("\n DEVICE: %s", info.device_name);
-		printf("\n N_THREADS: %d", info.n_threads);
-		printf("\n MEM_MOVES: %s", info.mem_transfers ? "ON" : "OFF");
-		printf("\n NUMA RANGE: %d-%d", info.numa_range_min, info.numa_range_max);
+		#endif // _CTRL_EXAMPLES_EXP_MODE_
+		Ctrl_PrintInfo();
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n\n ---------------------------------------------------- \n");
 		#endif // _CTRL_EXAMPLES_EXP_MODE_
 		fflush(stdout);
@@ -367,7 +322,7 @@ int main(int argc, char *argv[]) {
 		exec_clock = omp_get_wtime();
 
 		// 7. Launch the operations, copies (if necessary) are implicit
-		ComputeFlowCUDA(ctrl, source, target, alpha, nLevels, nWarpIters, nSolverIters, u, v);
+		ComputeFlow(ctrl, source, target, alpha, nLevels, nWarpIters, nSolverIters, u, v);
 
 		// 8. Sync and stop timer
 		Ctrl_Synchronize();
@@ -395,10 +350,10 @@ int main(int argc, char *argv[]) {
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ---------------------- TIMERS ---------------------- \n");
-	printf("Clock main: %lf\n", main_clock);
-	printf("Clock exec: %lf\n", exec_clock);
-	printf("\n\n ---------------------------------------------------- \n");
+	printf("\n ---------------------- TIMERS ---------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	Ctrl_Finalize();

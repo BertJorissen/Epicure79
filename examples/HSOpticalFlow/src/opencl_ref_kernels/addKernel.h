@@ -1,3 +1,11 @@
+/**
+ * @file addKernel.h
+ * @brief OpenCL reference add kernel for HSOpticalflow.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "../../../Utils/opencl_helper.h"
 #include "../common.h"
 

@@ -1,33 +1,10 @@
 ///@cond INTERNAL
 /**
  * @file Ctrl_Core.c
- * @author Trasgo Group
  * @brief Source code for core functions of Controllers.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Core/Ctrl_Config.h"
@@ -180,7 +157,7 @@ void Ctrl_Create(Ctrl_Type type, int id, char *args);
 /**
  * @brief Push a wait operation of \p event to \p stream if they are compatible
  *
- * This is an optimization because waiting for CUDA and OpenCL on the host via busy-wait testing is very expensive
+ * This is an optimization because waiting for CUDA, HIP and OpenCL on the host via busy-wait testing is very expensive
  *
  * @param event Event to wait to
  * @param qid Queue index inside the ctrl to enqueue the wait into
@@ -190,38 +167,70 @@ void Ctrl_Create(Ctrl_Type type, int id, char *args);
  */
 bool Ctrl_PushEventIfCompat(Ctrl_GenericEvent event, int qid, Ctrl *p_ctrl);
 
-int Ctrl_Thread_Init() {
-	hwloc_obj_t obj;
-	if (omp_get_thread_num() == 0) {
-		// bind thread to first core
-		obj = hwloc_get_obj_below_by_type(topo, HWLOC_OBJ_NUMANODE, host_node, HWLOC_OBJ_CORE, 0);
-		if (obj) {
-			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
-		}
+void Ctrl_PinToHostNuma() {
+	hwloc_obj_t obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_NUMANODE, host_node);
+	if (!obj) {
+		fprintf(stderr, "[Ctrl_PinToHostNuma] Warning host NUMA node %d not found.\n", host_node);
+		fflush(stderr);
+		return;
+	}
+	if (hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD) != 0) {
+		fprintf(stderr, "[Ctrl_PinToHostNuma] Warning pinning thread to host numa node %d returned an error, make sure you have permission to use those resources.\n", host_node);
+		fflush(stderr);
+		return;
+	}
 
+	hwloc_cpuset_t allowed_numa_cpuset = hwloc_bitmap_alloc();
+	hwloc_bitmap_and(allowed_numa_cpuset, obj->cpuset, hwloc_topology_get_allowed_cpuset(topo));
+	int allowed_numa_cores = hwloc_get_nbobjs_inside_cpuset_by_type(topo, allowed_numa_cpuset, HWLOC_OBJ_CORE);
+	hwloc_bitmap_free(allowed_numa_cpuset);
+
+	static int bound_threads = 0;
+
+	int n_thr;
+	#pragma omp atomic capture
+	n_thr = ++bound_threads;
+
+	if (allowed_numa_cores < n_thr) {
+		fprintf(stderr, "[Ctrl_PinToHostNuma] Warning only %d cores are allowed for use in host numa node %d but %d threads are currently bound to it.\n", allowed_numa_cores, host_node, bound_threads);
+		fflush(stderr);
+	}
+}
+
+int Ctrl_Thread_Init() {
+
+	if (omp_get_thread_num() == 0) {
+		// bind main thread to host numa node
+		Ctrl_PinToHostNuma();
 		return 0;
 	} else if (omp_get_thread_num() == 1) { // host task executor
-		// bind thread to core 1
-		obj = hwloc_get_obj_below_by_type(topo, HWLOC_OBJ_NUMANODE, host_node, HWLOC_OBJ_CORE, 1);
-		if (obj) {
-			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
-		}
+		// bind host task thread to host numa node
+		Ctrl_PinToHostNuma();
 		Ctrl_Thread_HostTask();
 	} else if (omp_get_thread_num() == 2) { // queue manager
-		// bind thread to core 1
-		obj = hwloc_get_obj_below_by_type(topo, HWLOC_OBJ_NUMANODE, host_node, HWLOC_OBJ_CORE, 1);
-		if (obj) {
-			hwloc_set_cpubind(topo, obj->cpuset, HWLOC_CPUBIND_THREAD);
-		}
+		// bind queue manager thread to host numa node
+		Ctrl_PinToHostNuma();
 		Ctrl_Thread_QueueManager();
 	} else { // spawner threads
 		Ctrl_Thread_Spawner();
 	}
 
+	// All threads ready for main thread to cleanup
+	#pragma omp barrier
+
 	return 1;
 }
 
 void Ctrl_Thread_HostTask() {
+	// Explicitly initialize cuda runtime for this thread to avoid performace penalties
+	#ifdef _CTRL_ARCH_CUDA_
+	for (int i = 0; i < n_ctrls; i++) {
+		if (p_ctrl_global[i].type == CTRL_TYPE_CUDA) {
+			Ctrl_Cuda_SetDevice();
+		}
+	}
+	#endif // _CTRL_ARCH_CUDA_
+
 	// Extract and evaluate tasks until destroy task
 	bool finish = false;
 	while (!finish) {
@@ -263,7 +272,7 @@ void Ctrl_Thread_Spawner() {
 		switch (p_ctrl->type) {
 			#ifdef _CTRL_ARCH_CPU_
 			case CTRL_TYPE_CPU:
-				Ctrl_Cpu_ThreadInit(&(p_ctrl->p_impl->cpu), topo, host_node);
+				Ctrl_Cpu_ThreadInit(&(p_ctrl->p_impl->cpu), topo);
 				break;
 			#endif // _CTRL_ARCH_CPU_
 			default:
@@ -298,6 +307,13 @@ void Ctrl_Create(Ctrl_Type type, int id, char *args) {
 			Ctrl_Cuda_Create(&(p_ctrl->p_impl->cuda), policy, args);
 			break;
 		#endif // _CTRL_ARCH_CUDA_
+
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			p_ctrl->p_impl->hip.global_id = p_ctrl->id;
+			Ctrl_Hip_Create(&(p_ctrl->p_impl->hip), policy, args);
+			break;
+		#endif // _CTRL_ARCH_HIP_
 
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
@@ -372,8 +388,12 @@ void Ctrl_ExecTask(Ctrl *p_ctrl, Ctrl_Task *p_task) {
 }
 
 void Ctrl_EndBlock() {
+	// Wait for all operations to end before starting cleanup
+	Ctrl_Synchronize();
+
 	bool freed_queues = 0;
 	for (int i = 0; i < Ctrl_GetNCtrls(); i++) {
+		// Tell ctrls to cleanup their internal stuff and propagate the destroy signal
 		if (!freed_queues && (p_ctrl_global[i].type != CTRL_TYPE_CPU)) {
 			// sends destroy signal to queue manager, only from 1 ctrl that is not cpu
 			Ctrl_AddTaskFlagged(&p_ctrl_global[i], CTRL_TASK_TYPE_DESTROYCTRL, NULL, 1);
@@ -381,13 +401,18 @@ void Ctrl_EndBlock() {
 		} else {
 			Ctrl_AddTaskFlagged(&p_ctrl_global[i], CTRL_TASK_TYPE_DESTROYCTRL, NULL, 0);
 		}
+		// Free internal part of the ctrl
 		free(p_ctrl_global[i].p_impl);
 		p_ctrl_global[i].p_impl = NULL;
 	}
 
+	// Tell send destroy signal to host task queue
 	Ctrl_Task task;
 	task.task_type = CTRL_TASK_TYPE_DESTROYCTRL;
 	Ctrl_TaskQueue_Push(p_ctrl_host_stream, task);
+
+	// Wait for other threads to be ready for ctrl list full cleanup
+	#pragma omp barrier
 	free(p_ctrl_global);
 	free(ctrl_weights.ratios);
 	hwloc_topology_destroy(topo);
@@ -458,6 +483,14 @@ void Ctrl_LaunchHostTask(Ctrl_Task task) {
 						}
 						break;
 					#endif // _CTRL_ARCH_CUDA_
+
+					#ifdef _CTRL_ARCH_HIP_
+					case CTRL_TYPE_HIP:
+						if (move_tile && p_ctrl_global[j].p_impl->hip.dependance_mode == CTRL_MODE_IMPLICIT) {
+							Ctrl_MoveFromInner(&p_ctrl_global[j], p_tile);
+						}
+						break;
+					#endif // _CTRL_ARCH_HIP_
 
 					#ifdef _CTRL_ARCH_OPENCL_GPU_
 					case CTRL_TYPE_OPENCL_GPU:
@@ -590,6 +623,12 @@ void Ctrl_CreateTexInner(Ctrl *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_desc) {
 			break;
 		#endif // _CTRL_ARCH_CUDA_
 
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			Ctrl_Hip_CreateTex(&p_ctrl->p_impl->hip, p_tile, tex_desc);
+			break;
+		#endif // _CTRL_ARCH_HIP_
+
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
 			Ctrl_OpenCLGpu_CreateTex(&p_ctrl->p_impl->opencl_gpu, p_tile, tex_desc);
@@ -602,20 +641,22 @@ void Ctrl_CreateTexInner(Ctrl *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_desc) {
 			break;
 		#endif // _CTRL_ARCH_FPGA_
 		default:
-			fprintf(stderr, "[Ctrl_Core] Ctrl_CreateTex: unknown ctrl type %d", p_ctrl->type);
+			fprintf(stderr, "[Ctrl_Core] Ctrl_CreateTex: Unknown ctrl type %d", p_ctrl->type);
 			exit(EXIT_FAILURE);
 	}
 }
 
 void Ctrl_SelectInner(HitTile *p_tile, int flags) {
-	Ctrl_DomainInner(p_tile);
-
 	// @arturo: Bug, select tasks for NULL Tiles should not be introduced in the queue
 	if (hit_tileIsNull(*p_tile)) {
-		printf("ERROR NULL\n");
-		fflush(stdout);
+		#ifdef _CTRL_DEBUG_
+		fprintf(stderr, "Warning: NULL tile on Ctrl_SelectInner\n");
+		fflush(stderr);
+		#endif // _CTRL_DEBUG_
 		return;
 	}
+
+	Ctrl_DomainInner(p_tile);
 
 	Ctrl_Tile *p_parent_data = ((Ctrl_Tile *)(p_tile->ref->ext));
 
@@ -648,6 +689,14 @@ void Ctrl_DomainInner(HitTile *p_tile) {
 }
 
 void Ctrl_FreeInner(Ctrl *p_ctrl, HitTile *p_tile) {
+	if (hit_tileIsNull(*p_tile)) {
+		#ifdef _CTRL_DEBUG_
+		fprintf(stderr, "Warning: NULL tile on Ctrl_FreeInner\n");
+		fflush(stderr);
+		#endif // _CTRL_DEBUG_
+		return;
+	}
+
 	if (p_ctrl == NULL) {
 		Ctrl_Tile *p_tile_data = (Ctrl_Tile *)p_tile->ext;
 		for (int i = 0; i < n_ctrls; i++) {
@@ -771,20 +820,11 @@ int Ctrl_Dev(Ctrl_Type type, int *avail_impls, int n_impl) {
 							default:
 								#ifdef _CTRL_DEBUG_
 								fprintf(stderr, "Warning: ignoring kernel implementation of type %d. Consider recompiling with proper support\n", avail_impls[i]);
+								fflush(stderr);
 								#endif // _CTRL_DEBUG_
 								break;
 						}
 					}
-					#ifdef _CTRL_CUBLAS_
-					else if (avail_impls[i] == CUDALIB_CUBLAS) {
-						result = avail_impls[i];
-					}
-					#endif // _CTRL_CUBLAS_
-					#ifdef _CTRL_MAGMA_
-					else if (avail_impls[i] == CUDALIB_MAGMA) {
-						result = avail_impls[i];
-					}
-					#endif // _CTRL_MAGMA_
 				}
 			}
 			break;
@@ -793,6 +833,23 @@ int Ctrl_Dev(Ctrl_Type type, int *avail_impls, int n_impl) {
 				if (avail_impls[i] > result) {
 					if (CTRL_IMPL_IN_RANGE(avail_impls[i], GENERIC) || CTRL_IMPL_IN_RANGE(avail_impls[i], HIP)) {
 						result = avail_impls[i];
+					} else if (CTRL_IMPL_IN_RANGE(avail_impls[i], HIPLIB)) {
+						switch (avail_impls[i]) {
+							case HIPLIB_DEFAULT:
+								result = avail_impls[i];
+								break;
+
+							#ifdef _CTRL_HIPBLAS_
+							case HIPLIB_HIPBLAS:
+								result = avail_impls[i];
+								break;
+							#endif // _CTRL_HIPBLAS_
+							default:
+								#ifdef _CTRL_DEBUG_
+								fprintf(stderr, "Warning: ignoring kernel implementation of type %d. Consider recompiling with proper support\n", avail_impls[i]);
+								#endif // _CTRL_DEBUG_
+								break;
+						}
 					}
 				}
 			}
@@ -866,6 +923,11 @@ int Ctrl_GetNumQueues(Ctrl *p_ctrl) {
 			return Ctrl_Cuda_GetNumQueues(&(p_ctrl->p_impl->cuda));
 		#endif // _CTRL_ARCH_CUDA_
 
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			return Ctrl_Hip_GetNumQueues(&(p_ctrl->p_impl->hip));
+		#endif // _CTRL_ARCH_HIP_
+
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
 			return Ctrl_OpenCLGpu_GetNumQueues(&(p_ctrl->p_impl->opencl_gpu));
@@ -876,7 +938,7 @@ int Ctrl_GetNumQueues(Ctrl *p_ctrl) {
 			return Ctrl_FPGA_GetNumQueues(&(p_ctrl->p_impl->fpga));
 		#endif // _CTRL_ARCH_FPGA_
 		default:
-			fprintf(stderr, "[Ctrl_ExecTask] Unsupported architecture. Recompile Ctrl library with the proper support.\n");
+			fprintf(stderr, "[Ctrl_GetNumQueues] Unsupported architecture %d. Recompile Ctrl library with the proper support.\n", p_ctrl->type);
 			exit(EXIT_FAILURE);
 	}
 }
@@ -892,6 +954,11 @@ Ctrl_TaskQueue **Ctrl_GetHostQueues(Ctrl *p_ctrl, Ctrl_TaskQueue **pp_queues) {
 		case CTRL_TYPE_CUDA:
 			return Ctrl_Cuda_GetHostQueues(&(p_ctrl->p_impl->cuda), pp_queues);
 		#endif // _CTRL_ARCH_CUDA_
+
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			return Ctrl_Hip_GetHostQueues(&(p_ctrl->p_impl->hip), pp_queues);
+		#endif // _CTRL_ARCH_HIP_
 
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
@@ -974,7 +1041,6 @@ void Ctrl_ParseConfig(const char *file) {
 		node_data = strstr(buffer, node_name);
 
 		if (node_data == NULL) {
-			fflush(stdout);
 			fprintf(stderr, "ERROR: Device selection file -- No NODE section in file %s for node %s\n", file, hostname);
 			exit(EXIT_FAILURE);
 		}
@@ -992,11 +1058,9 @@ void Ctrl_ParseConfig(const char *file) {
 	sprintf(proc_str_noaff, "proc %d\n", rank_in_node);
 	char *rank_data_noaff = strstr(node_data, proc_str_noaff);
 	if (rank_data == NULL && rank_data_noaff == NULL) {
-		fflush(stdout);
 		fprintf(stderr, "ERROR: Device selection file -- No config found in file %s for rank %d of node %s\n", file, rank_in_node, hostname);
 		exit(EXIT_FAILURE);
 	} else if (rank_data != NULL && rank_data_noaff != NULL) {
-		fflush(stdout);
 		fprintf(stderr, "ERROR: Device selection file -- Multiple configs found in file %s for rank %d of node %s\n", file, rank_in_node, hostname);
 		exit(EXIT_FAILURE);
 	}
@@ -1011,12 +1075,10 @@ void Ctrl_ParseConfig(const char *file) {
 	int foo, aff;
 	int count = sscanf(rank_data, "proc %d %d\n", &foo, &aff);
 	if (count < 1) {
-		fflush(stdout);
 		fprintf(stderr, "INTERNAL ERROR: Device selection file -- Internal proc rank missed! %d\n", rank_in_node);
 		exit(EXIT_FAILURE);
 	}
 	if (foo != rank_in_node) {
-		fflush(stdout);
 		fprintf(stderr, "INTERNAL ERROR: Proc rank has changed during parsing! %d != %d\n", rank_in_node, foo);
 		exit(EXIT_FAILURE);
 	}
@@ -1026,7 +1088,6 @@ void Ctrl_ParseConfig(const char *file) {
 	// CONSUME LINE
 	rank_data = strstr(rank_data, "\n");
 	if (rank_data == NULL) {
-		fflush(stdout);
 		fprintf(stderr, "ERROR: Device selection file -- No devices, premature end of section in file %s, node %s, rank %d\n", file, hostname, rank_in_node);
 		exit(EXIT_FAILURE);
 	}
@@ -1036,12 +1097,10 @@ void Ctrl_ParseConfig(const char *file) {
 	// READ DEVICES
 	Ctrl_Config *devs = (Ctrl_Config *)malloc(sizeof(Ctrl_Config));
 
-	int ndevs   = 0;
-	int ncpu    = 0;
-	int ncuda   = 0;
-	int nhip    = 0;
-	int noclgpu = 0;
-	int nfpga   = 0;
+	int ndevs                           = 0;
+	int ncpu                            = 0;
+	int noclgpu __attribute__((unused)) = 0;
+	int nfpga __attribute__((unused))   = 0;
 
 	for (char *tok = strtok(rank_data, " \t\n");
 		 tok != NULL;
@@ -1054,10 +1113,8 @@ void Ctrl_ParseConfig(const char *file) {
 			ncpu++;
 			devs[ndevs - 1] = (Ctrl_Config){.type = CTRL_TYPE_CPU, .args = strtok(NULL, "\n")};
 		} else if (!strcmp(tok, "cuda")) {
-			ncuda++;
 			devs[ndevs - 1] = (Ctrl_Config){.type = CTRL_TYPE_CUDA, .args = strtok(NULL, "\n")};
 		} else if (!strcmp(tok, "hip")) {
-			nhip++;
 			devs[ndevs - 1] = (Ctrl_Config){.type = CTRL_TYPE_HIP, .args = strtok(NULL, "\n")};
 		} else if (!strcmp(tok, "opencl")) {
 			noclgpu++;
@@ -1070,12 +1127,10 @@ void Ctrl_ParseConfig(const char *file) {
 			char *weight_str = strtok(NULL, "\n");
 			int   ok         = sscanf(weight_str, "%f\n", &com_weight);
 			if (ok != 1) {
-				fflush(stdout);
 				fprintf(stderr, "ERROR: Device selection file -- Non readable weight value in file %s, node %s, proc %d, value string: %s\n", file, hostname, rank_in_node, tok);
 				exit(EXIT_FAILURE);
 			}
 		} else {
-			fflush(stdout);
 			fprintf(stderr, "ERROR: Device selection file -- Unknown device type in file %s, node %s, proc %d, device name: %s\n", file, hostname, rank_in_node, tok);
 			exit(EXIT_FAILURE);
 		}
@@ -1086,6 +1141,7 @@ void Ctrl_ParseConfig(const char *file) {
 
 	// LOAD HARDWARE TOPOLOGY INFO
 	hwloc_topology_init(&topo);
+	hwloc_topology_set_flags(topo, HWLOC_TOPOLOGY_FLAG_INCLUDE_DISALLOWED);
 	hwloc_topology_load(topo);
 
 	// INITIALIZE CONTROLLERS LIST
@@ -1144,6 +1200,12 @@ bool Ctrl_PushEventIfCompat(Ctrl_GenericEvent event, int qid, Ctrl *p_ctrl) {
 			Ctrl_Cuda_ExecTask(&task, &p_ctrl->p_impl->cuda);
 			break;
 		#endif // _CTRL_ARCH_CUDA_
+
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			Ctrl_Hip_ExecTask(&task, &p_ctrl->p_impl->hip);
+			break;
+		#endif // _CTRL_ARCH_HIP_
 
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
@@ -1210,6 +1272,12 @@ void Ctrl_Thread_QueueManager() {
 								break;
 							#endif // _CTRL_ARCH_CUDA_
 
+							#ifdef _CTRL_ARCH_HIP_
+							case CTRL_TYPE_HIP:
+								Ctrl_Hip_ExecTask(p_task, &p_ctrl->p_impl->hip);
+								break;
+							#endif // _CTRL_ARCH_HIP_
+
 							#ifdef _CTRL_ARCH_OPENCL_GPU_
 							case CTRL_TYPE_OPENCL_GPU:
 								Ctrl_OpenCLGpu_ExecTask(p_task, &p_ctrl->p_impl->opencl_gpu);
@@ -1269,6 +1337,12 @@ void Ctrl_SyncWait(Ctrl_TaskQueue *p_queue) {
 					break;
 				#endif // _CTRL_ARCH_CUDA_
 
+				#ifdef _CTRL_ARCH_HIP_
+				case CTRL_TYPE_HIP:
+					Ctrl_Hip_SyncWait(&p_ctrl_global[i].p_impl->hip, p_queue);
+					break;
+				#endif // _CTRL_ARCH_HIP_
+
 				#ifdef _CTRL_ARCH_OPENCL_GPU_
 				case CTRL_TYPE_OPENCL_GPU:
 					Ctrl_OpenCLGpu_SyncWait(&p_ctrl_global[i].p_impl->opencl_gpu, p_queue);
@@ -1302,6 +1376,12 @@ void Ctrl_MoveToWait(Ctrl_Tile_Impl *p_tile_impl, Ctrl_TaskQueue *p_queue) {
 			break;
 		#endif // _CTRL_ARCH_CUDA_
 
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			Ctrl_Hip_MoveToWait(p_tile_impl->tile.p_hip, p_queue);
+			break;
+		#endif // _CTRL_ARCH_HIP_
+
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
 			Ctrl_OpenCLGpu_MoveToWait(p_tile_impl->tile.p_opencl, p_queue);
@@ -1332,6 +1412,12 @@ void Ctrl_MoveFromWait(Ctrl_Tile_Impl *p_tile_impl, Ctrl_TaskQueue *p_queue) {
 			break;
 		#endif // _CTRL_ARCH_CUDA_
 
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			Ctrl_Hip_MoveFromWait(p_tile_impl->tile.p_hip, p_queue);
+			break;
+		#endif // _CTRL_ARCH_HIP_
+
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
 			Ctrl_OpenCLGpu_MoveFromWait(p_tile_impl->tile.p_opencl, p_queue);
@@ -1361,6 +1447,12 @@ void Ctrl_HostTaskWait(Ctrl_Tile_Impl *p_tile_impl, char rol, Ctrl_TaskQueue *p_
 			Ctrl_Cuda_HostTaskWait(p_tile_impl->tile.p_cuda, rol, p_queue);
 			break;
 		#endif // _CTRL_ARCH_CUDA_
+
+		#ifdef _CTRL_ARCH_HIP_
+		case CTRL_TYPE_HIP:
+			Ctrl_Hip_HostTaskWait(p_tile_impl->tile.p_hip, rol, p_queue);
+			break;
+		#endif // _CTRL_ARCH_HIP_
 
 		#ifdef _CTRL_ARCH_OPENCL_GPU_
 		case CTRL_TYPE_OPENCL_GPU:
@@ -1400,6 +1492,12 @@ void Ctrl_FreeHostInner(HitTile *p_tile) {
 					CUDA_OP(cudaFreeHost(p_tile->data));
 					break;
 				#endif //_CTRL_ARCH_CUDA_
+
+				#ifdef _CTRL_ARCH_HIP_
+				case CTRL_TYPE_HIP:
+					HIP_OP(hipHostFree(p_tile->data));
+					break;
+				#endif //_CTRL_ARCH_HIP_
 
 				#if defined(_CTRL_ARCH_OPENCL_GPU_) || defined(_CTRL_ARCH_FPGA_)
 				case CTRL_TYPE_OPENCL_GPU:

@@ -2,33 +2,10 @@
 #define _CTRL_KERNEL_ARGS_H_
 /**
  * @file Ctrl_KernelArgs.h
- * @author Trasgo Group
  * @brief Macros to process lists of arguments in kernels definitions and launches
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 // @sergioalo formatter breaks recursive macros into multiple lines and makes them very long
@@ -730,12 +707,12 @@
 #define CTRL_KERNEL_ROLES_20(rolesList, numArgs, role, type, name, ...) rolesList[numArgs - 20] = KERNEL_##role; CTRL_KERNEL_ROLES_19(rolesList, numArgs, __VA_ARGS__)
 
 /* Create list of pointers */
-#define CTRL_KERNEL_POINTERS(pointersList, numArgs, ...)                                                      \
-	pointersList = (void **)malloc(numArgs * sizeof(void *));                                                 \
-	if (pointersList == NULL) {                                                                               \
-		printf("CTRL Internal error: Allocating task memory for pointers list %s[%d]\n", __FILE__, __LINE__); \
-		;                                                                                                     \
-	}                                                                                                         \
+#define CTRL_KERNEL_POINTERS(pointersList, numArgs, ...)                                                               \
+	pointersList = (void **)malloc(numArgs * sizeof(void *));                                                          \
+	if (pointersList == NULL) {                                                                                        \
+		fprintf(stderr, "CTRL Internal Error: Allocating task memory for pointers list %s[%d]\n", __FILE__, __LINE__); \
+		exit(EXIT_FAILURE);                                                                                            \
+	}                                                                                                                  \
 	CTRL_KERNEL_POINTERS_##numArgs(pointersList, numArgs, __VA_ARGS__)
 
 #define CTRL_KERNEL_POINTERS_1(pointersList, numArgs, role, type, name)       pointersList[numArgs - 1] = (void *)(name);
@@ -760,13 +737,13 @@
 #define CTRL_KERNEL_POINTERS_20(pointersList, numArgs, role, type, name, ...) pointersList[numArgs - 20] = (void *)(name); CTRL_KERNEL_POINTERS_19(pointersList, numArgs, __VA_ARGS__)
 
 /* Create list of displacement */
-#define CTRL_KERNEL_DISPLACEMENTS(displacementsList, numArgs, ...)                                            \
-	displacementsList = (uint16_t *)malloc((numArgs + 1) * sizeof(uint16_t));                                 \
-	if (displacementsList == NULL) {                                                                          \
-		printf("CTRL Internal error: Allocating task memory for pointers list %s[%d]\n", __FILE__, __LINE__); \
-		;                                                                                                     \
-	}                                                                                                         \
-	displacementsList[0] = 0;                                                                                 \
+#define CTRL_KERNEL_DISPLACEMENTS(displacementsList, numArgs, ...)                                                     \
+	displacementsList = (uint16_t *)malloc((numArgs + 1) * sizeof(uint16_t));                                          \
+	if (displacementsList == NULL) {                                                                                   \
+		fprintf(stderr, "CTRL Internal Error: Allocating task memory for pointers list %s[%d]\n", __FILE__, __LINE__); \
+		exit(EXIT_FAILURE);                                                                                            \
+	}                                                                                                                  \
+	displacementsList[0] = 0;                                                                                          \
 	CTRL_KERNEL_DISPLACEMENTS_##numArgs(displacementsList, numArgs, __VA_ARGS__)
 
 #define CTRL_KERNEL_DISPLACEMENTS_1(displacementsList, numArgs, role, type, name)       displacementsList[numArgs] = displacementsList[numArgs - 1] + CTRL_KERNEL_LIST_SIZE_KTILE(role, type, name);
@@ -790,13 +767,13 @@
 #define CTRL_KERNEL_DISPLACEMENTS_19(displacementsList, numArgs, role, type, name, ...) displacementsList[numArgs - 18] = displacementsList[numArgs - 19] + CTRL_KERNEL_LIST_SIZE_KTILE(role, type, name); CTRL_KERNEL_DISPLACEMENTS_18(displacementsList, numArgs, __VA_ARGS__);
 #define CTRL_KERNEL_DISPLACEMENTS_20(displacementsList, numArgs, role, type, name, ...) displacementsList[numArgs - 19] = displacementsList[numArgs - 20] + CTRL_KERNEL_LIST_SIZE_KTILE(role, type, name); CTRL_KERNEL_DISPLACEMENTS_19(displacementsList, numArgs, __VA_ARGS__);
 
-#define CTRL_KERNEL_DISPLACEMENTS_TILES(displacementsList, numArgs, ...)                                      \
-	displacementsList = (uint16_t *)malloc((numArgs + 1) * sizeof(uint16_t));                                 \
-	if (displacementsList == NULL) {                                                                          \
-		printf("CTRL Internal error: Allocating task memory for pointers list %s[%d]\n", __FILE__, __LINE__); \
-		;                                                                                                     \
-	}                                                                                                         \
-	displacementsList[0] = 0;                                                                                 \
+#define CTRL_KERNEL_DISPLACEMENTS_TILES(displacementsList, numArgs, ...)                                               \
+	displacementsList = (uint16_t *)malloc((numArgs + 1) * sizeof(uint16_t));                                          \
+	if (displacementsList == NULL) {                                                                                   \
+		fprintf(stderr, "CTRL Internal Error: Allocating task memory for pointers list %s[%d]\n", __FILE__, __LINE__); \
+		exit(EXIT_FAILURE);                                                                                            \
+	}                                                                                                                  \
+	displacementsList[0] = 0;                                                                                          \
 	CTRL_KERNEL_DISPLACEMENTS_TILES_##numArgs(displacementsList, numArgs, __VA_ARGS__)
 
 #define CTRL_KERNEL_DISPLACEMENTS_TILES_1(displacementsList, numArgs, role, type, name)       displacementsList[numArgs] = displacementsList[numArgs - 1] + CTRL_KERNEL_LIST_SIZE_KTILE(INVAL, type, name);

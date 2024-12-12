@@ -1,3 +1,6 @@
+variables:
+  MPIEXEC: "srun --mpi=pmi2"
+
 stages: 
   - build
   - test
@@ -5,8 +8,7 @@ stages:
 
 # Commands to execute before all jobs
 before_script:
-  - module load mpich3/gcc
-  - module load mpich/prod/3.2.1/gcc-7.2
+  - module load mpi/mpich-4.2.1
   - make
   # - cd src
   # - make
@@ -18,8 +20,7 @@ build_gcc:
   # install the necessary build tools when needed
   before_script: 
     # - apt update && apt -y install make autoconf
-    - module load mpich3/gcc
-    - module load mpich/prod/3.2.1/gcc-7.2
+    - module load mpi/mpich-4.2.1
   script: 
     - echo "Building Hitmap library using MPICH-GCC"
     - make

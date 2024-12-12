@@ -15,7 +15,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -35,7 +35,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
@@ -1110,6 +1110,50 @@ int hit_tileExpandDims(void *newVarP, int numExpansions) {
 
 	/* 4. END */
 	return 1;
+}
+
+/* Hit FLATTEN DIMENSIONS */
+int hit_tileFlattenDims(void *varP) {
+	int i;
+	HitTile *var = (HitTile *)varP;
+
+	/* 1. ONLY FOR SIG SHAPES */
+	if ( hit_shapeType( var->shape ) != HIT_SIG_SHAPE ) return 2;
+
+	/* 2. DIMENSIONS TO FLATTEN SHOULD NOT BE SUBSELECTIONS */
+	int acumCard = 1;
+	for (i = hit_shapeDims(var->shape)-1; i>0; i--) {
+		acumCard *= hit_sigCard( hit_shapeSig( var->shape, i ) );
+		if ( var->origAcumCard[i] != acumCard ) break;
+	}
+	// NO DIMENSIONS TO BE FLATTENED
+	if ( i == hit_shapeDims(var->shape)-1 ) return 1;
+
+	printf("----------> %d\n", i );
+
+	/* 3. FLATTEN CARDINALITIES AND SHAPE */
+	int lastDim = i;
+	for (i = hit_tileDims(*var)-1; i>lastDim; i--) {
+		/* 2.1. CARDINALITIES */
+		var->origAcumCard[i+1] = 0;
+		var->origAcumCard[i] = 1;
+		var->card[i-1] *= var->card[i];
+		var->card[i] = 0;
+
+		/* 2.2. COORDINATES */
+		var->qstride[i] = 1;
+		//int card = hit_sigCard( hit_shapeSig( var->shape, i ) );
+		hit_shapeSig( var->shape, i-1 ).begin = 0;
+		hit_shapeSig( var->shape, i-1 ).end = var->card[i-1]-1;
+		hit_shapeSig( var->shape, i-1 ).stride = 1;
+		hit_shapeSig( var->shape, i ) = HIT_SIG_NULL;
+	
+		/* 2.3. ONE MORE DIMENSION FLATTENED */	
+		hit_tileDims( *var )--;
+	}
+
+	/* 4. END */
+	return 0;
 }
 
 

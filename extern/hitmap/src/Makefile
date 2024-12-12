@@ -8,7 +8,7 @@
 
 # <license>
 # 
-# Hitmap v1.3
+# Hitmap v1.4
 # 
 # This software is provided to enhance knowledge and encourage progress in the scientific
 # community. It should be used only for research and educational purposes. Any reproduction
@@ -28,7 +28,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
-# Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+# Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
 # All rights reserved.
 # 
 # More information on http://trasgo.infor.uva.es/
@@ -48,8 +48,9 @@ APP_TARGETS=../lib/libhit.a ../lib/libhit.so
 APP_CLEAN=$(APP_TARGETS)
 
 # ACTIVATE SPECIAL RULES TREATMENT FOR THE LIBRARY ITSELF
-APP_HITMAP=y
-APP_OPENMP=y
+APP_HITMAP=yes
+APP_OPENMP=yes
+HIT_COMM=yes
 
 #
 # 4. LOAD Hitmap COMPILING DEFINITIONS
@@ -63,7 +64,8 @@ include $(HIT_BASEDIR)/config/make.def
 # 	( SUBSTITUTE THE EXAMPLES BELLOW )
 #
 INC=$(HIT_INCLUDE_DIR)
-OBJS= hit_sig.o \
+
+COMMON_OBJS= hit_sig.o \
 	hit_shape.o hit_cshape.o hit_bshape.o \
 	hit_domain.o \
 	hit_tile.o hit_gctile.o hit_mctile.o hit_gbtile.o hit_mbtile.o \
@@ -71,12 +73,16 @@ OBJS= hit_sig.o \
 	hit_blockTile.o \
 	hit_topology.o \
 	hit_layout.o hit_layoutMetis.o \
-	hit_com.o hit_pattern.o \
 	hit_file.o  \
 	hit_dump.o\
 	hit_error.o\
-	hit_env.o\
-	hit_alb.o
+	hit_env.o
+
+OBJS= $(COMMON_OBJS)
+
+ifeq ($(HIT_COMM), yes)
+	OBJS+= hit_com.o hit_pattern.o 
+endif
 
 ../lib/libhit.so: $(OBJS)
 	$(CC) -shared -o $@ $(OBJS) $(HIT_EXT_METIS_LIB_DIRS) $(HIT_EXT_METIS_LIBS)
@@ -149,9 +155,6 @@ hit_error.o: hit_error.c $(INC)/hit_error.h
 
 hit_env.o: hit_env.c $(INC)/hit_env.h
 	$(HIT_COMPILE) -c $<
-
-hit_alb.o: ./hit_automatic_load_balancing/hit_alb.c $(INC)/hit_tile.h $(INC)/hit_layout.h $(INC)/hit_pattern.h $(INC)/hit_sshape.h $(INC)/hit_view.h $(INC)/hitmap2.h
-	$(HIT_COMPILE) -I$(HIT_BASEDIR)/include/hit_automatic_load_balancing -c $<
 
 #
 # END

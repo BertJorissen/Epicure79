@@ -17,7 +17,7 @@
 /*
  * <license>
  * 
- * Hitmap v1.3
+ * Hitmap v1.4
  * 
  * This software is provided to enhance knowledge and encourage progress in the scientific
  * community. It should be used only for research and educational purposes. Any reproduction
@@ -37,7 +37,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * Copyright (c) 2007-2021, Trasgo Group, Universidad de Valladolid.
+ * Copyright (c) 2007-2024, Trasgo Group, Universidad de Valladolid.
  * All rights reserved.
  * 
  * More information on http://trasgo.infor.uva.es/
@@ -57,6 +57,24 @@
 #ifdef __cplusplus
 	extern "C" {
 #endif
+
+/* 0. Misc utilities */
+/* Hit BASIC RANKS AND COMMUNICATOR GLOBAL DEFINITIONS */
+/**
+ * Linear rank for the current processor
+ * @hideinitializer
+ */
+#undef hit_Rank
+#define	hit_Rank		(HIT_TOPOLOGY_INFO->selfRank)
+
+/* Hit MPI ERROR TEST */
+/** This macro checks if the MPI operation was successful. */
+#define	hit_mpiTestError(ok,cad)	\
+    if ( ok != MPI_SUCCESS ) {		\
+        fprintf(stderr,"Hit MPI RunTime-Error, Rank %d: %s - %d\n", hit_Rank, cad, ok);	fflush(stderr); \
+        exit(-1);					\
+    }
+
 
 /* 1. PHYSICAL TOPOLOGY */
 /* CURRENTLY, ONLY HOMOGENEOUS SYSTEM SUPPORT */

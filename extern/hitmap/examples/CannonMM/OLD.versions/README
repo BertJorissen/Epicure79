@@ -1,7 +1,0 @@
-OLD VERSIONS
-
--------------------
-
-cannonSync.c				Synchronous communications.
-cannonAsyncInt.c			Asyncronous communications. Integer data type.
-cannonAsyncTestPadding.c	Asyncronous communications. Test of using padded data structures

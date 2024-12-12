@@ -1,32 +1,9 @@
 /**
  * @file Sobel_YUV_FPGA_Ctrl.c
- * @author Trasgo Group
  * @brief SobelYUV: Ctrl FPGA version
- * @version 4.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include <math.h>
@@ -37,6 +14,7 @@
 #include "Sobel_YUV_Ctrl_ext_type.h"
 
 #include "Ctrl.h"
+#include "../../examples/Utils/ctrl_print_info.h"
 
 #define ERR_Y -1
 #define ERR_U -2
@@ -174,19 +152,15 @@ int main(int argc, char *argv[]) {
 		PCtrl ctrl = Ctrl_Get(0);
 
 		// Extra information for collecting results
-		Ctrl_Info info = Ctrl_GetInfo(ctrl);
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, %s, ", device_name, platform_name);
-		#else
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n ----------------------- ARGS ----------------------- \n");
 		printf("\n WIDTH: %d", Width[0]);
 		printf("\n HEIGHT: %d", Height[0]);
 		printf("\n NUM_FRAMES: %d", Num_Frames);
 		printf("\n POLICY %s", policy ? "Async" : "Sync");
-		printf("\n DEVICE: %s", info.device_name);
-		printf("\n PLATFORM: %s", info.platform_name);
-		printf("\n EXEC_MODE: %s", info.exec_mode);
-		printf("\n HOST AFFINITY: %d", info.host_affinity);
+		#endif // _CTRL_EXAMPLES_EXP_MODE_
+		Ctrl_PrintInfo();
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n\n ---------------------------------------------------- \n");
 		#endif // _CTRL_EXAMPLES_EXP_MODE_
 		fflush(stdout);
@@ -259,10 +233,10 @@ int main(int argc, char *argv[]) {
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ---------------------- TIMERS ---------------------- \n");
-	printf("Clock main: %lf\n", main_clock);
-	printf("Clock exec: %lf\n", exec_clock);
-	printf("\n\n ---------------------------------------------------- \n");
+	printf("\n ---------------------- TIMERS ---------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	Ctrl_Finalize();

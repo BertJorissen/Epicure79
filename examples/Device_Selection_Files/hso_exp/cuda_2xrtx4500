@@ -1,0 +1,5 @@
+node gorgon
+	proc 0 4
+		cuda 0
+		cuda 1
+		cpu 1 4-5 0

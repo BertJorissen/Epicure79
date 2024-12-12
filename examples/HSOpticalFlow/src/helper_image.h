@@ -1,6 +1,14 @@
-/* Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+/**
+ * @file helper_image.h
+ * @brief HSOpticalFlow: Functions to load ppm images.
  *
- * Redistribution and use in source and binary forms, with or without
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ *
+ * @copyright This file is part of a modified version of a CUDA sample. Thus the following applies:
+ * @copyright Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ *
+ * @copyright Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *  * Redistributions of source code must retain the above copyright
@@ -12,7 +20,7 @@
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR

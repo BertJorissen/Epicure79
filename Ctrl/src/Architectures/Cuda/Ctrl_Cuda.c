@@ -1,33 +1,10 @@
 ///@cond INTERNAL
 /**
  * @file Ctrl_Cuda.c
- * @author Trasgo Group
  * @brief Source code for CUDA backend.
- * @version 4.0
- * @date 2021-04-26
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
- *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
- *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  */
 
 #include "Architectures/Cuda/Ctrl_Cuda.h"
@@ -133,8 +110,8 @@ void Ctrl_Cuda_EvalTaskAllocTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task);
 /**
  * Evaluation of subselecting tiles.
  *
- * @param p_ctrl: Ctrl in charge of task.
- * @param p_task: task to be evaluated.
+ * @param p_ctrl Ctrl in charge of task.
+ * @param p_task Task to be evaluated.
  *
  * @see Ctrl_Cuda_EvalTask, Ctrl_Select
  */
@@ -425,6 +402,10 @@ void Ctrl_Cuda_CreateTex(Ctrl_Cuda *p_ctrl, HitTile *p_tile, Ctrl_TexDesc tex_de
 	texDesc.addressMode[2]   = tex_desc.addr_mode[2];
 	texDesc.readMode         = tex_desc.read_mode;
 	CUDA_OP(cudaCreateTextureObject(&p_tile_data_cuda->texture, &resDesc, &texDesc, NULL));
+}
+
+void Ctrl_Cuda_SetDevice() {
+	CUDA_OP(cudaSetDevice(0));
 }
 
 /*********************************
@@ -792,6 +773,12 @@ void Ctrl_Cuda_EvalTaskKernelLaunch(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 									break;
 								#endif // _CTRL_ARCH_CUDA_
 
+								#ifdef _CTRL_ARCH_HIP_
+								case CTRL_TYPE_HIP:
+									Ctrl_Hip_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_hip->p_ctrl, p_tile);
+									break;
+								#endif // _CTRL_ARCH_HIP_
+
 								#ifdef _CTRL_ARCH_OPENCL_GPU_
 								case CTRL_TYPE_OPENCL_GPU:
 									Ctrl_OpenCLGpu_EvalTaskMoveFromInner(p_tile_impl_j->tile.p_opencl->p_ctrl, p_tile);
@@ -849,7 +836,7 @@ void Ctrl_Cuda_EvalTaskKernelLaunch(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	// wait for previous task to finish if policy is sync
 	Ctrl_SyncWait(p_host_kernel_queue);
 
-	// create request with info for kernel execution
+	// create request with info for kernel execution (stream is obtained in exec_task, no need to pass it here)
 	Ctrl_Request request = {0};
 
 	#ifdef _CTRL_CUBLAS_
@@ -996,6 +983,11 @@ void Ctrl_Cuda_EvalTaskSelectTile(Ctrl_Cuda *p_ctrl, Ctrl_Task *p_task) {
 	if (p_tile->memStatus == HIT_MS_NOT_OWNER) {
 		p_tile_data_impl->device_status = p_parent_data_impl->device_status;
 		p_tile_data_cuda->p_device_data = p_parent_data_cuda->p_device_data + (p_tile->data - p_parent->data);
+
+		if (p_parent_data_cuda->pitch != 0) {
+			fprintf(stderr, "[Ctrl_Cuda_EvalTaskSelectTile] Error: subselections of tiles with padding on the device (allocated with CTRL_MEM_ALIGNED) not supported.\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 }
 

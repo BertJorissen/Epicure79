@@ -25,7 +25,7 @@ RESULT_FILE="Matrix.out.txt"
 
 # 1.5. MPI RUN COMMAND
 if [ -z "$MPI_RUN" ]; then
-	MPI_RUN="srun -w manticore --gres=gpu:4 -Q --exclusive -t 1"
+	MPI_RUN="srun --mpi=pmi2 -w gorgon -Q --exclusive -t 3"
 fi
 
 # 2. WRITE HEADER
@@ -89,6 +89,9 @@ function doTest() {
 		echo ERROR EXECUTING: $(cat check.err)
 		continue
 	fi
+
+	# NOTE @segioalo workaround nfs system in trasgo cluster not detecting the file immediately
+	ls &>/dev/null
 
 	# IF THE RESULTS FILE HAS NOT BEEN GENERATED
 	if [ ! -r $RESULT_FILE ]; then

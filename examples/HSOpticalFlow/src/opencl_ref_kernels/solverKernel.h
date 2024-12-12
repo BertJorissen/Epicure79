@@ -1,8 +1,16 @@
+/**
+ * @file solverKernel.h
+ * @brief OpenCL reference solver kernel for HSOpticalflow.
+ *
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
+ */
+
 #include "../../../Utils/opencl_helper.h"
 #include "../common.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-/// \brief one iteration of classical Horn-Schunck method, CUDA kernel.
+/// \brief one iteration of classical Horn-Schunck method, OpenCL kernel.
 ///
 /// It is one iteration of Jacobi method for a corresponding linear system.
 /// \param[in]  du0     current horizontal displacement approximation
@@ -123,7 +131,7 @@
 	} "
 
 ///////////////////////////////////////////////////////////////////////////////
-/// \brief one iteration of classical Horn-Schunck method, CUDA kernel wrapper.
+/// \brief one iteration of classical Horn-Schunck method, OpenCL kernel wrapper.
 ///
 /// It is one iteration of Jacobi method for a corresponding linear system.
 /// \param[in]  du0     current horizontal displacement approximation

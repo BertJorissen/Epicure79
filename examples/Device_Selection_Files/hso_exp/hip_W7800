@@ -1,0 +1,4 @@
+node gorgon
+	proc 0 5
+		hip 0
+		cpu 1 5-6 0

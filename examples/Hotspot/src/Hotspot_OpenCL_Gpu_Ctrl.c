@@ -1,48 +1,33 @@
 /**
  * @file Hotspot_OpenCL_Gpu_Ctrl.c
- * @author Trasgo Group
  * @brief Hotspot: Ctrl OpenCLGPU version
- * @version 4.0
- * @date 2021-07-31
  *
- * @copyright This software is provided to enhance knowledge and encourage progress in the scientific
- * community. It should be used only for research and educational purposes. Any reproduction
- * or use for commercial purpose, public redistribution, in source or binary forms, with or
- * without modifications, is NOT ALLOWED without the previous authorization of the copyright
- * holder. The origin of this software must not be misrepresented; you must not claim that you
- * wrote the original software. If you use this software for any purpose (e.g. publication),
- * a reference to the software package and the authors must be included.
+ * @copyright This software is part of the Controller project by Trasgo Group, UVa.
+ * The relevant license, warranty and copyright notice is available in the Controller project repository.
  *
- * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
- * THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * @copyright This file is part of a modified version of a Rodinia benchmark. Thus the following applies:
+ * @copyright Copyright (c)2008-2014 University of Virginia. All rights reserved.
  *
- * @copyright Copyright (c) 2007-2020, Trasgo Group, Universidad de Valladolid.
- * All rights reserved.
+ * @copyright Redistribution and use in source and binary forms, with or without modification, are permitted
+ * without royalty fees or other restrictions, provided that the following conditions are met:
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright notice, this list of conditions
+ *    and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ *  * Neither the name of the University of Virginia, the Dept. of Computer Science,
+ *    nor the names of its contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- * @copyright More information on http://trasgo.infor.uva.es/
+ * @copyright THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE UNIVERSITY OF VIRGINIA OR THE SOFTWARE AUTHORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-/*
-LICENSE TERMS
-
-Copyright (c)2008-2014 University of Virginia
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted without royalty fees or other restrictions, provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-* Neither the name of the University of Virginia, the Dept. of Computer Science, nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE UNIVERSITY OF VIRGINIA OR THE SOFTWARE AUTHORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
 #include <math.h>
 #include <omp.h>
 #include <stdbool.h>
@@ -50,10 +35,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #include "Ctrl.h"
 #include "Hotspot_Constants.h"
-
-#ifdef _PROFILING_ENABLED_
-#include <roctx.h>
-#endif //_PROFILING_ENABLED_
+#include "../../examples/Utils/ctrl_print_info.h"
 
 double main_clock;
 double exec_clock;
@@ -185,17 +167,9 @@ CTRL_HOST_TASK(Init_Tiles, CTRL_HPARAMS(init_params)) {
 }
 
 CTRL_HOST_TASK(Host_Compute, CTRL_HPARAMS(compute_params)) {
-	#ifdef _PROFILING_ENABLED_
-	roctxRangePush("Host task");
-	#endif //_PROFILING_ENABLED_
-
 	for (int i = 0; i < grid_rows * grid_cols; i++) {
 		hit(matrix_dst, i) = hit_as(matrix_src, matrix_dst, i);
 	}
-
-	#ifdef _PROFILING_ENABLED_
-	roctxRangePop();
-	#endif //_PROFILING_ENABLED_
 }
 
 CTRL_KERNEL_PROTO(Hotspot, 1, OPENCLGPU, DEFAULT, hotspot_params);
@@ -234,7 +208,7 @@ int main(int argc, char *argv[]) {
 	Ctrl_Init(&argc, &argv);
 
 	if (argc != 7) {
-		fprintf(stderr, "Usage: %s <grid_rows/grid_cols> <pyramid_height> <sim_time> <device> <platform> <policy> <affinity>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <grid_rows/grid_cols> <pyramid_height> <sim_time> <iters_per_copy> <policy> <config_file>\n", argv[0]);
 		fprintf(stderr, "\t<grid_rows/grid_cols> - number of rows/cols in the grid (positive integer)\n");
 		fprintf(stderr, "\t<pyramid_height> - pyramid heigh(positive integer)\n");
 		fprintf(stderr, "\t<sim_time> - number of iterations\n");
@@ -277,29 +251,26 @@ int main(int argc, char *argv[]) {
 	__ctrl_block__(ctrl_conf_file) {
 		PCtrl ctrl = Ctrl_Get(0);
 
-		Ctrl_Info info = Ctrl_GetInfo(ctrl);
-
 		// Extra information for collecting results
-		#ifdef _CTRL_EXAMPLES_EXP_MODE_
-		printf("%s, %s, ", info.device_name, info.platform_name);
-		#else
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n ----------------------- ARGS ----------------------- \n");
 		printf("\n SIZE (SIZE x SIZE): %d, %d, %d", grid_rows * grid_cols, grid_rows, grid_cols);
 		printf("\n PYRAMID HEIGHT: %d", pyramid_height);
 		printf("\n N_ITER: %d", total_iterations);
 		printf("\n ITERS_PER_COPY: %d", iters_per_copy);
 		printf("\n POLICY %s", policy ? "Async" : "Sync");
-		printf("\n DEVICE: %s", info.device_name);
-		printf("\n PLATFORM: %s", info.platform_name);
-		printf("\n HOST AFFINITY: %d", info.host_affinity);
+		#endif // _CTRL_EXAMPLES_EXP_MODE_
+		Ctrl_PrintInfo();
+		#ifndef _CTRL_EXAMPLES_EXP_MODE_
 		printf("\n\n ---------------------------------------------------- \n");
 		printf("Threads: %d, %d\n", LOCAL_SIZE_0 * blockRows, LOCAL_SIZE_1 * blockCols);
 		#endif // _CTRL_EXAMPLES_EXP_MODE_
 		fflush(stdout);
 
-		int flags = CTRL_MEM_PINNED;
-		if (strstr(info.platform_name, "AMD") && (grid_cols > 1024 || policy == CTRL_POLICY_SYNC)) {
-			flags = CTRL_MEM_NOPINNED;
+		// For async mode on sizes below 1024 override default pinned memory behaviour
+		int flags = 0;
+		if (grid_cols < 1024 || policy == CTRL_POLICY_ASYNC) {
+			flags = CTRL_MEM_PINNED;
 		}
 
 		HitTile_float MatrixTemp[2], MatrixPower;
@@ -352,10 +323,10 @@ int main(int argc, char *argv[]) {
 	#ifdef _CTRL_EXAMPLES_EXP_MODE_
 	printf("%lf, %lf\n", main_clock, exec_clock);
 	#else // _CTRL_EXAMPLES_EXP_MODE_
-	printf("\n ---------------------- TIMERS ---------------------- \n");
-	printf("Clock main: %lf\n", main_clock);
-	printf("Clock exec: %lf\n", exec_clock);
-	printf("\n\n ---------------------------------------------------- \n");
+	printf("\n ---------------------- TIMERS ---------------------- \n\n");
+	printf(" Clock main: %lf\n", main_clock);
+	printf(" Clock exec: %lf\n", exec_clock);
+	printf("\n ---------------------------------------------------- \n");
 	#endif // _CTRL_EXAMPLES_EXP_MODE_
 
 	return EXIT_SUCCESS;
