@@ -134,7 +134,6 @@ set(HITMAP_INCLUDE_PATHS ${HITMAP_INCLUDE_PATHS} ${HITMAP_PATH}/extern/iohb1.0)
 set(HITMAP_INCLUDE_PATHS ${HITMAP_INCLUDE_PATHS} ${HITMAP_PATH}/extern/matrix_io)
 set(HITMAP_INCLUDE_PATHS ${HITMAP_INCLUDE_PATHS} ${HITMAP_PATH}/extern/metis/Lib)
 
-set(CTRL_INCLUDE_DIRS ${HITMAP_INCLUDE_PATHS})
 set(CTRL_INCLUDE_DIRS ${CTRL_INCLUDE_DIRS} ${HITMAP_INCLUDE_PATHS})
 set(CTRL_LIBS ${CTRL_LIBS} ${HITMAPLIB})
 
@@ -166,7 +165,11 @@ if (OPENMP_FOUND)
 endif(OPENMP_FOUND)
 
 # HWLOC
-set(CTRL_LIBS ${CTRL_LIBS} "-lhwloc")
+if(DEFINED SKIP_HWLOC)
+    message(STATUS "Skipping hwloc")
+else()
+    set(CTRL_LIBS ${CTRL_LIBS} "-lhwloc")
+endif()
 
 # CUDA
 if (SUPPORT_CUDA)
@@ -193,8 +196,20 @@ if (SUPPORT_HIP)
 
     list(APPEND CMAKE_PREFIX_PATH ${ROCM_PATH})
 
-	# AMD arquitectures to use
-	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --offload-arch=gfx900 --offload-arch=gfx1100")
+	# AMD arquitectures to use, check if this is alredy set in HIP_OFFLOAD_ARCH
+    if(DEFINED HIP_OFFLOAD_ARCH)
+        # Check if --offload-arch is in HIP_OFFLOAD_ARCH
+        if(HIP_OFFLOAD_ARCH MATCHES "--offload-arch")
+            # already set, we're good
+            set(HIP_OFFLOAD_ARCH "${HIP_OFFLOAD_ARCH}")
+        else()
+            set(HIP_OFFLOAD_ARCH "${HIP_OFFLOAD_ARCH} --offload-arch=gfx900 --offload-arch=gfx1100")
+        endif()
+    else()
+        set(HIP_OFFLOAD_ARCH "${HIP_OFFLOAD_ARCH} --offload-arch=gfx900 --offload-arch=gfx1100")
+    endif()
+    set(HIP_CMAKE_CXX_FLAGS "${HIP_CMAKE_CXX_FLAGS} ${HIP_OFFLOAD_ARCH}")
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HIP_CMAKE_CXX_FLAGS}")
 
 	# FIXME @sergioalo hip functions return codes are ignored on all examples
 	add_compile_options(-Wno-unused-result)
