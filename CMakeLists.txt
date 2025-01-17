@@ -191,9 +191,12 @@ endif (SUPPORT_OPENCL OR SUPPORT_FPGA)
 
 if (SUPPORT_HIP)
     set(CMAKE_CXX_COMPILER "hipcc")
-    set(CMAKE_C_COMPILER ${HIP_HIPCC_EXECUTABLE})
-    set(CMAKE_C_LINKER   ${HIP_HIPCC_EXECUTABLE})
-
+    if(NOT DEFINED HIP_HIPCC_EXECUTABLE or "${HIP_HIPCC_EXECUTABLE}" STREQUAL "")
+        message(STATUS "HIP_HIPCC_EXECUTABLE not set, using default CMAKE_C_COMPILER and CMAKE_C_LINKER")
+    else ()
+        set(CMAKE_C_COMPILER ${HIP_HIPCC_EXECUTABLE})
+        set(CMAKE_C_LINKER   ${HIP_HIPCC_EXECUTABLE})
+    endif ()
     list(APPEND CMAKE_PREFIX_PATH ${ROCM_PATH})
 
 	# AMD arquitectures to use, check if this is alredy set in HIP_OFFLOAD_ARCH
